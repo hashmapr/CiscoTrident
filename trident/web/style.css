@@ -1,0 +1,134 @@
+:root {
+  --fg: #111;
+  --muted: #666;
+  --line: #ccc;
+  --bg: #fff;
+  --ok: #0a6b2d;
+  --warn: #8a5a00;
+  --bad: #a11;
+  --info: #14507a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 0 4rem;
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+h1 { font-size: 1.15rem; margin: 0 0 .25rem; letter-spacing: .01em; }
+h2 { font-size: .95rem; margin: 0 0 .6rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sub { margin: 0; color: var(--muted); font-size: .85rem; }
+
+main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+label { display: block; font-weight: 600; font-size: .85rem; margin-bottom: .4rem; }
+label.inline { display: inline; font-weight: 400; font-size: .85rem; }
+
+input[type="file"] { font-size: .9rem; }
+
+textarea {
+  width: 100%;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: .6rem;
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: .55rem 1.1rem;
+  border: 1px solid var(--fg);
+  border-radius: 4px;
+  background: var(--fg);
+  color: #fff;
+  cursor: pointer;
+}
+button:hover { opacity: .88; }
+button:disabled { opacity: .45; cursor: default; }
+
+#toolbar { margin: 0 0 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+#toolbar button { background: #fff; color: var(--fg); }
+
+.actions { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+
+.status { font-size: .85rem; color: var(--muted); }
+.status.busy { color: var(--info); }
+.status.error { color: var(--bad); }
+
+.muted { color: var(--muted); font-size: .82rem; margin: .4rem 0 0; }
+
+.hidden { display: none !important; }
+
+table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+
+pre {
+  margin: 0;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: .85rem 1rem;
+  margin-bottom: .85rem;
+}
+.result.VERIFIED { border-left-color: var(--ok); }
+.result.VERIFIED_DERIVED { border-left-color: var(--info); }
+.result.INCOMPLETE { border-left-color: var(--warn); }
+.result.CONFLICT { border-left-color: var(--bad); }
+.result.NOT_AVAILABLE { border-left-color: #999; }
+.result.ERROR { border-left-color: var(--bad); }
+
+.result-head { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
+.qnum { font-weight: 700; }
+.badge {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: .12rem .4rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
+.badge.VERIFIED { color: var(--ok); }
+.badge.VERIFIED_DERIVED { color: var(--info); }
+.badge.INCOMPLETE { color: var(--warn); }
+.badge.CONFLICT { color: var(--bad); }
+.badge.NOT_AVAILABLE { color: #666; }
+.badge.ERROR { color: var(--bad); }
+
+.answer { font-size: 1.05rem; font-weight: 600; margin: .45rem 0 .3rem; }
+.answer .letter { color: var(--info); }
+.qtext { font-size: .84rem; color: var(--muted); margin: .3rem 0; white-space: pre-wrap; }
+.explain { font-size: .9rem; margin: .4rem 0; }
+
+.meta-line { font-size: .78rem; color: var(--muted); }
+
+details { margin-top: .5rem; }
+summary { cursor: pointer; font-size: .82rem; color: var(--info); }
+details pre { margin-top: .4rem; background: #fafafa; padding: .5rem; border: 1px solid var(--line); border-radius: 3px; }
+
+.conflict { color: var(--bad); font-size: .82rem; }
+.hint { color: var(--warn); font-size: .82rem; }

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TRIDENT — Packet Tracer AI Analyst</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>TRIDENT — Packet Tracer AI Analyst</h1>
+    <p class="sub">Read-only analysis with three-engine consensus. Nothing is modified.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <label for="file">Packet Tracer file (.pka or .pkt)</label>
+      <input type="file" id="file" accept=".pka,.pkt" />
+      <p id="fileinfo" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <label for="questions">Questions</label>
+      <textarea id="questions" rows="14" spellcheck="false"
+        placeholder="1. What is the IP address of R1 GigabitEthernet0/0?&#10;A. 192.168.1.1&#10;B. 192.168.2.1&#10;&#10;2. True or false: PC-A has a default gateway."></textarea>
+    </section>
+
+    <section class="actions">
+      <button id="analyze">ANALYZE</button>
+      <label class="inline"><input type="checkbox" id="useai" checked /> Use AI interpretation</label>
+      <span id="status" class="status"></span>
+    </section>
+
+    <section id="parsers" class="card hidden">
+      <h2>Engines</h2>
+      <table id="parser-table"></table>
+    </section>
+
+    <section id="meta" class="card hidden">
+      <h2>Analysis</h2>
+      <pre id="meta-body"></pre>
+    </section>
+
+    <section id="toolbar" class="hidden">
+      <button id="copy">Copy all answers</button>
+      <button id="export-json">Export JSON</button>
+      <button id="export-text">Export text</button>
+    </section>
+
+    <section id="results"></section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

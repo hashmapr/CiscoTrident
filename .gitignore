@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+*.egg-info/
+build/
+dist/
+.DS_Store
+vendor/engine_a/pka2xml/*.so
+vendor/engine_a/pka2xml/*.dylib
+vendor/engine_a/pka2xml/*.dll
