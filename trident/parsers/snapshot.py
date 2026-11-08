@@ -387,9 +387,12 @@ def select_snapshot(xml_text: str) -> SnapshotSelection:
                 True,
                 [
                     *notes,
-                    "cannot safely identify the intended snapshot: blocks differ and "
-                    f"none looks like a progressed state (addresses {first_ips} vs {later_ips}); "
-                    "abstaining instead of choosing by position",
+                    (
+                        "cannot safely identify the intended snapshot: blocks differ and "
+                        f"none looks like a progressed state "
+                        f"(addresses {first_ips} vs {later_ips}); "
+                        "abstaining instead of choosing by position"
+                    ),
                 ],
                 "abstain",
                 abstained=True,
