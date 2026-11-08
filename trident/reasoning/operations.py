@@ -150,6 +150,10 @@ SPECS: dict[str, OpSpec] = {
         "get_interface_network", AnswerType.IPV4, Cardinality.ONE, True, True,
         "network address of the interface's subnet",
     ),
+    "get_interface_prefix_length": OpSpec(
+        "get_interface_prefix_length", AnswerType.INTEGER, Cardinality.ONE, True, True,
+        "CIDR prefix length of the interface's IPv4 address",
+    ),
     "get_interface_status": OpSpec(
         "get_interface_status", AnswerType.TEXT, Cardinality.ONE, True, True,
         "administrative/operational status",
@@ -234,6 +238,19 @@ def find_device(model: NetworkModel, name: str) -> tuple[str | None, list[str]]:
     return None, []
 
 
+def interface_display_name(model: NetworkModel, if_key: str) -> str:
+    """Display name for an interface key from either source.
+
+    Keys come from ``model.interfaces`` or are synthesised as
+    ``device:PORT`` for cable-only endpoints.
+    """
+    info = model.interfaces.get(if_key)
+    if info is not None:
+        return info.name
+    _, _, port = if_key.partition(":")
+    return port or if_key
+
+
 def _iface_index(model: NetworkModel, device_key: str) -> dict[str, str]:
     """Map canonical interface name -> interface key for one device."""
     out: dict[str, str] = {}
@@ -247,11 +264,23 @@ def _iface_index(model: NetworkModel, device_key: str) -> dict[str, str]:
 
 
 def find_interface(model: NetworkModel, device_key: str, iface: str) -> tuple[str | None, list[str]]:
-    """Resolve an interface argument on a device (Gi0/0 == GigabitEthernet0/0)."""
+    """Resolve an interface argument on a device (Gi0/0 == GigabitEthernet0/0).
+
+    Interfaces come from two sources and both must be honoured:
+
+    * the parsed running config (``model.interfaces``), and
+    * physical cable endpoints (``model.links``).
+
+    A port such as ``GigabitEthernet1/1/2`` on a switch is often absent from the
+    captured config yet is a real, connected interface. Ignoring the cable
+    endpoints makes the tool claim the interface does not exist and abstain on a
+    question it can answer.
+    """
     index = _iface_index(model, device_key)
     canon = canonical_interface_name(iface).lower()
     if canon in index:
         return index[canon], [index[canon]]
+
     target = _norm(iface)
     loose = [
         key
@@ -260,6 +289,17 @@ def find_interface(model: NetworkModel, device_key: str, iface: str) -> tuple[st
     ]
     if len(loose) == 1:
         return loose[0], loose
+
+    # Cable endpoints: synthesise a stable key so downstream code can refer to it.
+    link_ports: set[str] = set()
+    for link in model.links:
+        if link.device_a == device_key:
+            link_ports.add(canonical_interface_name(link.interface_a))
+        if link.device_b == device_key:
+            link_ports.add(canonical_interface_name(link.interface_b))
+    for port in sorted(link_ports):
+        if port.lower() == canon or _norm(port) == target:
+            return f"{device_key}:{port}", [f"{device_key}:{port}"]
     return None, []
 
 
@@ -288,7 +328,7 @@ def get_physical_neighbor(model: NetworkModel, device: str, interface: str) -> O
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    iface_name = model.interfaces[if_key].name
+    iface_name = interface_display_name(model, if_key)
     canon = canonical_interface_name(iface_name).lower()
 
     neighbours: list[tuple[str, str]] = []
@@ -328,7 +368,7 @@ def get_peer_interface(
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    iface_name = model.interfaces[if_key].name
+    iface_name = interface_display_name(model, if_key)
     canon = canonical_interface_name(iface_name).lower()
 
     peers: list[tuple[str, str]] = []
@@ -344,9 +384,23 @@ def get_peer_interface(
             reason=f"no physical cable terminates on {device} {iface_name}",
         )
     peer_dev, peer_if = peers[0]
-    # When the question states which device the answer must belong to, only
-    # return that device's interface; otherwise report the cable as found.
+
+    # The peer interface must belong to the device the question asks about.
+    # Without this, a question naming device A can be answered with the far end
+    # of a cable that does not touch A at all -- which looks plausible and is
+    # wrong. Abstain instead.
     if peer:
+        wanted, _cands = find_device(model, peer)
+        if wanted is not None and peer_dev != wanted and wanted != dev_key:
+            return OpResult(
+                spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+                entity=dev_key, interface=iface_name,
+                reason=(
+                    f"{device} {iface_name} connects to {peer_dev}, but the question asks "
+                    f"for an interface on {peer}; refusing to answer with an unrelated cable"
+                ),
+            )
+
         wanted, _cands = find_device(model, peer)
         if wanted is not None:
             if wanted == peer_dev:
@@ -543,7 +597,17 @@ def get_interface_ip(model: NetworkModel, device: str, interface: str) -> OpResu
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     if not info.ipv4_address:
         return OpResult(
             spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
@@ -564,7 +628,17 @@ def get_interface_mask(model: NetworkModel, device: str, interface: str) -> OpRe
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     mask = info.subnet_mask or (prefix_to_mask(info.prefix_length) if info.prefix_length else "")
     if not mask:
         return OpResult(
@@ -586,7 +660,17 @@ def get_interface_network(model: NetworkModel, device: str, interface: str) -> O
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     ip = normalize_ipv4(info.ipv4_address)
     mask = info.subnet_mask or (prefix_to_mask(info.prefix_length) if info.prefix_length else "")
     if not ip or not mask or mask_to_prefix(mask) is None:
@@ -603,6 +687,41 @@ def get_interface_network(model: NetworkModel, device: str, interface: str) -> O
     )
 
 
+def get_interface_prefix_length(model: NetworkModel, device: str, interface: str) -> OpResult:
+    spec = SPECS["get_interface_prefix_length"]
+    dev_key, cands = find_device(model, device)
+    if dev_key is None:
+        return _bad(spec, "device", device, cands, "device not found or ambiguous")
+    if_key, if_cands = find_interface(model, dev_key, interface)
+    if if_key is None:
+        return _bad(spec, "interface", interface, if_cands, "interface not found on device")
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
+    prefix = info.prefix_length
+    if prefix is None and info.subnet_mask:
+        prefix = mask_to_prefix(info.subnet_mask)
+    if prefix is None:
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=info.name,
+            reason=f"no prefix length derivable for {device} {info.name}",
+        )
+    return _iface_result(
+        spec, str(prefix), dev_key, info.name,
+        f"{info.name}: {info.ipv4_address or '?'} {info.subnet_mask or ''} -> /{prefix}",
+        derivation=f"/{prefix} from mask {info.subnet_mask or 'unknown'}",
+    )
+
+
 def get_interface_status(model: NetworkModel, device: str, interface: str) -> OpResult:
     spec = SPECS["get_interface_status"]
     dev_key, cands = find_device(model, device)
@@ -611,7 +730,17 @@ def get_interface_status(model: NetworkModel, device: str, interface: str) -> Op
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     status = getattr(info, "operational_state", "") or ""
     if not status:
         return OpResult(
@@ -680,7 +809,17 @@ def get_interface_vlan(model: NetworkModel, device: str, interface: str) -> OpRe
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     vlan = getattr(info, "vlan_assignments", None) or []
     if not vlan:
         return OpResult(
@@ -701,7 +840,17 @@ def get_trunk_allowed_vlans(model: NetworkModel, device: str, interface: str) ->
     if_key, if_cands = find_interface(model, dev_key, interface)
     if if_key is None:
         return _bad(spec, "interface", interface, if_cands, "interface not found on device")
-    info = model.interfaces[if_key]
+    info = model.interfaces.get(if_key)
+    if info is None:
+        # Cable-only endpoint: exists as a cable end but has no parsed config.
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, interface=interface_display_name(model, if_key),
+            reason=(
+                f"{device} {interface_display_name(model, if_key)} is a cable endpoint "
+                "with no parsed configuration"
+            ),
+        )
     allowed = getattr(info, "vlan_assignments", None) or []
     if not allowed:
         return OpResult(
@@ -844,6 +993,7 @@ OPERATIONS = {
     "get_interface_ip": get_interface_ip,
     "get_interface_mask": get_interface_mask,
     "get_interface_network": get_interface_network,
+    "get_interface_prefix_length": get_interface_prefix_length,
     "get_interface_status": get_interface_status,
     "get_default_route_next_hop": get_default_route_next_hop,
     "get_switch_default_gateway": get_switch_default_gateway,

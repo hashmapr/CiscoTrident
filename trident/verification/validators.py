@@ -377,6 +377,7 @@ class AnswerBuilder:
             "get_interface_ip": "ipv4_address",
             "get_interface_mask": "ipv4_address",
             "get_interface_network": "ipv4_address",
+            "get_interface_prefix_length": "ipv4_address",
             "get_default_route_next_hop": "next_hop",
             "get_switch_default_gateway": "default_gateway",
             "get_interface_vlan": "vlan",
@@ -408,6 +409,7 @@ class AnswerBuilder:
                 "get_interface_ip",
                 "get_interface_mask",
                 "get_interface_network",
+                "get_interface_prefix_length",
                 "get_interface_vlan",
             }
             and result.interface

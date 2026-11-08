@@ -1,0 +1,3229 @@
+{
+  "networks": [
+    {
+      "slug": "CCNA2_PTSA_P2",
+      "source": "CCNA 2 Practice PTSA P2.xml",
+      "total": 65,
+      "correct": 65,
+      "incorrect": 0,
+      "accuracy_pct": 100.0,
+      "verified_total ": 0,
+      "verified": 58,
+      "verified_precision_pct": 100.0,
+      "false_verified": 0,
+      "abstained": 7,
+      "runtime_s": 22.6,
+      "snapshot": "block0",
+      "devices": 24,
+      "links": 21,
+      "parsers": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "OK"
+      },
+      "categories": {
+        "physical_neighbor": {
+          "total": 12,
+          "correct": 12
+        },
+        "peer_interface": {
+          "total": 12,
+          "correct": 12
+        },
+        "physical_neighbors": {
+          "total": 6,
+          "correct": 6
+        },
+        "physical_neighbor_count": {
+          "total": 4,
+          "correct": 4
+        },
+        "hardware_model": {
+          "total": 7,
+          "correct": 7
+        },
+        "ios_hostname": {
+          "total": 5,
+          "correct": 5
+        },
+        "interface_ipv4": {
+          "total": 8,
+          "correct": 8
+        },
+        "interface_mask": {
+          "total": 6,
+          "correct": 6
+        },
+        "derived_network_address": {
+          "total": 5,
+          "correct": 5
+        }
+      }
+    },
+    {
+      "slug": "CCNA_MEGA_LAB",
+      "source": "CCNA Mega Lab (Jeremy's IT Lab).xml",
+      "total": 65,
+      "correct": 65,
+      "incorrect": 0,
+      "accuracy_pct": 100.0,
+      "verified_total ": 0,
+      "verified": 58,
+      "verified_precision_pct": 100.0,
+      "false_verified": 0,
+      "abstained": 7,
+      "runtime_s": 42.0,
+      "snapshot": "block0",
+      "devices": 31,
+      "links": 41,
+      "parsers": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "OK"
+      },
+      "categories": {
+        "physical_neighbor": {
+          "total": 12,
+          "correct": 12
+        },
+        "peer_interface": {
+          "total": 12,
+          "correct": 12
+        },
+        "physical_neighbors": {
+          "total": 6,
+          "correct": 6
+        },
+        "physical_neighbor_count": {
+          "total": 4,
+          "correct": 4
+        },
+        "hardware_model": {
+          "total": 7,
+          "correct": 7
+        },
+        "ios_hostname": {
+          "total": 2,
+          "correct": 2
+        },
+        "interface_ipv4": {
+          "total": 8,
+          "correct": 8
+        },
+        "interface_mask": {
+          "total": 6,
+          "correct": 6
+        },
+        "derived_network_address": {
+          "total": 5,
+          "correct": 5
+        },
+        "derived_prefix_length": {
+          "total": 3,
+          "correct": 3
+        }
+      }
+    },
+    {
+      "slug": "OKCUP_R3_2023_24",
+      "source": "R3_OKCUP_23_24_CiscoPT.xml",
+      "total": 65,
+      "correct": 65,
+      "incorrect": 0,
+      "accuracy_pct": 100.0,
+      "verified_total ": 0,
+      "verified": 58,
+      "verified_precision_pct": 100.0,
+      "false_verified": 0,
+      "abstained": 7,
+      "runtime_s": 39.2,
+      "snapshot": "block0",
+      "devices": 33,
+      "links": 37,
+      "parsers": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "OK"
+      },
+      "categories": {
+        "physical_neighbor": {
+          "total": 12,
+          "correct": 12
+        },
+        "peer_interface": {
+          "total": 12,
+          "correct": 12
+        },
+        "physical_neighbors": {
+          "total": 6,
+          "correct": 6
+        },
+        "physical_neighbor_count": {
+          "total": 4,
+          "correct": 4
+        },
+        "hardware_model": {
+          "total": 7,
+          "correct": 7
+        },
+        "ios_hostname": {
+          "total": 5,
+          "correct": 5
+        },
+        "interface_ipv4": {
+          "total": 8,
+          "correct": 8
+        },
+        "interface_mask": {
+          "total": 6,
+          "correct": 6
+        },
+        "derived_network_address": {
+          "total": 5,
+          "correct": 5
+        }
+      }
+    },
+    {
+      "slug": "OKCUP_R3_2024_25",
+      "source": "R3_OKCUP_24_25_CiscoPT.xml",
+      "total": 65,
+      "correct": 65,
+      "incorrect": 0,
+      "accuracy_pct": 100.0,
+      "verified_total ": 0,
+      "verified": 58,
+      "verified_precision_pct": 100.0,
+      "false_verified": 0,
+      "abstained": 7,
+      "runtime_s": 37.3,
+      "snapshot": "block0",
+      "devices": 33,
+      "links": 37,
+      "parsers": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "OK"
+      },
+      "categories": {
+        "physical_neighbor": {
+          "total": 12,
+          "correct": 12
+        },
+        "peer_interface": {
+          "total": 12,
+          "correct": 12
+        },
+        "physical_neighbors": {
+          "total": 6,
+          "correct": 6
+        },
+        "physical_neighbor_count": {
+          "total": 4,
+          "correct": 4
+        },
+        "hardware_model": {
+          "total": 7,
+          "correct": 7
+        },
+        "ios_hostname": {
+          "total": 5,
+          "correct": 5
+        },
+        "interface_ipv4": {
+          "total": 8,
+          "correct": 8
+        },
+        "interface_mask": {
+          "total": 6,
+          "correct": 6
+        },
+        "derived_network_address": {
+          "total": 5,
+          "correct": 5
+        }
+      }
+    }
+  ],
+  "rows": {
+    "CCNA2_PTSA_P2": [
+      {
+        "id": "Q001",
+        "question": "Which device is physically connected to Central on interface GigabitEthernet0/0/0?",
+        "category": "physical_neighbor",
+        "expected": "S1-1",
+        "actual": "S1-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central GigabitEthernet0/0/0 <-> S1-1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q002",
+        "question": "Which device is physically connected to S1-1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Central",
+        "actual": "Central",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S1-1 GigabitEthernet0/1 <-> Central GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q003",
+        "question": "Which device is physically connected to S2-2 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Central",
+        "actual": "Central",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S2-2 GigabitEthernet0/1 <-> Central GigabitEthernet0/0/1"
+      },
+      {
+        "id": "Q004",
+        "question": "Which device is physically connected to ISP Router on interface GigabitEthernet0/0/0?",
+        "category": "physical_neighbor",
+        "expected": "Central",
+        "actual": "Central",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP Router GigabitEthernet0/0/0 <-> Central GigabitEthernet0/0/2"
+      },
+      {
+        "id": "Q005",
+        "question": "Which device is physically connected to Brand-101 on interface GigabitEthernet0/0/1?",
+        "category": "physical_neighbor",
+        "expected": "ISP Router",
+        "actual": "ISP Router",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Brand-101 GigabitEthernet0/0/1 <-> ISP Router GigabitEthernet0/0/1"
+      },
+      {
+        "id": "Q006",
+        "question": "Which device is physically connected to Office-1 on interface Serial0/1/1?",
+        "category": "physical_neighbor",
+        "expected": "Central",
+        "actual": "Central",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Office-1 Serial0/1/1 <-> Central Serial0/1/1"
+      },
+      {
+        "id": "Q007",
+        "question": "Which device is physically connected to S3-1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Office-1",
+        "actual": "Office-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S3-1 GigabitEthernet0/1 <-> Office-1 GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q008",
+        "question": "Which device is physically connected to PC-A on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "S1-1",
+        "actual": "S1-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC-A FastEthernet0 <-> S1-1 FastEthernet0/1"
+      },
+      {
+        "id": "Q009",
+        "question": "Which device is physically connected to PC-B on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "S1-1",
+        "actual": "S1-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC-B FastEthernet0 <-> S1-1 FastEthernet0/2"
+      },
+      {
+        "id": "Q010",
+        "question": "Which device is physically connected to PC-C on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "S2-2",
+        "actual": "S2-2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC-C FastEthernet0 <-> S2-2 FastEthernet0/1"
+      },
+      {
+        "id": "Q011",
+        "question": "Which device is physically connected to PC-D on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "S2-2",
+        "actual": "S2-2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC-D FastEthernet0 <-> S2-2 FastEthernet0/2"
+      },
+      {
+        "id": "Q012",
+        "question": "Which device is physically connected to PC-E on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "S3-1",
+        "actual": "S3-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC-E FastEthernet0 <-> S3-1 FastEthernet0/1"
+      },
+      {
+        "id": "Q013",
+        "question": "Which interface on S1-1 is physically connected to Central interface GigabitEthernet0/0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central GigabitEthernet0/0/0 <-> S1-1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q014",
+        "question": "Which interface on Central is physically connected to S1-1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/0",
+        "actual": "GigabitEthernet0/0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S1-1 GigabitEthernet0/1 <-> Central GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q015",
+        "question": "Which interface on S2-2 is physically connected to Central interface GigabitEthernet0/0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central GigabitEthernet0/0/1 <-> S2-2 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q016",
+        "question": "Which interface on Central is physically connected to S2-2 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/1",
+        "actual": "GigabitEthernet0/0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S2-2 GigabitEthernet0/1 <-> Central GigabitEthernet0/0/1"
+      },
+      {
+        "id": "Q017",
+        "question": "Which interface on ISP Router is physically connected to Central interface GigabitEthernet0/0/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/0",
+        "actual": "GigabitEthernet0/0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central GigabitEthernet0/0/2 <-> ISP Router GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q018",
+        "question": "Which interface on Central is physically connected to ISP Router interface GigabitEthernet0/0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/2",
+        "actual": "GigabitEthernet0/0/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP Router GigabitEthernet0/0/0 <-> Central GigabitEthernet0/0/2"
+      },
+      {
+        "id": "Q019",
+        "question": "Which interface on Brand-101 is physically connected to ISP Router interface GigabitEthernet0/0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/1",
+        "actual": "GigabitEthernet0/0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP Router GigabitEthernet0/0/1 <-> Brand-101 GigabitEthernet0/0/1"
+      },
+      {
+        "id": "Q020",
+        "question": "Which interface on ISP Router is physically connected to Brand-101 interface GigabitEthernet0/0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0/1",
+        "actual": "GigabitEthernet0/0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Brand-101 GigabitEthernet0/0/1 <-> ISP Router GigabitEthernet0/0/1"
+      },
+      {
+        "id": "Q021",
+        "question": "Which interface on Office-1 is physically connected to Central interface Serial0/1/1?",
+        "category": "peer_interface",
+        "expected": "Serial0/1/1",
+        "actual": "Serial0/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central Serial0/1/1 <-> Office-1 Serial0/1/1"
+      },
+      {
+        "id": "Q022",
+        "question": "Which interface on Central is physically connected to Office-1 interface Serial0/1/1?",
+        "category": "peer_interface",
+        "expected": "Serial0/1/1",
+        "actual": "Serial0/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Office-1 Serial0/1/1 <-> Central Serial0/1/1"
+      },
+      {
+        "id": "Q023",
+        "question": "Which interface on Brand-101 is physically connected to Central interface Serial0/1/0?",
+        "category": "peer_interface",
+        "expected": "Serial0/1/0",
+        "actual": "Serial0/1/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central Serial0/1/0 <-> Brand-101 Serial0/1/0"
+      },
+      {
+        "id": "Q024",
+        "question": "Which interface on Central is physically connected to Brand-101 interface Serial0/1/0?",
+        "category": "peer_interface",
+        "expected": "Serial0/1/0",
+        "actual": "Serial0/1/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Brand-101 Serial0/1/0 <-> Central Serial0/1/0"
+      },
+      {
+        "id": "Q025",
+        "question": "List all distinct devices with a physical cable directly connected to Central.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Brand-101",
+          "ISP Router",
+          "Office-1",
+          "S1-1",
+          "S2-2"
+        ],
+        "actual": "Brand-101, ISP Router, Office-1, S1-1, S2-2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "5 physical neighbour(s) of Central"
+      },
+      {
+        "id": "Q026",
+        "question": "List all distinct devices with a physical cable directly connected to ISP Router.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Brand-101",
+          "Central",
+          "Switch0"
+        ],
+        "actual": "Brand-101, Central, Switch0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of ISP Router"
+      },
+      {
+        "id": "Q027",
+        "question": "List all distinct devices with a physical cable directly connected to Brand-101.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Central",
+          "ISP Router",
+          "S4-1"
+        ],
+        "actual": "Central, ISP Router, S4-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of Brand-101"
+      },
+      {
+        "id": "Q028",
+        "question": "List all distinct devices with a physical cable directly connected to Office-1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Central",
+          "S3-1"
+        ],
+        "actual": "Central, S3-1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "2 physical neighbour(s) of Office-1"
+      },
+      {
+        "id": "Q029",
+        "question": "List all distinct devices with a physical cable directly connected to S3-1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Office-1",
+          "PC-E",
+          "Server-O1"
+        ],
+        "actual": "Office-1, PC-E, Server-O1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of S3-1"
+      },
+      {
+        "id": "Q030",
+        "question": "List all distinct devices with a physical cable directly connected to S2-2.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Central",
+          "PC-C",
+          "PC-D"
+        ],
+        "actual": "Central, PC-C, PC-D",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of S2-2"
+      },
+      {
+        "id": "Q031",
+        "question": "How many distinct physical neighboring devices does Central have?",
+        "category": "physical_neighbor_count",
+        "expected": "5",
+        "actual": "5",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q032",
+        "question": "How many distinct physical neighboring devices does ISP Router have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q033",
+        "question": "How many distinct physical neighboring devices does Brand-101 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q034",
+        "question": "How many distinct physical neighboring devices does Office-1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "2",
+        "actual": "2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q035",
+        "question": "What Packet Tracer hardware model is Central?",
+        "category": "hardware_model",
+        "expected": "ISR4331",
+        "actual": "ISR4331",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Central model = ISR4331"
+      },
+      {
+        "id": "Q036",
+        "question": "What Packet Tracer hardware model is ISP Router?",
+        "category": "hardware_model",
+        "expected": "ISR4331",
+        "actual": "ISR4331",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP Router model = ISR4331"
+      },
+      {
+        "id": "Q037",
+        "question": "What Packet Tracer hardware model is Brand-101?",
+        "category": "hardware_model",
+        "expected": "ISR4321",
+        "actual": "ISR4321",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Brand-101 model = ISR4321"
+      },
+      {
+        "id": "Q038",
+        "question": "What Packet Tracer hardware model is Office-1?",
+        "category": "hardware_model",
+        "expected": "ISR4321",
+        "actual": "ISR4321",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Office-1 model = ISR4321"
+      },
+      {
+        "id": "Q039",
+        "question": "What Packet Tracer hardware model is S3-1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S3-1 model = 2960-24TT"
+      },
+      {
+        "id": "Q040",
+        "question": "What Packet Tracer hardware model is S2-2?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S2-2 model = 2960-24TT"
+      },
+      {
+        "id": "Q041",
+        "question": "What Packet Tracer hardware model is S1-1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "S1-1 model = 2960-24TT"
+      },
+      {
+        "id": "Q042",
+        "question": "What IOS hostname is configured on Central?",
+        "category": "ios_hostname",
+        "expected": "Central",
+        "actual": "Central",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname Central from the running configuration of Central"
+      },
+      {
+        "id": "Q043",
+        "question": "What IOS hostname is configured on ISP Router?",
+        "category": "ios_hostname",
+        "expected": "RTR-Cloud",
+        "actual": "RTR-Cloud",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname RTR-Cloud from the running configuration of ISP Router"
+      },
+      {
+        "id": "Q044",
+        "question": "What IOS hostname is configured on Brand-101?",
+        "category": "ios_hostname",
+        "expected": "Branch-101",
+        "actual": "Branch-101",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname Branch-101 from the running configuration of Brand-101"
+      },
+      {
+        "id": "Q045",
+        "question": "What IOS hostname is configured on Office-1?",
+        "category": "ios_hostname",
+        "expected": "Office-1",
+        "actual": "Office-1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname Office-1 from the running configuration of Office-1"
+      },
+      {
+        "id": "Q046",
+        "question": "What IOS hostname is configured on S3-1?",
+        "category": "ios_hostname",
+        "expected": "S3-1",
+        "actual": "S3-1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname S3-1 from the running configuration of S3-1"
+      },
+      {
+        "id": "Q047",
+        "question": "What IPv4 address is configured on Central interface GigabitEthernet0/0/0?",
+        "category": "interface_ipv4",
+        "expected": "192.168.1.1",
+        "actual": "192.168.1.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.1.1 255.255.255.0"
+      },
+      {
+        "id": "Q048",
+        "question": "What IPv4 address is configured on ISP Router interface GigabitEthernet0/0/0?",
+        "category": "interface_ipv4",
+        "expected": "10.1.0.2",
+        "actual": "10.1.0.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 10.1.0.2 255.255.255.252"
+      },
+      {
+        "id": "Q049",
+        "question": "What IPv4 address is configured on Brand-101 interface GigabitEthernet0/0/0.100?",
+        "category": "interface_ipv4",
+        "expected": "192.168.100.1",
+        "actual": "192.168.100.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.100.1 255.255.255.0"
+      },
+      {
+        "id": "Q050",
+        "question": "What IPv4 address is configured on Office-1 interface GigabitEthernet0/0/0?",
+        "category": "interface_ipv4",
+        "expected": "192.168.3.1",
+        "actual": "192.168.3.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.3.1 255.255.255.0"
+      },
+      {
+        "id": "Q051",
+        "question": "What IPv4 address is configured on S4-1 interface Vlan100?",
+        "category": "interface_ipv4",
+        "expected": "192.168.100.200",
+        "actual": "192.168.100.200",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.100.200 255.255.255.0"
+      },
+      {
+        "id": "Q052",
+        "question": "What IPv4 address is configured on Central interface GigabitEthernet0/0/1?",
+        "category": "interface_ipv4",
+        "expected": "192.168.2.1",
+        "actual": "192.168.2.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.2.1 255.255.255.0"
+      },
+      {
+        "id": "Q053",
+        "question": "What IPv4 address is configured on ISP Router interface GigabitEthernet0/0/1?",
+        "category": "interface_ipv4",
+        "expected": "10.3.0.1",
+        "actual": "10.3.0.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 10.3.0.1 255.255.255.252"
+      },
+      {
+        "id": "Q054",
+        "question": "What IPv4 address is configured on Brand-101 interface GigabitEthernet0/0/0.172?",
+        "category": "interface_ipv4",
+        "expected": "172.16.1.1",
+        "actual": "172.16.1.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.16.1.1 255.255.255.0"
+      },
+      {
+        "id": "Q055",
+        "question": "What subnet mask is configured on Central interface GigabitEthernet0/0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/0: ip address 192.168.1.1 255.255.255.0"
+      },
+      {
+        "id": "Q056",
+        "question": "What subnet mask is configured on ISP Router interface GigabitEthernet0/0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/0: ip address 10.1.0.2 255.255.255.252"
+      },
+      {
+        "id": "Q057",
+        "question": "What subnet mask is configured on Brand-101 interface GigabitEthernet0/0/0.100?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/0.100: ip address 192.168.100.1 255.255.255.0"
+      },
+      {
+        "id": "Q058",
+        "question": "What subnet mask is configured on Office-1 interface GigabitEthernet0/0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/0: ip address 192.168.3.1 255.255.255.0"
+      },
+      {
+        "id": "Q059",
+        "question": "What subnet mask is configured on S4-1 interface Vlan100?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan100: ip address 192.168.100.200 255.255.255.0"
+      },
+      {
+        "id": "Q060",
+        "question": "What subnet mask is configured on Central interface GigabitEthernet0/0/1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/1: ip address 192.168.2.1 255.255.255.0"
+      },
+      {
+        "id": "Q061",
+        "question": "What is the IPv4 network address of Central interface GigabitEthernet0/0/0?",
+        "category": "derived_network_address",
+        "expected": "192.168.1.0",
+        "actual": "192.168.1.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(192.168.1.1, 255.255.255.0) = 192.168.1.0"
+      },
+      {
+        "id": "Q062",
+        "question": "What is the IPv4 network address of ISP Router interface GigabitEthernet0/0/0?",
+        "category": "derived_network_address",
+        "expected": "10.1.0.0",
+        "actual": "10.1.0.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(10.1.0.2, 255.255.255.252) = 10.1.0.0"
+      },
+      {
+        "id": "Q063",
+        "question": "What is the IPv4 network address of Brand-101 interface GigabitEthernet0/0/0.100?",
+        "category": "derived_network_address",
+        "expected": "192.168.100.0",
+        "actual": "192.168.100.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(192.168.100.1, 255.255.255.0) = 192.168.100.0"
+      },
+      {
+        "id": "Q064",
+        "question": "What is the IPv4 network address of Office-1 interface GigabitEthernet0/0/0?",
+        "category": "derived_network_address",
+        "expected": "192.168.3.0",
+        "actual": "192.168.3.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(192.168.3.1, 255.255.255.0) = 192.168.3.0"
+      },
+      {
+        "id": "Q065",
+        "question": "What is the IPv4 network address of S4-1 interface Vlan100?",
+        "category": "derived_network_address",
+        "expected": "192.168.100.0",
+        "actual": "192.168.100.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(192.168.100.200, 255.255.255.0) = 192.168.100.0"
+      }
+    ],
+    "CCNA_MEGA_LAB": [
+      {
+        "id": "Q001",
+        "question": "Which device is physically connected to DSW-A1 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "CSW1",
+        "actual": "CSW1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A1 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q002",
+        "question": "Which device is physically connected to CSW1 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "DSW-A1",
+        "actual": "DSW-A1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW1 GigabitEthernet1/1/1 <-> DSW-A1 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q003",
+        "question": "Which device is physically connected to CSW2 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "DSW-A1",
+        "actual": "DSW-A1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW2 GigabitEthernet1/1/1 <-> DSW-A1 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q004",
+        "question": "Which device is physically connected to DSW-A2 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "CSW1",
+        "actual": "CSW1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A2 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q005",
+        "question": "Which device is physically connected to DSW-B1 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "CSW1",
+        "actual": "CSW1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B1 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/3"
+      },
+      {
+        "id": "Q006",
+        "question": "Which device is physically connected to DSW-B2 on interface GigabitEthernet1/1/1?",
+        "category": "physical_neighbor",
+        "expected": "CSW1",
+        "actual": "CSW1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B2 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/4"
+      },
+      {
+        "id": "Q007",
+        "question": "Which device is physically connected to R1 on interface GigabitEthernet0/0/0?",
+        "category": "physical_neighbor",
+        "expected": "ISP A",
+        "actual": "ISP A",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "R1 GigabitEthernet0/0/0 <-> ISP A GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q008",
+        "question": "Which device is physically connected to ISP A on interface GigabitEthernet0/0/0?",
+        "category": "physical_neighbor",
+        "expected": "R1",
+        "actual": "R1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP A GigabitEthernet0/0/0 <-> R1 GigabitEthernet0/0/0"
+      },
+      {
+        "id": "Q009",
+        "question": "Which device is physically connected to ISP B on interface GigabitEthernet0/0/0?",
+        "category": "physical_neighbor",
+        "expected": "R1",
+        "actual": "R1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP B GigabitEthernet0/0/0 <-> R1 GigabitEthernet0/1/0"
+      },
+      {
+        "id": "Q010",
+        "question": "Which device is physically connected to Phone2 on interface PC?",
+        "category": "physical_neighbor",
+        "expected": "PC2",
+        "actual": "PC2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Phone2 PC <-> PC2 FastEthernet0"
+      },
+      {
+        "id": "Q011",
+        "question": "Which device is physically connected to PC2 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Phone2",
+        "actual": "Phone2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "PC2 FastEthernet0 <-> Phone2 PC"
+      },
+      {
+        "id": "Q012",
+        "question": "Which device is physically connected to Phone3 on interface PC?",
+        "category": "physical_neighbor",
+        "expected": "PC3",
+        "actual": "PC3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Phone3 PC <-> PC3 FastEthernet0"
+      },
+      {
+        "id": "Q013",
+        "question": "Which interface on CSW1 is physically connected to DSW-A1 interface GigabitEthernet1/1/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/1",
+        "actual": "GigabitEthernet1/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A1 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q014",
+        "question": "Which interface on DSW-A1 is physically connected to CSW1 interface GigabitEthernet1/1/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/1",
+        "actual": "GigabitEthernet1/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW1 GigabitEthernet1/1/1 <-> DSW-A1 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q015",
+        "question": "Which interface on CSW2 is physically connected to DSW-A1 interface GigabitEthernet1/1/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/1",
+        "actual": "GigabitEthernet1/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A1 GigabitEthernet1/1/2 <-> CSW2 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q016",
+        "question": "Which interface on DSW-A1 is physically connected to CSW2 interface GigabitEthernet1/1/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/2",
+        "actual": "GigabitEthernet1/1/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW2 GigabitEthernet1/1/1 <-> DSW-A1 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q017",
+        "question": "Which interface on CSW1 is physically connected to DSW-A2 interface GigabitEthernet1/1/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/2",
+        "actual": "GigabitEthernet1/1/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A2 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q018",
+        "question": "Which interface on DSW-A2 is physically connected to CSW1 interface GigabitEthernet1/1/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/1",
+        "actual": "GigabitEthernet1/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW1 GigabitEthernet1/1/2 <-> DSW-A2 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q019",
+        "question": "Which interface on CSW2 is physically connected to DSW-A2 interface GigabitEthernet1/1/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/2",
+        "actual": "GigabitEthernet1/1/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A2 GigabitEthernet1/1/2 <-> CSW2 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q020",
+        "question": "Which interface on DSW-A2 is physically connected to CSW2 interface GigabitEthernet1/1/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/2",
+        "actual": "GigabitEthernet1/1/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW2 GigabitEthernet1/1/2 <-> DSW-A2 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q021",
+        "question": "Which interface on CSW1 is physically connected to DSW-B1 interface GigabitEthernet1/1/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/3",
+        "actual": "GigabitEthernet1/1/3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B1 GigabitEthernet1/1/1 <-> CSW1 GigabitEthernet1/1/3"
+      },
+      {
+        "id": "Q022",
+        "question": "Which interface on DSW-B1 is physically connected to CSW1 interface GigabitEthernet1/1/3?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/1",
+        "actual": "GigabitEthernet1/1/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW1 GigabitEthernet1/1/3 <-> DSW-B1 GigabitEthernet1/1/1"
+      },
+      {
+        "id": "Q023",
+        "question": "Which interface on CSW2 is physically connected to DSW-B1 interface GigabitEthernet1/1/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/3",
+        "actual": "GigabitEthernet1/1/3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B1 GigabitEthernet1/1/2 <-> CSW2 GigabitEthernet1/1/3"
+      },
+      {
+        "id": "Q024",
+        "question": "Which interface on DSW-B1 is physically connected to CSW2 interface GigabitEthernet1/1/3?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/1/2",
+        "actual": "GigabitEthernet1/1/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW2 GigabitEthernet1/1/3 <-> DSW-B1 GigabitEthernet1/1/2"
+      },
+      {
+        "id": "Q025",
+        "question": "List all distinct devices with a physical cable directly connected to R1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "CSW1",
+          "CSW2",
+          "ISP A",
+          "ISP B"
+        ],
+        "actual": "CSW1, CSW2, ISP A, ISP B",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "4 physical neighbour(s) of R1"
+      },
+      {
+        "id": "Q026",
+        "question": "List all distinct devices with a physical cable directly connected to ISP A.",
+        "category": "physical_neighbors",
+        "expected": [
+          "ISP B",
+          "R1"
+        ],
+        "actual": "ISP B, R1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "2 physical neighbour(s) of ISP A"
+      },
+      {
+        "id": "Q027",
+        "question": "List all distinct devices with a physical cable directly connected to DSW-A1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "ASW-A1",
+          "ASW-A2",
+          "ASW-A3",
+          "CSW1",
+          "CSW2",
+          "DSW-A2"
+        ],
+        "actual": "ASW-A1, ASW-A2, ASW-A3, CSW1, CSW2, DSW-A2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "6 physical neighbour(s) of DSW-A1"
+      },
+      {
+        "id": "Q028",
+        "question": "List all distinct devices with a physical cable directly connected to DSW-A2.",
+        "category": "physical_neighbors",
+        "expected": [
+          "ASW-A1",
+          "ASW-A2",
+          "ASW-A3",
+          "CSW1",
+          "CSW2",
+          "DSW-A1"
+        ],
+        "actual": "ASW-A1, ASW-A2, ASW-A3, CSW1, CSW2, DSW-A1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "6 physical neighbour(s) of DSW-A2"
+      },
+      {
+        "id": "Q029",
+        "question": "List all distinct devices with a physical cable directly connected to DSW-B1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "ASW-B1",
+          "ASW-B2",
+          "ASW-B3",
+          "CSW1",
+          "CSW2",
+          "DSW-B2"
+        ],
+        "actual": "ASW-B1, ASW-B2, ASW-B3, CSW1, CSW2, DSW-B2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "6 physical neighbour(s) of DSW-B1"
+      },
+      {
+        "id": "Q030",
+        "question": "List all distinct devices with a physical cable directly connected to DSW-B2.",
+        "category": "physical_neighbors",
+        "expected": [
+          "ASW-B1",
+          "ASW-B2",
+          "ASW-B3",
+          "CSW1",
+          "CSW2",
+          "DSW-B1"
+        ],
+        "actual": "ASW-B1, ASW-B2, ASW-B3, CSW1, CSW2, DSW-B1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "6 physical neighbour(s) of DSW-B2"
+      },
+      {
+        "id": "Q031",
+        "question": "How many distinct physical neighboring devices does R1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "4",
+        "actual": "4",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q032",
+        "question": "How many distinct physical neighboring devices does ISP A have?",
+        "category": "physical_neighbor_count",
+        "expected": "2",
+        "actual": "2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q033",
+        "question": "How many distinct physical neighboring devices does DSW-A1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "6",
+        "actual": "6",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q034",
+        "question": "How many distinct physical neighboring devices does DSW-A2 have?",
+        "category": "physical_neighbor_count",
+        "expected": "6",
+        "actual": "6",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q035",
+        "question": "What Packet Tracer hardware model is R1?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "R1 model = 2911"
+      },
+      {
+        "id": "Q036",
+        "question": "What Packet Tracer hardware model is ISP A?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ISP A model = 2911"
+      },
+      {
+        "id": "Q037",
+        "question": "What Packet Tracer hardware model is DSW-A1?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A1 model = 3650-24PS"
+      },
+      {
+        "id": "Q038",
+        "question": "What Packet Tracer hardware model is DSW-A2?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-A2 model = 3650-24PS"
+      },
+      {
+        "id": "Q039",
+        "question": "What Packet Tracer hardware model is DSW-B1?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B1 model = 3650-24PS"
+      },
+      {
+        "id": "Q040",
+        "question": "What Packet Tracer hardware model is DSW-B2?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DSW-B2 model = 3650-24PS"
+      },
+      {
+        "id": "Q041",
+        "question": "What Packet Tracer hardware model is CSW1?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "CSW1 model = 3650-24PS"
+      },
+      {
+        "id": "Q042",
+        "question": "What IOS hostname is configured on ISP A?",
+        "category": "ios_hostname",
+        "expected": "ISPA",
+        "actual": "ISPA",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname ISPA from the running configuration of ISP A"
+      },
+      {
+        "id": "Q043",
+        "question": "What IOS hostname is configured on ISP B?",
+        "category": "ios_hostname",
+        "expected": "ISPB",
+        "actual": "ISPB",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname ISPB from the running configuration of ISP B"
+      },
+      {
+        "id": "Q044",
+        "question": "What IPv4 address is configured on ISP A interface Loopback0?",
+        "category": "interface_ipv4",
+        "expected": "172.253.62.100",
+        "actual": "172.253.62.100",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.253.62.100 255.255.255.255"
+      },
+      {
+        "id": "Q045",
+        "question": "What IPv4 address is configured on ISP B interface Loopback3?",
+        "category": "interface_ipv4",
+        "expected": "216.239.35.4",
+        "actual": "216.239.35.4",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 216.239.35.4 255.255.255.255"
+      },
+      {
+        "id": "Q046",
+        "question": "What IPv4 address is configured on ISP A interface Loopback1?",
+        "category": "interface_ipv4",
+        "expected": "152.250.31.93",
+        "actual": "152.250.31.93",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 152.250.31.93 255.255.255.255"
+      },
+      {
+        "id": "Q047",
+        "question": "What IPv4 address is configured on ISP B interface GigabitEthernet0/0/0?",
+        "category": "interface_ipv4",
+        "expected": "203.0.113.5",
+        "actual": "203.0.113.5",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 203.0.113.5 255.255.255.252"
+      },
+      {
+        "id": "Q048",
+        "question": "What IPv4 address is configured on ISP A interface Loopback2?",
+        "category": "interface_ipv4",
+        "expected": "66.235.200.145",
+        "actual": "66.235.200.145",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 66.235.200.145 255.255.255.255"
+      },
+      {
+        "id": "Q049",
+        "question": "What IPv4 address is configured on ISP B interface GigabitEthernet0/1/0?",
+        "category": "interface_ipv4",
+        "expected": "192.0.2.2",
+        "actual": "192.0.2.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.0.2.2 255.255.255.252"
+      },
+      {
+        "id": "Q050",
+        "question": "What IPv4 address is configured on ISP A interface Loopback3?",
+        "category": "interface_ipv4",
+        "expected": "216.239.35.0",
+        "actual": "216.239.35.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 216.239.35.0 255.255.255.255"
+      },
+      {
+        "id": "Q051",
+        "question": "What IPv4 address is configured on ISP A interface GigabitEthernet0/0/0?",
+        "category": "interface_ipv4",
+        "expected": "203.0.113.1",
+        "actual": "203.0.113.1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 203.0.113.1 255.255.255.252"
+      },
+      {
+        "id": "Q052",
+        "question": "What subnet mask is configured on ISP A interface Loopback0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.255",
+        "actual": "255.255.255.255",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Loopback0: ip address 172.253.62.100 255.255.255.255"
+      },
+      {
+        "id": "Q053",
+        "question": "What subnet mask is configured on ISP B interface Loopback3?",
+        "category": "interface_mask",
+        "expected": "255.255.255.255",
+        "actual": "255.255.255.255",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Loopback3: ip address 216.239.35.4 255.255.255.255"
+      },
+      {
+        "id": "Q054",
+        "question": "What subnet mask is configured on ISP A interface Loopback1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.255",
+        "actual": "255.255.255.255",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Loopback1: ip address 152.250.31.93 255.255.255.255"
+      },
+      {
+        "id": "Q055",
+        "question": "What subnet mask is configured on ISP B interface GigabitEthernet0/0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0/0: ip address 203.0.113.5 255.255.255.252"
+      },
+      {
+        "id": "Q056",
+        "question": "What subnet mask is configured on ISP A interface Loopback2?",
+        "category": "interface_mask",
+        "expected": "255.255.255.255",
+        "actual": "255.255.255.255",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Loopback2: ip address 66.235.200.145 255.255.255.255"
+      },
+      {
+        "id": "Q057",
+        "question": "What subnet mask is configured on ISP B interface GigabitEthernet0/1/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/1/0: ip address 192.0.2.2 255.255.255.252"
+      },
+      {
+        "id": "Q058",
+        "question": "What is the IPv4 network address of ISP A interface Loopback0?",
+        "category": "derived_network_address",
+        "expected": "172.253.62.100",
+        "actual": "172.253.62.100",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(172.253.62.100, 255.255.255.255) = 172.253.62.100"
+      },
+      {
+        "id": "Q059",
+        "question": "What is the IPv4 network address of ISP B interface Loopback3?",
+        "category": "derived_network_address",
+        "expected": "216.239.35.4",
+        "actual": "216.239.35.4",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(216.239.35.4, 255.255.255.255) = 216.239.35.4"
+      },
+      {
+        "id": "Q060",
+        "question": "What is the IPv4 network address of ISP A interface Loopback1?",
+        "category": "derived_network_address",
+        "expected": "152.250.31.93",
+        "actual": "152.250.31.93",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(152.250.31.93, 255.255.255.255) = 152.250.31.93"
+      },
+      {
+        "id": "Q061",
+        "question": "What is the IPv4 network address of ISP B interface GigabitEthernet0/0/0?",
+        "category": "derived_network_address",
+        "expected": "203.0.113.4",
+        "actual": "203.0.113.4",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(203.0.113.5, 255.255.255.252) = 203.0.113.4"
+      },
+      {
+        "id": "Q062",
+        "question": "What is the IPv4 network address of ISP A interface Loopback2?",
+        "category": "derived_network_address",
+        "expected": "66.235.200.145",
+        "actual": "66.235.200.145",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(66.235.200.145, 255.255.255.255) = 66.235.200.145"
+      },
+      {
+        "id": "Q063",
+        "question": "What is the prefix length of ISP A interface Loopback0?",
+        "category": "derived_prefix_length",
+        "expected": "32",
+        "actual": "32",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "/32 from mask 255.255.255.255"
+      },
+      {
+        "id": "Q064",
+        "question": "What is the prefix length of ISP A interface Loopback1?",
+        "category": "derived_prefix_length",
+        "expected": "32",
+        "actual": "32",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "/32 from mask 255.255.255.255"
+      },
+      {
+        "id": "Q065",
+        "question": "What is the prefix length of ISP A interface Loopback2?",
+        "category": "derived_prefix_length",
+        "expected": "32",
+        "actual": "32",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "/32 from mask 255.255.255.255"
+      }
+    ],
+    "OKCUP_R3_2023_24": [
+      {
+        "id": "Q001",
+        "question": "Which device is physically connected to Quantex Gateway Jump Point Layer 3 Switch 1 on interface GigabitEthernet1/0/2?",
+        "category": "physical_neighbor",
+        "expected": "Dark Aster Router 1",
+        "actual": "Dark Aster Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/2 <-> Dark Aster Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q002",
+        "question": "Which device is physically connected to Dark Aster Router 1 on interface GigabitEthernet0/0?",
+        "category": "physical_neighbor",
+        "expected": "Quantex Gateway Jump Point Layer 3 Switch 1",
+        "actual": "Quantex Gateway Jump Point Layer 3 Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Router 1 GigabitEthernet0/0 <-> Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/2"
+      },
+      {
+        "id": "Q003",
+        "question": "Which device is physically connected to Dark Aster Switch 1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Dark Aster Router 1",
+        "actual": "Dark Aster Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Switch 1 GigabitEthernet0/1 <-> Dark Aster Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q004",
+        "question": "Which device is physically connected to Dark Aster PC 1 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Dark Aster Switch 1",
+        "actual": "Dark Aster Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster PC 1 FastEthernet0 <-> Dark Aster Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q005",
+        "question": "Which device is physically connected to Eclector Orbiter Switch 1 on interface FastEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Eclector Orbiter PC 1",
+        "actual": "Eclector Orbiter PC 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Switch 1 FastEthernet0/1 <-> Eclector Orbiter PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q006",
+        "question": "Which device is physically connected to Eclector Orbiter PC 1 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Eclector Orbiter Switch 1",
+        "actual": "Eclector Orbiter Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter PC 1 FastEthernet0 <-> Eclector Orbiter Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q007",
+        "question": "Which device is physically connected to Eclector Orbiter Router 1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Eclector Orbiter Switch 1",
+        "actual": "Eclector Orbiter Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Router 1 GigabitEthernet0/1 <-> Eclector Orbiter Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q008",
+        "question": "Which device is physically connected to Nova Corps PC 1 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Nova Corps Switch 1",
+        "actual": "Nova Corps Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Nova Corps PC 1 FastEthernet0 <-> Nova Corps Switch 1 FastEthernet0/2"
+      },
+      {
+        "id": "Q009",
+        "question": "Which device is physically connected to Nova Corps Switch 1 on interface FastEthernet0/2?",
+        "category": "physical_neighbor",
+        "expected": "Nova Corps PC 1",
+        "actual": "Nova Corps PC 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Nova Corps Switch 1 FastEthernet0/2 <-> Nova Corps PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q010",
+        "question": "Which device is physically connected to Nova Corps PC 2 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Nova Corps Switch 1",
+        "actual": "Nova Corps Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Nova Corps PC 2 FastEthernet0 <-> Nova Corps Switch 1 FastEthernet0/3"
+      },
+      {
+        "id": "Q011",
+        "question": "Which device is physically connected to Nova Corps Switch 2 on interface FastEthernet0/2?",
+        "category": "physical_neighbor",
+        "expected": "Nova Corps PC 3",
+        "actual": "Nova Corps PC 3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Nova Corps Switch 2 FastEthernet0/2 <-> Nova Corps PC 3 FastEthernet0"
+      },
+      {
+        "id": "Q012",
+        "question": "Which device is physically connected to Nova Corps PC 3 on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Nova Corps Switch 2",
+        "actual": "Nova Corps Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Nova Corps PC 3 FastEthernet0 <-> Nova Corps Switch 2 FastEthernet0/2"
+      },
+      {
+        "id": "Q013",
+        "question": "Which interface on Dark Aster Router 1 is physically connected to Quantex Gateway Jump Point Layer 3 Switch 1 interface GigabitEthernet1/0/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0",
+        "actual": "GigabitEthernet0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/2 <-> Dark Aster Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q014",
+        "question": "Which interface on Quantex Gateway Jump Point Layer 3 Switch 1 is physically connected to Dark Aster Router 1 interface GigabitEthernet0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/0/2",
+        "actual": "GigabitEthernet1/0/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Router 1 GigabitEthernet0/0 <-> Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/2"
+      },
+      {
+        "id": "Q015",
+        "question": "Which interface on Dark Aster Switch 1 is physically connected to Dark Aster Router 1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Router 1 GigabitEthernet0/1 <-> Dark Aster Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q016",
+        "question": "Which interface on Dark Aster Router 1 is physically connected to Dark Aster Switch 1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Switch 1 GigabitEthernet0/1 <-> Dark Aster Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q017",
+        "question": "Which interface on Dark Aster PC 1 is physically connected to Dark Aster Switch 1 interface FastEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0",
+        "actual": "FastEthernet0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Switch 1 FastEthernet0/1 <-> Dark Aster PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q018",
+        "question": "Which interface on Dark Aster Switch 1 is physically connected to Dark Aster PC 1 interface FastEthernet0?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0/1",
+        "actual": "FastEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster PC 1 FastEthernet0 <-> Dark Aster Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q019",
+        "question": "Which interface on Eclector Orbiter PC 1 is physically connected to Eclector Orbiter Switch 1 interface FastEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0",
+        "actual": "FastEthernet0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Switch 1 FastEthernet0/1 <-> Eclector Orbiter PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q020",
+        "question": "Which interface on Eclector Orbiter Switch 1 is physically connected to Eclector Orbiter PC 1 interface FastEthernet0?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0/1",
+        "actual": "FastEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter PC 1 FastEthernet0 <-> Eclector Orbiter Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q021",
+        "question": "Which interface on Eclector Orbiter Router 1 is physically connected to Eclector Orbiter Switch 1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Switch 1 GigabitEthernet0/1 <-> Eclector Orbiter Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q022",
+        "question": "Which interface on Eclector Orbiter Switch 1 is physically connected to Eclector Orbiter Router 1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Router 1 GigabitEthernet0/1 <-> Eclector Orbiter Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q023",
+        "question": "Which interface on Quantex Gateway Jump Point Layer 3 Switch 1 is physically connected to Eclector Orbiter Router 1 interface GigabitEthernet0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/0/3",
+        "actual": "GigabitEthernet1/0/3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Router 1 GigabitEthernet0/0 <-> Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/3"
+      },
+      {
+        "id": "Q024",
+        "question": "Which interface on Eclector Orbiter Router 1 is physically connected to Quantex Gateway Jump Point Layer 3 Switch 1 interface GigabitEthernet1/0/3?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0",
+        "actual": "GigabitEthernet0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Quantex Gateway Jump Point Layer 3 Switch 1 GigabitEthernet1/0/3 <-> Eclector Orbiter Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q025",
+        "question": "List all distinct devices with a physical cable directly connected to Dark Aster Router 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Dark Aster Switch 1",
+          "Nebula Crossing Jump Point Layer 3 Switch 2",
+          "Quantex Gateway Jump Point Layer 3 Switch 1"
+        ],
+        "actual": "Dark Aster Switch 1, Nebula Crossing Jump Point Layer 3 Switch 2, Quantex Gateway Jump Point Layer 3 Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of Dark Aster Router 1"
+      },
+      {
+        "id": "Q026",
+        "question": "List all distinct devices with a physical cable directly connected to Dark Aster Switch 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Dark Aster PC 1",
+          "Dark Aster Router 1"
+        ],
+        "actual": "Dark Aster PC 1, Dark Aster Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "2 physical neighbour(s) of Dark Aster Switch 1"
+      },
+      {
+        "id": "Q027",
+        "question": "List all distinct devices with a physical cable directly connected to Eclector Orbiter Router 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Eclector Orbiter Switch 1",
+          "Nebula Crossing Jump Point Layer 3 Switch 2",
+          "Quantex Gateway Jump Point Layer 3 Switch 1"
+        ],
+        "actual": "Eclector Orbiter Switch 1, Nebula Crossing Jump Point Layer 3 Switch 2, Quantex Gateway Jump Point Layer 3 Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of Eclector Orbiter Router 1"
+      },
+      {
+        "id": "Q028",
+        "question": "List all distinct devices with a physical cable directly connected to Eclector Orbiter Switch 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Eclector Orbiter PC 1",
+          "Eclector Orbiter PC 2",
+          "Eclector Orbiter Router 1"
+        ],
+        "actual": "Eclector Orbiter PC 1, Eclector Orbiter PC 2, Eclector Orbiter Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of Eclector Orbiter Switch 1"
+      },
+      {
+        "id": "Q029",
+        "question": "List all distinct devices with a physical cable directly connected to Quantex Gateway Jump Point Layer 3 Switch 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Asterion Rift Jump Point Switch 1",
+          "Cosmo Passage Jump Point Switch 2",
+          "Dark Aster Router 1",
+          "Eclector Orbiter Router 1",
+          "ISP (Router) 1",
+          "Knowhere Router 1",
+          "Nebula Crossing Jump Point Layer 3 Switch 2"
+        ],
+        "actual": "Asterion Rift Jump Point Switch 1, Cosmo Passage Jump Point Switch 2, Dark Aster Router 1, Eclector Orbiter Router 1, ISP (Router) 1, Knowhere Router 1, Nebula Crossing Jump Point Layer 3 Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "7 physical neighbour(s) of Quantex Gateway Jump Point Layer 3 Switch 1"
+      },
+      {
+        "id": "Q030",
+        "question": "List all distinct devices with a physical cable directly connected to Dark Aster PC 1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Dark Aster Switch 1"
+        ],
+        "actual": "Dark Aster Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "1 physical neighbour(s) of Dark Aster PC 1"
+      },
+      {
+        "id": "Q031",
+        "question": "How many distinct physical neighboring devices does Dark Aster Router 1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q032",
+        "question": "How many distinct physical neighboring devices does Dark Aster Switch 1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "2",
+        "actual": "2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q033",
+        "question": "How many distinct physical neighboring devices does Eclector Orbiter Router 1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q034",
+        "question": "How many distinct physical neighboring devices does Eclector Orbiter Switch 1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q035",
+        "question": "What Packet Tracer hardware model is Dark Aster Router 1?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Router 1 model = 2911"
+      },
+      {
+        "id": "Q036",
+        "question": "What Packet Tracer hardware model is Dark Aster Switch 1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster Switch 1 model = 2960-24TT"
+      },
+      {
+        "id": "Q037",
+        "question": "What Packet Tracer hardware model is Eclector Orbiter Router 1?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Router 1 model = 2911"
+      },
+      {
+        "id": "Q038",
+        "question": "What Packet Tracer hardware model is Eclector Orbiter Switch 1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter Switch 1 model = 2960-24TT"
+      },
+      {
+        "id": "Q039",
+        "question": "What Packet Tracer hardware model is Quantex Gateway Jump Point Layer 3 Switch 1?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Quantex Gateway Jump Point Layer 3 Switch 1 model = 3650-24PS"
+      },
+      {
+        "id": "Q040",
+        "question": "What Packet Tracer hardware model is Dark Aster PC 1?",
+        "category": "hardware_model",
+        "expected": "PC-PT",
+        "actual": "PC-PT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Dark Aster PC 1 model = PC-PT"
+      },
+      {
+        "id": "Q041",
+        "question": "What Packet Tracer hardware model is Eclector Orbiter PC 1?",
+        "category": "hardware_model",
+        "expected": "PC-PT",
+        "actual": "PC-PT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Eclector Orbiter PC 1 model = PC-PT"
+      },
+      {
+        "id": "Q042",
+        "question": "What IOS hostname is configured on Dark Aster Router 1?",
+        "category": "ios_hostname",
+        "expected": "DarkAsterRouter",
+        "actual": "DarkAsterRouter",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname DarkAsterRouter from the running configuration of Dark Aster Router 1"
+      },
+      {
+        "id": "Q043",
+        "question": "What IOS hostname is configured on Dark Aster Switch 1?",
+        "category": "ios_hostname",
+        "expected": "DarkAsterSwitch",
+        "actual": "DarkAsterSwitch",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname DarkAsterSwitch from the running configuration of Dark Aster Switch 1"
+      },
+      {
+        "id": "Q044",
+        "question": "What IOS hostname is configured on Eclector Orbiter Router 1?",
+        "category": "ios_hostname",
+        "expected": "EORouter",
+        "actual": "EORouter",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname EORouter from the running configuration of Eclector Orbiter Router 1"
+      },
+      {
+        "id": "Q045",
+        "question": "What IOS hostname is configured on Eclector Orbiter Switch 1?",
+        "category": "ios_hostname",
+        "expected": "EOSwitch",
+        "actual": "EOSwitch",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname EOSwitch from the running configuration of Eclector Orbiter Switch 1"
+      },
+      {
+        "id": "Q046",
+        "question": "What IOS hostname is configured on Quantex Gateway Jump Point Layer 3 Switch 1?",
+        "category": "ios_hostname",
+        "expected": "QuantexGateway",
+        "actual": "QuantexGateway",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname QuantexGateway from the running configuration of Quantex Gateway Jump Point Layer 3 Switch 1"
+      },
+      {
+        "id": "Q047",
+        "question": "What IPv4 address is configured on Dark Aster Router 1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "35.72.12.2",
+        "actual": "35.72.12.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 35.72.12.2 255.255.255.252"
+      },
+      {
+        "id": "Q048",
+        "question": "What IPv4 address is configured on Dark Aster Switch 1 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "192.168.168.200",
+        "actual": "192.168.168.200",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 192.168.168.200 255.255.255.0"
+      },
+      {
+        "id": "Q049",
+        "question": "What IPv4 address is configured on Eclector Orbiter Router 1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "35.72.11.2",
+        "actual": "35.72.11.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 35.72.11.2 255.255.255.252"
+      },
+      {
+        "id": "Q050",
+        "question": "What IPv4 address is configured on Eclector Orbiter Switch 1 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "37.72.11.2",
+        "actual": "37.72.11.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 37.72.11.2 255.255.255.240"
+      },
+      {
+        "id": "Q051",
+        "question": "What IPv4 address is configured on Quantex Gateway Jump Point Layer 3 Switch 1 interface GigabitEthernet1/0/1?",
+        "category": "interface_ipv4",
+        "expected": "34.130.13.2",
+        "actual": "34.130.13.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 34.130.13.2 255.255.255.0"
+      },
+      {
+        "id": "Q052",
+        "question": "What IPv4 address is configured on Nova Corps Switch 1 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "172.16.16.3",
+        "actual": "172.16.16.3",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.16.16.3 255.255.255.0"
+      },
+      {
+        "id": "Q053",
+        "question": "What IPv4 address is configured on Nova Corps Switch 2 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "172.16.16.4",
+        "actual": "172.16.16.4",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.16.16.4 255.255.255.0"
+      },
+      {
+        "id": "Q054",
+        "question": "What IPv4 address is configured on Knowhere Router 1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "67.12.10.2",
+        "actual": "67.12.10.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 67.12.10.2 255.255.255.252"
+      },
+      {
+        "id": "Q055",
+        "question": "What subnet mask is configured on Dark Aster Router 1 interface GigabitEthernet0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0: ip address 35.72.12.2 255.255.255.252"
+      },
+      {
+        "id": "Q056",
+        "question": "What subnet mask is configured on Dark Aster Switch 1 interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 192.168.168.200 255.255.255.0"
+      },
+      {
+        "id": "Q057",
+        "question": "What subnet mask is configured on Eclector Orbiter Router 1 interface GigabitEthernet0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0: ip address 35.72.11.2 255.255.255.252"
+      },
+      {
+        "id": "Q058",
+        "question": "What subnet mask is configured on Eclector Orbiter Switch 1 interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.240",
+        "actual": "255.255.255.240",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 37.72.11.2 255.255.255.240"
+      },
+      {
+        "id": "Q059",
+        "question": "What subnet mask is configured on Quantex Gateway Jump Point Layer 3 Switch 1 interface GigabitEthernet1/0/1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet1/0/1: ip address 34.130.13.2 255.255.255.0"
+      },
+      {
+        "id": "Q060",
+        "question": "What subnet mask is configured on Nova Corps Switch 1 interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 172.16.16.3 255.255.255.0"
+      },
+      {
+        "id": "Q061",
+        "question": "What is the IPv4 network address of Dark Aster Router 1 interface GigabitEthernet0/0?",
+        "category": "derived_network_address",
+        "expected": "35.72.12.0",
+        "actual": "35.72.12.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(35.72.12.2, 255.255.255.252) = 35.72.12.0"
+      },
+      {
+        "id": "Q062",
+        "question": "What is the IPv4 network address of Dark Aster Switch 1 interface Vlan1?",
+        "category": "derived_network_address",
+        "expected": "192.168.168.0",
+        "actual": "192.168.168.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(192.168.168.200, 255.255.255.0) = 192.168.168.0"
+      },
+      {
+        "id": "Q063",
+        "question": "What is the IPv4 network address of Eclector Orbiter Router 1 interface GigabitEthernet0/0?",
+        "category": "derived_network_address",
+        "expected": "35.72.11.0",
+        "actual": "35.72.11.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(35.72.11.2, 255.255.255.252) = 35.72.11.0"
+      },
+      {
+        "id": "Q064",
+        "question": "What is the IPv4 network address of Eclector Orbiter Switch 1 interface Vlan1?",
+        "category": "derived_network_address",
+        "expected": "37.72.11.0",
+        "actual": "37.72.11.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(37.72.11.2, 255.255.255.240) = 37.72.11.0"
+      },
+      {
+        "id": "Q065",
+        "question": "What is the IPv4 network address of Quantex Gateway Jump Point Layer 3 Switch 1 interface GigabitEthernet1/0/1?",
+        "category": "derived_network_address",
+        "expected": "34.130.13.0",
+        "actual": "34.130.13.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(34.130.13.2, 255.255.255.0) = 34.130.13.0"
+      }
+    ],
+    "OKCUP_R3_2024_25": [
+      {
+        "id": "Q001",
+        "question": "Which device is physically connected to UniversityL3S1 on interface GigabitEthernet1/0/2?",
+        "category": "physical_neighbor",
+        "expected": "RajMahalR1",
+        "actual": "Bowser's Castle Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/2 <-> Bowser's Castle Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q002",
+        "question": "Which device is physically connected to RajMahalR1 on interface GigabitEthernet0/0?",
+        "category": "physical_neighbor",
+        "expected": "UniversityL3S1",
+        "actual": "Warp Zone Layer 3 Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Router 1 GigabitEthernet0/0 <-> Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/2"
+      },
+      {
+        "id": "Q003",
+        "question": "Which device is physically connected to RajMahalS1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "RajMahalR1",
+        "actual": "Bowser's Castle Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Switch 1 GigabitEthernet0/1 <-> Bowser's Castle Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q004",
+        "question": "Which device is physically connected to [[pr3-0-pc_Display_name]] on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "RajMahalS1",
+        "actual": "Bowser's Castle Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle PC 1 FastEthernet0 <-> Bowser's Castle Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q005",
+        "question": "Which device is physically connected to Hofstadter-FoleyS1 on interface FastEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "[[pr4-0-pc_Display_name]]",
+        "actual": "DK Jungle PC 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Switch 1 FastEthernet0/1 <-> DK Jungle PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q006",
+        "question": "Which device is physically connected to [[pr4-0-pc_Display_name]] on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "Hofstadter-FoleyS1",
+        "actual": "DK Jungle Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle PC 1 FastEthernet0 <-> DK Jungle Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q007",
+        "question": "Which device is physically connected to Hofstadter-FoleyR1 on interface GigabitEthernet0/1?",
+        "category": "physical_neighbor",
+        "expected": "Hofstadter-FoleyS1",
+        "actual": "DK Jungle Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Router 1 GigabitEthernet0/1 <-> DK Jungle Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q008",
+        "question": "Which device is physically connected to [[pr0-0-pc_Display_name]] on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "[[pr2-0-sw_Display_name]]",
+        "actual": "Toad Town Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Toad Town PC1 FastEthernet0 <-> Toad Town Switch 1 FastEthernet0/2"
+      },
+      {
+        "id": "Q009",
+        "question": "Which device is physically connected to [[pr2-0-sw_Display_name]] on interface FastEthernet0/2?",
+        "category": "physical_neighbor",
+        "expected": "[[pr0-0-pc_Display_name]]",
+        "actual": "Toad Town PC1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Toad Town Switch 1 FastEthernet0/2 <-> Toad Town PC1 FastEthernet0"
+      },
+      {
+        "id": "Q010",
+        "question": "Which device is physically connected to [[pr1-0-pc_Display_name]] on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "[[pr2-0-sw_Display_name]]",
+        "actual": "Toad Town Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Toad Town PC2 FastEthernet0 <-> Toad Town Switch 1 FastEthernet0/3"
+      },
+      {
+        "id": "Q011",
+        "question": "Which device is physically connected to [[pr2-1-sw_Display_name]] on interface FastEthernet0/2?",
+        "category": "physical_neighbor",
+        "expected": "[[pr1-1-pc_Display_name]]",
+        "actual": "Toad Town PC3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Toad Town Switch 2 FastEthernet0/2 <-> Toad Town PC3 FastEthernet0"
+      },
+      {
+        "id": "Q012",
+        "question": "Which device is physically connected to [[pr1-1-pc_Display_name]] on interface FastEthernet0?",
+        "category": "physical_neighbor",
+        "expected": "[[pr2-1-sw_Display_name]]",
+        "actual": "Toad Town Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Toad Town PC3 FastEthernet0 <-> Toad Town Switch 2 FastEthernet0/2"
+      },
+      {
+        "id": "Q013",
+        "question": "Which interface on RajMahalR1 is physically connected to UniversityL3S1 interface GigabitEthernet1/0/2?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0",
+        "actual": "GigabitEthernet0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/2 <-> Bowser's Castle Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q014",
+        "question": "Which interface on UniversityL3S1 is physically connected to RajMahalR1 interface GigabitEthernet0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/0/2",
+        "actual": "GigabitEthernet1/0/2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Router 1 GigabitEthernet0/0 <-> Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/2"
+      },
+      {
+        "id": "Q015",
+        "question": "Which interface on RajMahalS1 is physically connected to RajMahalR1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Router 1 GigabitEthernet0/1 <-> Bowser's Castle Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q016",
+        "question": "Which interface on RajMahalR1 is physically connected to RajMahalS1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Switch 1 GigabitEthernet0/1 <-> Bowser's Castle Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q017",
+        "question": "Which interface on [[pr3-0-pc_Display_name]] is physically connected to RajMahalS1 interface FastEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0",
+        "actual": "FastEthernet0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Switch 1 FastEthernet0/1 <-> Bowser's Castle PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q018",
+        "question": "Which interface on RajMahalS1 is physically connected to [[pr3-0-pc_Display_name]] interface FastEthernet0?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0/1",
+        "actual": "FastEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle PC 1 FastEthernet0 <-> Bowser's Castle Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q019",
+        "question": "Which interface on [[pr4-0-pc_Display_name]] is physically connected to Hofstadter-FoleyS1 interface FastEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0",
+        "actual": "FastEthernet0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Switch 1 FastEthernet0/1 <-> DK Jungle PC 1 FastEthernet0"
+      },
+      {
+        "id": "Q020",
+        "question": "Which interface on Hofstadter-FoleyS1 is physically connected to [[pr4-0-pc_Display_name]] interface FastEthernet0?",
+        "category": "peer_interface",
+        "expected": "FastEthernet0/1",
+        "actual": "FastEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle PC 1 FastEthernet0 <-> DK Jungle Switch 1 FastEthernet0/1"
+      },
+      {
+        "id": "Q021",
+        "question": "Which interface on Hofstadter-FoleyR1 is physically connected to Hofstadter-FoleyS1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Switch 1 GigabitEthernet0/1 <-> DK Jungle Router 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q022",
+        "question": "Which interface on Hofstadter-FoleyS1 is physically connected to Hofstadter-FoleyR1 interface GigabitEthernet0/1?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/1",
+        "actual": "GigabitEthernet0/1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Router 1 GigabitEthernet0/1 <-> DK Jungle Switch 1 GigabitEthernet0/1"
+      },
+      {
+        "id": "Q023",
+        "question": "Which interface on UniversityL3S1 is physically connected to Hofstadter-FoleyR1 interface GigabitEthernet0/0?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet1/0/3",
+        "actual": "GigabitEthernet1/0/3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Router 1 GigabitEthernet0/0 <-> Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/3"
+      },
+      {
+        "id": "Q024",
+        "question": "Which interface on Hofstadter-FoleyR1 is physically connected to UniversityL3S1 interface GigabitEthernet1/0/3?",
+        "category": "peer_interface",
+        "expected": "GigabitEthernet0/0",
+        "actual": "GigabitEthernet0/0",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Warp Zone Layer 3 Switch 1 GigabitEthernet1/0/3 <-> DK Jungle Router 1 GigabitEthernet0/0"
+      },
+      {
+        "id": "Q025",
+        "question": "List all distinct devices with a physical cable directly connected to RajMahalR1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "RajMahalS1",
+          "UniversityL3S1",
+          "UniversityL3S2"
+        ],
+        "actual": "Bowser's Castle Switch 1, Warp Zone Layer 3 Switch 1, Warp Zone Layer 3 Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of Bowser's Castle Router 1"
+      },
+      {
+        "id": "Q026",
+        "question": "List all distinct devices with a physical cable directly connected to RajMahalS1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "RajMahalR1",
+          "[[pr3-0-pc_Display_name]]"
+        ],
+        "actual": "Bowser's Castle PC 1, Bowser's Castle Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "2 physical neighbour(s) of Bowser's Castle Switch 1"
+      },
+      {
+        "id": "Q027",
+        "question": "List all distinct devices with a physical cable directly connected to Hofstadter-FoleyR1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Hofstadter-FoleyS1",
+          "UniversityL3S1",
+          "UniversityL3S2"
+        ],
+        "actual": "DK Jungle Switch 1, Warp Zone Layer 3 Switch 1, Warp Zone Layer 3 Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of DK Jungle Router 1"
+      },
+      {
+        "id": "Q028",
+        "question": "List all distinct devices with a physical cable directly connected to Hofstadter-FoleyS1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "Hofstadter-FoleyR1",
+          "[[pr4-0-pc_Display_name]]",
+          "[[pr6-0-pc_Display_name]]"
+        ],
+        "actual": "DK Jungle PC 1, DK Jungle PC 2, DK Jungle Router 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "3 physical neighbour(s) of DK Jungle Switch 1"
+      },
+      {
+        "id": "Q029",
+        "question": "List all distinct devices with a physical cable directly connected to UniversityL3S1.",
+        "category": "physical_neighbors",
+        "expected": [
+          "CooperLandR1",
+          "Hofstadter-FoleyR1",
+          "ISPR1",
+          "RajMahalR1",
+          "UniversityDS2",
+          "UniversityL3S2",
+          "[[pr0-0-l3sw_Display_name]]"
+        ],
+        "actual": "Bowser's Castle Router 1, DK Jungle Router 1, Internet (Router) 1, Mushroom Kingdom Router 1, Rainbow Road Layer 3 Switch 1, Rainbow Road Layer 3 Switch 2, Warp Zone Layer 3 Switch 2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "7 physical neighbour(s) of Warp Zone Layer 3 Switch 1"
+      },
+      {
+        "id": "Q030",
+        "question": "List all distinct devices with a physical cable directly connected to [[pr3-0-pc_Display_name]].",
+        "category": "physical_neighbors",
+        "expected": [
+          "RajMahalS1"
+        ],
+        "actual": "Bowser's Castle Switch 1",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "1 physical neighbour(s) of Bowser's Castle PC 1"
+      },
+      {
+        "id": "Q031",
+        "question": "How many distinct physical neighboring devices does RajMahalR1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q032",
+        "question": "How many distinct physical neighboring devices does RajMahalS1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "2",
+        "actual": "2",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q033",
+        "question": "How many distinct physical neighboring devices does Hofstadter-FoleyR1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q034",
+        "question": "How many distinct physical neighboring devices does Hofstadter-FoleyS1 have?",
+        "category": "physical_neighbor_count",
+        "expected": "3",
+        "actual": "3",
+        "status": "VERIFIED_DERIVED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "count of unique physical neighbour devices"
+      },
+      {
+        "id": "Q035",
+        "question": "What Packet Tracer hardware model is RajMahalR1?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Router 1 model = 2911"
+      },
+      {
+        "id": "Q036",
+        "question": "What Packet Tracer hardware model is RajMahalS1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle Switch 1 model = 2960-24TT"
+      },
+      {
+        "id": "Q037",
+        "question": "What Packet Tracer hardware model is Hofstadter-FoleyR1?",
+        "category": "hardware_model",
+        "expected": "2911",
+        "actual": "2911",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Router 1 model = 2911"
+      },
+      {
+        "id": "Q038",
+        "question": "What Packet Tracer hardware model is Hofstadter-FoleyS1?",
+        "category": "hardware_model",
+        "expected": "2960-24TT",
+        "actual": "2960-24TT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle Switch 1 model = 2960-24TT"
+      },
+      {
+        "id": "Q039",
+        "question": "What Packet Tracer hardware model is UniversityL3S1?",
+        "category": "hardware_model",
+        "expected": "3650-24PS",
+        "actual": "3650-24PS",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Warp Zone Layer 3 Switch 1 model = 3650-24PS"
+      },
+      {
+        "id": "Q040",
+        "question": "What Packet Tracer hardware model is [[pr3-0-pc_Display_name]]?",
+        "category": "hardware_model",
+        "expected": "PC-PT",
+        "actual": "PC-PT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Bowser's Castle PC 1 model = PC-PT"
+      },
+      {
+        "id": "Q041",
+        "question": "What Packet Tracer hardware model is [[pr4-0-pc_Display_name]]?",
+        "category": "hardware_model",
+        "expected": "PC-PT",
+        "actual": "PC-PT",
+        "status": "INCOMPLETE",
+        "correct": true,
+        "category_result": "",
+        "explanation": "DK Jungle PC 1 model = PC-PT"
+      },
+      {
+        "id": "Q042",
+        "question": "What IOS hostname is configured on RajMahalR1?",
+        "category": "ios_hostname",
+        "expected": "RajMahalR1",
+        "actual": "RajMahalR1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname RajMahalR1 from the running configuration of Bowser's Castle Router 1"
+      },
+      {
+        "id": "Q043",
+        "question": "What IOS hostname is configured on RajMahalS1?",
+        "category": "ios_hostname",
+        "expected": "RajMahalS1",
+        "actual": "RajMahalS1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname RajMahalS1 from the running configuration of Bowser's Castle Switch 1"
+      },
+      {
+        "id": "Q044",
+        "question": "What IOS hostname is configured on Hofstadter-FoleyR1?",
+        "category": "ios_hostname",
+        "expected": "Hofstadter-FoleyR1",
+        "actual": "Hofstadter-FoleyR1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname Hofstadter-FoleyR1 from the running configuration of DK Jungle Router 1"
+      },
+      {
+        "id": "Q045",
+        "question": "What IOS hostname is configured on Hofstadter-FoleyS1?",
+        "category": "ios_hostname",
+        "expected": "Hofstadter-FoleyS1",
+        "actual": "Hofstadter-FoleyS1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname Hofstadter-FoleyS1 from the running configuration of DK Jungle Switch 1"
+      },
+      {
+        "id": "Q046",
+        "question": "What IOS hostname is configured on UniversityL3S1?",
+        "category": "ios_hostname",
+        "expected": "UniversityL3S1",
+        "actual": "UniversityL3S1",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "hostname UniversityL3S1 from the running configuration of Warp Zone Layer 3 Switch 1"
+      },
+      {
+        "id": "Q047",
+        "question": "What IPv4 address is configured on RajMahalR1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "35.72.12.2",
+        "actual": "35.72.12.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 35.72.12.2 255.255.255.252"
+      },
+      {
+        "id": "Q048",
+        "question": "What IPv4 address is configured on RajMahalS1 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "38.72.11.2",
+        "actual": "38.72.11.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 38.72.11.2 255.255.255.192"
+      },
+      {
+        "id": "Q049",
+        "question": "What IPv4 address is configured on Hofstadter-FoleyR1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "35.72.11.2",
+        "actual": "35.72.11.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 35.72.11.2 255.255.255.252"
+      },
+      {
+        "id": "Q050",
+        "question": "What IPv4 address is configured on Hofstadter-FoleyS1 interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "37.72.11.2",
+        "actual": "37.72.11.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 37.72.11.2 255.255.255.240"
+      },
+      {
+        "id": "Q051",
+        "question": "What IPv4 address is configured on UniversityL3S1 interface GigabitEthernet1/0/1?",
+        "category": "interface_ipv4",
+        "expected": "34.130.13.2",
+        "actual": "34.130.13.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 34.130.13.2 255.255.255.0"
+      },
+      {
+        "id": "Q052",
+        "question": "What IPv4 address is configured on [[pr2-0-sw_Display_name]] interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "172.16.16.3",
+        "actual": "172.16.16.3",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.16.16.3 255.255.255.0"
+      },
+      {
+        "id": "Q053",
+        "question": "What IPv4 address is configured on [[pr2-1-sw_Display_name]] interface Vlan1?",
+        "category": "interface_ipv4",
+        "expected": "172.16.16.4",
+        "actual": "172.16.16.4",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 172.16.16.4 255.255.255.0"
+      },
+      {
+        "id": "Q054",
+        "question": "What IPv4 address is configured on CooperLandR1 interface GigabitEthernet0/0?",
+        "category": "interface_ipv4",
+        "expected": "67.12.10.2",
+        "actual": "67.12.10.2",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "ip address 67.12.10.2 255.255.255.252"
+      },
+      {
+        "id": "Q055",
+        "question": "What subnet mask is configured on RajMahalR1 interface GigabitEthernet0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0: ip address 35.72.12.2 255.255.255.252"
+      },
+      {
+        "id": "Q056",
+        "question": "What subnet mask is configured on RajMahalS1 interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.192",
+        "actual": "255.255.255.192",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 38.72.11.2 255.255.255.192"
+      },
+      {
+        "id": "Q057",
+        "question": "What subnet mask is configured on Hofstadter-FoleyR1 interface GigabitEthernet0/0?",
+        "category": "interface_mask",
+        "expected": "255.255.255.252",
+        "actual": "255.255.255.252",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet0/0: ip address 35.72.11.2 255.255.255.252"
+      },
+      {
+        "id": "Q058",
+        "question": "What subnet mask is configured on Hofstadter-FoleyS1 interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.240",
+        "actual": "255.255.255.240",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 37.72.11.2 255.255.255.240"
+      },
+      {
+        "id": "Q059",
+        "question": "What subnet mask is configured on UniversityL3S1 interface GigabitEthernet1/0/1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "GigabitEthernet1/0/1: ip address 34.130.13.2 255.255.255.0"
+      },
+      {
+        "id": "Q060",
+        "question": "What subnet mask is configured on [[pr2-0-sw_Display_name]] interface Vlan1?",
+        "category": "interface_mask",
+        "expected": "255.255.255.0",
+        "actual": "255.255.255.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "Vlan1: ip address 172.16.16.3 255.255.255.0"
+      },
+      {
+        "id": "Q061",
+        "question": "What is the IPv4 network address of RajMahalR1 interface GigabitEthernet0/0?",
+        "category": "derived_network_address",
+        "expected": "35.72.12.0",
+        "actual": "35.72.12.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(35.72.12.2, 255.255.255.252) = 35.72.12.0"
+      },
+      {
+        "id": "Q062",
+        "question": "What is the IPv4 network address of RajMahalS1 interface Vlan1?",
+        "category": "derived_network_address",
+        "expected": "38.72.11.0",
+        "actual": "38.72.11.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(38.72.11.2, 255.255.255.192) = 38.72.11.0"
+      },
+      {
+        "id": "Q063",
+        "question": "What is the IPv4 network address of Hofstadter-FoleyR1 interface GigabitEthernet0/0?",
+        "category": "derived_network_address",
+        "expected": "35.72.11.0",
+        "actual": "35.72.11.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(35.72.11.2, 255.255.255.252) = 35.72.11.0"
+      },
+      {
+        "id": "Q064",
+        "question": "What is the IPv4 network address of Hofstadter-FoleyS1 interface Vlan1?",
+        "category": "derived_network_address",
+        "expected": "37.72.11.0",
+        "actual": "37.72.11.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(37.72.11.2, 255.255.255.240) = 37.72.11.0"
+      },
+      {
+        "id": "Q065",
+        "question": "What is the IPv4 network address of UniversityL3S1 interface GigabitEthernet1/0/1?",
+        "category": "derived_network_address",
+        "expected": "34.130.13.0",
+        "actual": "34.130.13.0",
+        "status": "VERIFIED",
+        "correct": true,
+        "category_result": "",
+        "explanation": "AND(34.130.13.2, 255.255.255.0) = 34.130.13.0"
+      }
+    ]
+  }
+}

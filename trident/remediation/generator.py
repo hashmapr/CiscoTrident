@@ -272,13 +272,23 @@ def _plan_ipv4_address(result: ComplianceResult) -> RemediationPlan | None:
         required_mask = prefix_to_mask(expected_prefix)
         confidence = Confidence.HIGH
     else:
-        required_mask = _classful_mask(expected_ip)
-        if required_mask is None:
-            return None
-        confidence = Confidence.MEDIUM
+        # Never guess a subnet mask. IOS has no "address only" form, and a
+        # classful default is a guess that would silently configure a wrong
+        # prefix. Abstain from generating a plan instead.
         notes.append(
-            "required mask was not stated in the requirement; the classful default "
-            f"{required_mask} was derived and must be confirmed"
+            "no prefix or mask was stated in the requirement; a mask cannot be "
+            "derived safely, so no remediation command is proposed"
+        )
+        return _make_plan(
+            result,
+            interface=interface,
+            current_state=result.actual or "unknown",
+            required_state=result.expected or "",
+            steps=(),
+            verification_commands=(),
+            rollback_commands=(),
+            confidence=Confidence.LOW,
+            notes=tuple(notes),
         )
 
     observed_ip = normalize_ipv4(result.actual) if result.actual else None
@@ -301,11 +311,10 @@ def _plan_ipv4_address(result: ComplianceResult) -> RemediationPlan | None:
                 "on the interface"
             ),
         ),
-        (
-            ("no shutdown",),
-            "ensure the interface is administratively up after addressing it",
-        ),
     )
+    # NOTE: no ``no shutdown`` here. Adding an address does not imply the
+    # requirement asks for the interface to be enabled; silently bringing a port
+    # up can change the network. Enabling is a separate requirement kind.
     verification = (
         f"show running-config interface {interface}",
         "show ip interface brief",

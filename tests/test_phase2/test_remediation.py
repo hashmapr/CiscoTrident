@@ -84,7 +84,8 @@ def test_ipv4_address_plan() -> None:
     commands = all_commands(plan)
     assert "interface GigabitEthernet0/0" in commands
     assert "ip address 10.0.0.1 255.255.255.0" in commands
-    assert "no shutdown" in commands
+    # no shutdown is intentionally NOT added: addressing does not imply enabling.
+    assert "no shutdown" not in commands
     assert plan.confidence is Confidence.HIGH
     assert plan.rollback_commands == (
         "interface GigabitEthernet0/0",
@@ -92,7 +93,12 @@ def test_ipv4_address_plan() -> None:
     )
 
 
-def test_ipv4_address_plan_without_mask_is_medium() -> None:
+def test_ipv4_address_plan_without_mask_proposes_nothing() -> None:
+    """A bare address has no safe mask. The plan must abstain, not guess /8.
+
+    Replaces an earlier expectation that a classful default was acceptable; that
+    silently configured a wrong prefix on a live lab.
+    """
     plan = generate_plan(
         make_result(
             "ipv4_address",
@@ -102,9 +108,9 @@ def test_ipv4_address_plan_without_mask_is_medium() -> None:
         )
     )
     assert plan is not None
-    assert "ip address 10.0.0.1 255.0.0.0" in all_commands(plan)
-    assert plan.confidence is Confidence.MEDIUM
-    assert plan.rollback_commands == ("interface GigabitEthernet0/0", "no ip address")
+    assert all_commands(plan) == [], "no command may be proposed without a mask"
+    assert plan.confidence is Confidence.LOW
+    assert any("mask cannot be derived safely" in note for note in plan.evidence)
 
 
 def test_ipv4_subnet_plan() -> None:

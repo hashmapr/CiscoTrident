@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from ..models import NetworkModel
 from ..normalization.values import canonical_interface_name
+from . import operations as ops
 
 #: Interface mentions such as Gi0/0, Gi1/0/2, GigabitEthernet0/1, Fa0/1, Vlan1.
 _IFACE_RE = re.compile(
@@ -33,6 +34,7 @@ _COUNT_DEVICES_RE = re.compile(r"\bhow\s+many\s+(?:devices?|nodes?|hosts?)\b", r
 
 _HOSTNAME_RE = re.compile(r"\bhostname\b", re.IGNORECASE)
 _MASK_RE = re.compile(r"\b(subnet\s+mask|netmask|mask)\b", re.IGNORECASE)
+_PREFIX_RE = re.compile(r"\b(prefix\s+length|cidr)\b", re.IGNORECASE)
 _NETWORK_RE = re.compile(r"\bnetwork\s+(address|id)\b", re.IGNORECASE)
 _IP_RE_Q = re.compile(r"\b(ip\s+address|ipv4\s+address|ip\b)", re.IGNORECASE)
 _PEER_IF_RE = re.compile(
@@ -47,6 +49,14 @@ _IFACE_ON_RE = re.compile(
 )
 _NEIGHBOR_RE = re.compile(
     r"\b(connected\s+to|connects?\s+to|neighbou?r|attached\s+to)\b", re.IGNORECASE
+)
+#: "on interface X" / "on port X" / "on its X port". X may be a plain port name
+#: such as ``PC`` on an IP phone, which the general interface regex does not
+#: recognise because it has no digits.
+_ON_IFACE_RE = re.compile(
+    r"\bon\s+(?:the\s+|its\s+)?(?:interface\s+|port\s+)?([A-Za-z][A-Za-z0-9/\\.:_-]*?)"
+    r"(?:\s+port)?\s*(?:\?|\.|$)",
+    re.IGNORECASE,
 )
 _MODEL_RE = re.compile(r"\b(model|hardware|platform)\b", re.IGNORECASE)
 _GATEWAY_RE = re.compile(r"\bdefault[\s-]?gateway\b", re.IGNORECASE)
@@ -86,26 +96,29 @@ def _device_positions(model: NetworkModel, text: str) -> list[tuple[int, str]]:
             if any(s <= start < s + ln for s, _k, ln in display if ln > length and s != start):
                 continue
             kept.append((start, key))
-        return kept
+    else:
+        kept = []
 
-    # No display names at all: use an unambiguous hostname mention.
-    hosts: list[tuple[int, str, str]] = []
+    # Uniquely-named hostname mentions always count, whether or not display
+    # names also appear. A question can mix both forms, and dropping the
+    # hostname-only device loses half the question.
+    seen = {k for _s, k in kept}
     for key, info in model.devices.items():
-        if not info.hostname:
+        if not info.hostname or key in seen:
             continue
-        m = re.search(
+        host = info.hostname.lower()
+        if sum(1 for i in model.devices.values() if (i.hostname or "").lower() == host) != 1:
+            continue
+        hm = re.search(
             rf"(?<![A-Za-z0-9_\-]){re.escape(info.hostname)}(?![A-Za-z0-9_\-])",
             text,
             re.IGNORECASE,
         )
-        if m:
-            hosts.append((m.start(), key, info.hostname))
-    if not hosts:
-        return []
-    labels = {h[2].lower() for h in hosts}
-    if len(labels) != 1 or len({h[1] for h in hosts}) != 1:
-        return []
-    return [(hosts[0][0], hosts[0][1])]
+        if hm:
+            kept.append((hm.start(), key))
+
+    kept.sort(key=lambda item: item[0])
+    return kept
 
 
 def resolve_interface_pairs(model: NetworkModel, text: str) -> list[tuple[str, str]]:
@@ -224,8 +237,22 @@ def resolve_devices_in_text(model: NetworkModel, text: str) -> list[str]:
             host_hits.append(key)
 
     if display_hits:
-        # A display name is an unambiguous identity: it always wins.
-        hits = display_hits
+        # A display name is an unambiguous identity and wins -- but a question can
+        # mix both forms ("Bowser's Castle PC 1 ... to RajMahalS1"), and dropping
+        # the hostname-only device silently loses half the question. Keep a
+        # hostname hit only when it names a DISTINCT device whose hostname is
+        # unique to it (shared names like "Router" stay excluded).
+        extra: list[str] = []
+        for key in host_hits:
+            if key in display_hits:
+                continue
+            host = (model.devices[key].hostname or "").lower()
+            same_host = [
+                k for k, i in model.devices.items() if (i.hostname or "").lower() == host
+            ]
+            if len(same_host) == 1:
+                extra.append(key)
+        hits = display_hits + extra
     else:
         # Hostnames identify a device only when the matched hostname is unique to
         # it. Several devices sharing hostname "Router" is ambiguous; two
@@ -346,29 +373,47 @@ def route(model: NetworkModel, question: str) -> Intent | None:
             # from the device that actually OWNS X, then report the other end --
             # which must be on A when the key is consistent.
             target_if = tail_ifaces[0]
-            owners = [
-                d
-                for d in devices
-                if any(
-                    info.device == d
-                    and canonical_interface_name(info.name).lower() == target_if.lower()
-                    for info in model.interfaces.values()
-                )
-            ]
-            if owners:
-                # "Which interface on A is connected to B interface X?" -> the
-                # answer is the far end of X, which is A's interface when the
-                # question is consistent. One lookup, no extra constraints.
+
+            # The interface token belongs to the device named immediately BEFORE
+            # it ("... to CSW1 interface Gi1/1/2" -> CSW1 owns Gi1/1/2). Several
+            # devices can own a port with the same name, so positional
+            # attribution is the only correct reading.
+            owner = None
+            for pos, key in _device_positions(model, q):
+                if pos < m_on.end():
+                    continue
+                # the device mention that precedes the interface token
+                if pos < q.lower().find(target_if.lower(), m_on.end()):
+                    owner = key
+            if owner is None:
+                owners = [
+                    d
+                    for d in devices
+                    if any(
+                        info.device == d
+                        and canonical_interface_name(info.name).lower() == target_if.lower()
+                        for info in model.interfaces.values()
+                    )
+                ]
+                owner = owners[0] if len(owners) == 1 else None
+
+            if owner is not None:
+                if owner == subject:
+                    # X is on the device the answer must belong to; its peer is
+                    # the interface on the other named device.
+                    other = next((d for d in devices if d != subject), None)
+                    return Intent(
+                        "get_peer_interface",
+                        {"device": subject, "interface": target_if, "peer": other or ""},
+                    )
+                # X belongs to the other device; the answer is X's far end,
+                # which must sit on the subject device.
                 return Intent(
                     "get_peer_interface",
-                    {"device": owners[0], "interface": target_if},
+                    {"device": owner, "interface": target_if, "peer": subject},
                 )
-            # Fall back to the explicitly named subject device.
-            subject = subject or devices[0]
-            return Intent(
-                "get_peer_interface",
-                {"device": subject, "interface": target_if},
-            )
+            # X exists on no named device: abstain instead of guessing.
+            return None
         return None
 
     # --- "which interface ... connected to ..." always wants an interface ----
@@ -409,9 +454,21 @@ def route(model: NetworkModel, question: str) -> Intent | None:
 
     # --- neighbor: "which device is connected to X Y" --------------------
     if _NEIGHBOR_RE.search(q):
-        if primary and iface:
-            # Asking *for the neighbour of an interface* is the precise operation.
-            return Intent("get_physical_neighbor", {"device": primary, "interface": iface})
+        # An explicitly named local interface narrows the question to one cable.
+        local_if = iface
+        if primary and not local_if:
+            m_on = _ON_IFACE_RE.search(q)
+            if m_on:
+                candidate = m_on.group(1).strip()
+                # Accept the token only when the device actually owns such a port
+                # (IP-phone ports are named PC / Switch, not Fa0/1).
+                owned, _ = ops.find_interface(model, primary, candidate)
+                if owned is not None:
+                    local_if = candidate
+        if primary and local_if:
+            return Intent(
+                "get_physical_neighbor", {"device": primary, "interface": local_if}
+            )
         if primary and len(devices) == 1:
             return Intent("list_physical_neighbors", {"device": primary})
         return None
@@ -419,6 +476,16 @@ def route(model: NetworkModel, question: str) -> Intent | None:
     if _HOSTNAME_RE.search(q):
         if primary:
             return Intent("get_hostname", {"device": primary})
+        return None
+
+    if _PREFIX_RE.search(q):
+        if primary and iface:
+            return Intent("get_interface_prefix_length", {"device": primary, "interface": iface})
+        return None
+
+    if _PREFIX_RE.search(q):
+        if primary and iface:
+            return Intent("get_interface_prefix_length", {"device": primary, "interface": iface})
         return None
 
     if _MASK_RE.search(q):

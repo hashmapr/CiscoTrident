@@ -45,6 +45,13 @@ packages = [
   "trident.normalization",
   "trident.verification",
   "trident.reasoning",
+  "trident.tools",
+  "trident.requirements",
+  "trident.compliance",
+  "trident.remediation",
+  "trident.knowledge",
+  "trident.security",
+  "trident.diff",
 ]
 
 [tool.setuptools.package-data]

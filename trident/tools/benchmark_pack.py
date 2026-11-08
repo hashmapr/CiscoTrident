@@ -144,8 +144,11 @@ def grade(question: dict, actual: str, model=None) -> bool:
                 return True
         return False
 
-    if qtype in {"integer", "number", "count"}:
-        return re.search(rf"(?<!\d){re.escape(str(expected))}(?!\d)", actual) is not None
+    if qtype in {"integer", "number", "count", "derived_prefix_length"}:
+        answer = _norm(actual)
+        if not re.fullmatch(r"-?\d+", answer):
+            return False
+        return any(answer == _norm(str(c)) for c in candidates if str(c).strip())
 
     if qtype in {"boolean", "bool"}:
         low = _norm(actual)
@@ -153,21 +156,18 @@ def grade(question: dict, actual: str, model=None) -> bool:
         return (low in {"true", "yes"}) if yes else (low in {"false", "no"})
 
     if qtype in {"ipv4", "ip", "ip_address", "ipv4_address", "ipv4_subnet_mask", "mask"}:
-        return any(str(c).strip() in actual for c in candidates if c)
+        # Strict: the answer must BE one of the accepted values, not contain it
+        # inside a longer sentence or list.
+        answer = _norm(actual)
+        return any(_norm(c) == answer for c in candidates if c)
 
     if qtype in {"device_name", "device"}:
         return any(_same_device(model, actual, c) for c in candidates if c)
 
-    # default: normalised text equality, or containment for hostnames/models
+    # default: strict normalised equality. No substring containment -- an answer
+    # that merely contains the expected value is not the expected value.
     low_actual = _norm(actual)
-    for cand in candidates:
-        if not cand:
-            continue
-        if _norm(cand) == low_actual:
-            return True
-        if qtype in {"hostname", "device_model", "model"} and _norm(cand) in low_actual:
-            return True
-    return False
+    return any(_norm(c) == low_actual for c in candidates if c)
 
 
 @dataclass

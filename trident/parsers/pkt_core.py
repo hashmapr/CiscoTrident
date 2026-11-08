@@ -122,10 +122,17 @@ class EngineBAdapter(ParserAdapter):
         # --- 1. typed lab model ------------------------------------------------
         devices: list[str] = []
         links: list[tuple[str, str, str, str, str | None]] = []
+        lab = None
         try:
             if is_xml:
-                raise RuntimeError("typed model requires a container; XML input is decoded by engine A")
-            lab = pkt_core.open_lab(file_path)
+                # pkt-core can parse an already-decoded document directly. This is
+                # its OWN parser, not engine A's -- so its observations are
+                # genuinely independent evidence at the extraction layer.
+                from pkt_core.models.lab import Lab as _LabView
+
+                lab = _LabView.from_bytes(file_path.read_bytes())
+            else:
+                lab = pkt_core.open_lab(file_path)
             for dev in lab.devices:
                 if not dev.name:
                     continue
@@ -143,27 +150,28 @@ class EngineBAdapter(ParserAdapter):
         outdir = workdir / "pkt_core_out"
         outdir.mkdir(parents=True, exist_ok=True)
         cli_error: str | None = None
-        try:
-            proc = subprocess.run(
-                [sys.executable, "-m", "pkt_core.cli.main", "unpack", str(file_path), "-o", str(outdir)],
-                capture_output=True,
-                text=True,
-                timeout=self.cfg.parser_timeout,
-                check=False,
-            )
-            if proc.returncode != 0:
-                cli_error = (proc.stderr or proc.stdout or "").strip()[-500:]
-        except subprocess.TimeoutExpired as exc:
-            raise TimeoutError("pkt-core CLI timed out") from exc
-        except FileNotFoundError:
-            cli_error = "pkt-core CLI module not found"
-
+        xml_configs: dict[str, list[str]] = {}
         if is_xml:
-            # No container to unpack: per-device configs and DOT come from the
-            # decoded XML that engine A already owns. Report honestly.
-            messages.append("XML input: configs/links not extracted by this engine")
+            # A decoded XML has no container for the CLI to unpack; running it
+            # would just fail after burning the full timeout. Extract configs
+            # from the typed model instead.
+            xml_configs = _xml_configs_from_lab(lab, placeholder_map, selected_names, messages)
             topology = None
         else:
+            try:
+                proc = subprocess.run(
+                    [sys.executable, "-m", "pkt_core.cli.main", "unpack", str(file_path), "-o", str(outdir)],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.cfg.parser_timeout,
+                    check=False,
+                )
+                if proc.returncode != 0:
+                    cli_error = (proc.stderr or proc.stdout or "").strip()[-500:]
+            except subprocess.TimeoutExpired as exc:
+                raise TimeoutError("pkt-core CLI timed out") from exc
+            except FileNotFoundError:
+                cli_error = "pkt-core CLI module not found"
             topology = _load_topology(outdir, cli_error, messages)
         if topology:
             cli_devices = [d.get("name") for d in topology.get("devices", []) if d.get("name")]
@@ -193,7 +201,7 @@ class EngineBAdapter(ParserAdapter):
                 ]
 
         # --- 3. per-device IOS configs ----------------------------------------
-        configs: dict[str, list[str]] = {}
+        configs: dict[str, list[str]] = dict(xml_configs)
         cfg_dir = outdir / "configs"
         if cfg_dir.is_dir():
             # pkt-core names config files after the raw XML device name, which in
@@ -277,6 +285,51 @@ def _load_topology(outdir: Path, cli_error: str | None, messages: list[str]) -> 
 
 
 _DOT_EDGE_RE = None
+
+
+def _xml_configs_from_lab(
+    lab,
+    placeholder_map: dict[str, str],
+    selected_names: set[str] | None,
+    messages: list[str],
+) -> dict[str, list[str]]:
+    """Pull per-device IOS configs out of pkt-core's typed model for XML input.
+
+    ``device.engine`` is an :class:`XmlElement`. The running configuration lives
+    under ``ENGINE/RUNNINGCONFIG/LINE``; startup is a separate subtree and is never
+    concatenated.
+    """
+    from .snapshot import resolve_display_name
+
+    configs: dict[str, list[str]] = {}
+    if lab is None:
+        return configs
+    for dev in getattr(lab, "devices", []):
+        raw_name = getattr(dev, "name", None)
+        if not raw_name:
+            continue
+        name = resolve_display_name(str(raw_name), placeholder_map)
+        if selected_names is not None and name not in selected_names:
+            continue
+        engine = getattr(dev, "engine", None)
+        if engine is None:
+            continue
+        try:
+            running = engine.find("RUNNINGCONFIG")
+        except Exception:  # noqa: BLE001 - XmlElement API differences
+            running = None  # treat as "no running config" and skip this device
+        if running is None:
+            continue
+        try:
+            lines = [ln.text or "" for ln in running.find_all("LINE")]
+        except Exception:  # noqa: BLE001
+            messages.append(f"{name}: RUNNINGCONFIG has no LINE accessor")
+            continue
+        cleaned = [ln.strip() for ln in lines if ln.strip()]
+        if cleaned:
+            configs[name] = cleaned
+    messages.append(f"pkt-core XML parse: {len(configs)} device configs")
+    return configs
 
 
 def _parse_dot(

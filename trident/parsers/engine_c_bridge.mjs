@@ -49,15 +49,26 @@ try {
 }
 
 let xmlText;
-try {
-  const xmlBytes = decryptPacket(bytes);
-  xmlText = new TextDecoder("utf-8", { fatal: false }).decode(xmlBytes);
-} catch (err) {
-  fail(`decrypt failed: ${err.message}`);
+const isDecodedXml = inputFile.toLowerCase().endsWith(".xml");
+if (isDecodedXml) {
+  // Already-decoded document: no container to decrypt. pt-convert's own
+  // simplifyXmlToJson still runs, so this remains an independent extraction.
+  xmlText = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+} else {
+  try {
+    const xmlBytes = decryptPacket(bytes);
+    xmlText = new TextDecoder("utf-8", { fatal: false }).decode(xmlBytes);
+  } catch (err) {
+    fail(`decrypt failed: ${err.message}`);
+  }
 }
 
 const name = path.basename(inputFile);
-const fileType = name.toLowerCase().endsWith(".pka") ? "PKA" : "PKT";
+const fileType = name.toLowerCase().endsWith(".pka")
+  ? "PKA"
+  : name.toLowerCase().endsWith(".xml")
+    ? "XML"
+    : "PKT";
 
 let simplified;
 try {
