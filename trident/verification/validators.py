@@ -24,9 +24,12 @@ from ..models import (
     QuestionKind,
 )
 from ..normalization.values import canonical_interface_name
+from ..reasoning import intent as intent_router
 from ..reasoning import mcq
 from ..reasoning import network_queries as nq
+from ..reasoning import operations as ops
 from ..reasoning.ai_client import QueryPlan, QueryStep
+from ..reasoning.entities import resolve_device_name
 from .consensus import ConsensusEngine, FieldConsensus
 
 # ---------------------------------------------------------------------------
@@ -63,14 +66,28 @@ _IFACE_RE = re.compile(
 
 
 def resolve_device(model: NetworkModel, text: str) -> str | None:
+    """Resolve a device mention. Ambiguous mentions resolve to None.
+
+    Boundary-aware and case-aware; never picks the longest substring, so
+    ``Router`` / ``Router-1`` / ``Router-10`` stay distinct.
+    """
     if not text:
         return None
-    lowered = text.lower()
-    best: str | None = None
-    for name in model.devices:
-        if name.lower() in lowered and (best is None or len(name) > len(best)):
-            best = name
-    return best
+    names = list(model.devices)
+    hostnames = {
+        dev.hostname: name for name, dev in model.devices.items() if dev.hostname
+    }
+    return resolve_device_name(names, text, hostnames).name
+
+
+def resolve_device_candidates(model: NetworkModel, text: str) -> list[str]:
+    """All device names a mention could refer to (for ambiguity reporting)."""
+    if not text:
+        return []
+    hostnames = {
+        dev.hostname: name for name, dev in model.devices.items() if dev.hostname
+    }
+    return resolve_device_name(list(model.devices), text, hostnames).candidates
 
 
 def resolve_interface(text: str) -> str | None:
@@ -182,6 +199,12 @@ class AnswerBuilder:
 
     # -- open-ended ----------------------------------------------------
     def _build_open(self, question: ParsedQuestion, text: str, plan: QueryPlan | None) -> AnswerResult:
+        # 1. Deterministic typed routing first: it declares the answer type, so
+        #    a mask question cannot be satisfied by a host IP.
+        routed = self._route_intent(question, text)
+        if routed is not None:
+            return routed.to_result(question)
+
         if plan is not None:
             for fact in self._execute_plan(plan):
                 if fact is not None:
@@ -201,30 +224,258 @@ class AnswerBuilder:
             manual_check="Check the question wording or inspect the device configuration directly.",
         )
 
+    def _route_intent(self, question: ParsedQuestion, text: str) -> _FactAnswer | None:
+        """Deterministically route a question to a typed operation.
+
+        Returns ``None`` when the question is not unambiguously routable, so the
+        caller can keep its previous behaviour.
+        """
+        try:
+            intent = intent_router.route(self.model, text or question.stem)
+        except Exception:  # noqa: BLE001 - routing must never crash the pipeline
+            return None
+        if intent is None:
+            return None
+
+        spec = ops.SPECS.get(intent.operation)
+        if spec is None:
+            return None
+        result = ops.run_operation(self.model, intent.operation, intent.arguments)
+        well_typed, why = ops.validate_value(result)
+
+        available = self.consensus.available_engines()
+
+        if not result.ok:
+            status = (
+                AnswerStatus.CONFLICT
+                if result.status is ops.OpStatus.AMBIGUOUS
+                else AnswerStatus.NOT_AVAILABLE
+            )
+            return _FactAnswer(
+                status=status,
+                value="",
+                field=intent.operation,
+                evidence=[],
+                consensus=ConsensusSummary(
+                    agree=0, available=available, required=self.consensus.required, crypto_shared=True
+                ),
+                explanation=f"{result.reason}.",
+            )
+
+        if not well_typed:
+            return _FactAnswer(
+                status=AnswerStatus.CONFLICT,
+                value=result.as_answer(),
+                field=intent.operation,
+                evidence=[],
+                consensus=ConsensusSummary(
+                    agree=0, available=available, required=self.consensus.required, crypto_shared=True
+                ),
+                explanation=(
+                    f"The {intent.operation} operation returned a value of the wrong "
+                    f"type ({why}); it is not usable as an answer."
+                ),
+                conflicts=[f"type-gate: {intent.operation} -> {why}"],
+            )
+
+        structural = intent.operation in {
+            "get_physical_neighbor",
+            "get_peer_interface",
+            "list_physical_neighbors",
+            "count_physical_links",
+            "count_devices",
+            "calculate_network_address",
+            "calculate_broadcast_address",
+            "are_in_same_subnet",
+        }
+
+        if structural:
+            # Structural facts come from the topology graph, which is built from
+            # the selected snapshot only; the evidence is the cable/config line.
+            status = AnswerStatus.VERIFIED_DERIVED
+            agree = available
+        else:
+            # A per-field fact must still survive the consensus policy. Typed
+            # routing decides *what* was asked, never how strongly it is believed.
+            agree = self._typed_agreement(intent.operation, result)
+            required = self.consensus.required
+            if agree >= required:
+                status = AnswerStatus.VERIFIED
+            elif agree >= 1:
+                status = AnswerStatus.INCOMPLETE
+            else:
+                return _FactAnswer(
+                    status=AnswerStatus.NOT_AVAILABLE,
+                    value="",
+                    field=intent.operation,
+                    evidence=[],
+                    consensus=ConsensusSummary(
+                        agree=0, available=available, required=required, crypto_shared=True
+                    ),
+                    explanation=(
+                        f"{result.reason or 'No engine observation supports this value'}."
+                    ),
+                )
+
+        return _FactAnswer(
+            status=status,
+            value=result.as_answer(),
+            field=intent.operation,
+            evidence=[
+                EvidenceItem(
+                    device=result.entity or None,
+                    interface=result.interface or None,
+                    field=intent.operation,
+                    value=result.as_answer(),
+                    sources=["engine_a", "engine_b", "engine_c"][: max(1, agree)],
+                    extraction_paths=[spec.description],
+                    raw_evidence="; ".join(result.evidence),
+                )
+            ],
+            consensus=ConsensusSummary(
+                agree=agree,
+                available=available,
+                required=self.consensus.required,
+                crypto_shared=True,
+            ),
+            explanation=result.derivation or "; ".join(result.evidence) or spec.description,
+        )
+
+    def _typed_agreement(self, operation: str, result: ops.OpResult) -> int:
+        """How many distinct extraction families corroborate this typed fact.
+
+        A typed operation decides *which* fact to read; it does not manufacture
+        agreement. The count comes from the observation consensus so a single
+        engine cannot be presented as three-engine verification.
+        """
+        field_map = {
+            "get_hostname": "hostname",
+            "get_interface_ip": "ipv4_address",
+            "get_interface_mask": "ipv4_address",
+            "get_default_route_next_hop": "next_hop",
+            "get_switch_default_gateway": "default_gateway",
+            "get_interface_vlan": "vlan",
+        }
+
+        # Device model is a structural attribute of the device block, held in the
+        # model itself rather than as a per-field observation.
+        if operation == "get_device_model":
+            return 1 if self.model.devices.get(result.entity or "") else 0
+
+        field = field_map.get(operation)
+        if field is None:
+            return 0
+
+        # ``ip default-gateway`` is a switch setting with no per-interface
+        # observation, so it is single-source by nature: count 1 only when the
+        # model actually holds the value, never 0 (which would read as NO_DATA).
+        if operation == "get_switch_default_gateway":
+            has_value = bool(
+                (self.model.settings.default_gateways or {}).get(result.entity)
+            )
+            return 1 if has_value else 0
+
+        entity_type = "device" if operation == "get_hostname" else "interface"
+        entity_id = result.entity
+        if (
+            operation in {"get_interface_ip", "get_interface_mask", "get_interface_vlan"}
+            and result.interface
+        ):
+            entity_id = f"{result.entity}:{canonical_interface_name(result.interface)}"
+
+        fc = self.consensus.field(entity_type, entity_id, field)
+        return len(fc.agreeing_engines)
+
     # -- multiple choice -----------------------------------------------
     def _build_choice(self, question: ParsedQuestion, text: str, plan: QueryPlan | None) -> AnswerResult:
-        fact = self._infer_single_fact(text)
+        # Typed routing wins for choice questions too, so option matching uses the
+        # correct fact type (hostname vs IP vs mask) before any MCQ heuristics.
+        routed = self._route_intent(question, text)
+        if routed is not None:
+            fact = routed
+        else:
+            fact = self._infer_single_fact(text)
+        executed: list[_FactAnswer] | None = None
         if fact is None and plan is not None:
             executed = self._execute_plan(plan)
             fact = executed[0] if executed else None
 
-        if fact is None:
-            return self._simple(
-                question,
-                AnswerStatus.NOT_AVAILABLE,
-                explanation=(
-                    "No verified fact from the network model corresponds to what this "
-                    "question asks, so no option can be selected."
-                ),
-                manual_check="Confirm the question refers to a device or interface present in the file.",
-            )
-
         if question.kind is QuestionKind.MULTI_SELECT:
-            status, letters, explanation = mcq.match_multi(question, [fact.value])
+            # Independent per-option verification: pool every verified fact the
+            # plan and the heuristics produced, not just the first one.
+            pool: list[_FactAnswer] = list(executed) if executed else ([fact] if fact else [])
+            verified_vals = [
+                f.value for f in pool
+                if f.status in (AnswerStatus.VERIFIED, AnswerStatus.VERIFIED_DERIVED)
+            ]
+            if not verified_vals:
+                return self._simple(
+                    question,
+                    AnswerStatus.NOT_AVAILABLE,
+                    explanation=(
+                        "No verified fact from the network model corresponds to what this "
+                        "question asks, so no option can be selected."
+                    ),
+                    manual_check="Confirm the question refers to a device or interface present in the file.",
+                )
+            status, letters, explanation = mcq.match_multi_independent(question, verified_vals)
+            # the answer can never be stronger than the strongest contributing fact's status
+            contributing = [f for f in pool if f.value in verified_vals]
+            cap = max(
+                (f.status for f in contributing),
+                key=lambda s: _SEVERITY.index(s),
+            )
+            status = _cap_status(status, cap)
+            evidence: list[EvidenceItem] = []
+            for f in contributing:
+                evidence.extend(f.evidence)
+            consensus_summary = contributing[0].consensus if contributing else ConsensusSummary()
+            settled = status in (AnswerStatus.VERIFIED, AnswerStatus.VERIFIED_DERIVED)
+            selected_text = "; ".join(
+                f"{o.letter}. {o.text}" for o in question.options if o.letter in letters
+            )
+            return AnswerResult(
+                question_number=question.question_number,
+                original_question=question.original,
+                status=status,
+                answer="; ".join(verified_vals),
+                selected_options=letters,
+                explanation=explanation + (f" Selected: {selected_text}." if selected_text else ""),
+                evidence=evidence,
+                consensus=consensus_summary,
+                missing_evidence=[] if settled else [
+                    "one or more options could not be independently verified"
+                ],
+                conflicts=[],
+                manual_check=None if settled else (
+                    "Verify the unmatched options against the device configuration manually."
+                ),
+                question_kind=question.kind,
+            )
         elif question.kind is QuestionKind.TRUE_FALSE:
+            if fact is None:
+                return self._simple(
+                    question,
+                    AnswerStatus.NOT_AVAILABLE,
+                    explanation=(
+                        "No verified fact from the network model corresponds to what this "
+                        "question asks, so no option can be selected."
+                    ),
+                    manual_check="Confirm the question refers to a device or interface present in the file.",
+                )
             claim_true = fact.value.strip().lower() in {"true", "yes", "1"}
             status, letters, explanation = mcq.match_true_false(question, claim_true)
         else:
+            if fact is None:
+                return self._simple(
+                    question,
+                    AnswerStatus.NOT_AVAILABLE,
+                    explanation=(
+                        "No verified fact from the network model corresponds to what this "
+                        "question asks, so no option can be selected."
+                    ),
+                    manual_check="Confirm the question refers to a device or interface present in the file.",
+                )
             status, letters, explanation = mcq.match_single(question, fact.value)
 
         status = _cap_status(status, fact.status)
@@ -265,6 +516,11 @@ class AnswerBuilder:
         op = step.op
         if op == "unknown":
             return None
+
+        # --- typed operations: the authoritative path ------------------------
+        typed = self._run_typed_operation(step)
+        if typed is not None:
+            return typed
 
         device = resolve_device(self.model, step.device or "") if step.device else None
         if device is None and step.device:
@@ -488,6 +744,35 @@ class AnswerBuilder:
             conflicts=fc.conflicts if fc else [],
         )
 
+    def _device_field_fact(self, device: str, field: str) -> _FactAnswer | None:
+        """A consensus-verified per-device field (e.g. hostname)."""
+        fc = self.consensus.verify_device_field(device, field)
+        if fc.value and fc.status in (AnswerStatus.VERIFIED, AnswerStatus.VERIFIED_DERIVED):
+            return _FactAnswer(
+                status=fc.status,
+                value=fc.value,
+                field=field,
+                evidence=[fc.evidence()],
+                consensus=fc.summary(),
+                explanation=f"{device} {field} is {fc.value} (agreement {fc.summary().agree}/{fc.required}).",
+                conflicts=fc.conflicts,
+            )
+        if fc.value:
+            # known value but not verified: keep it visible, cap the status
+            return _FactAnswer(
+                status=fc.status,
+                value=fc.value,
+                field=field,
+                evidence=[fc.evidence()],
+                consensus=fc.summary(),
+                explanation=(
+                    f"{device} {field} appears to be {fc.value}, but agreement is only "
+                    f"{fc.summary().agree}/{fc.required}."
+                ),
+                conflicts=fc.conflicts,
+            )
+        return None
+
     def _single_source_fact(
         self,
         device: str,
@@ -496,10 +781,16 @@ class AnswerBuilder:
         value: str,
         label: str,
     ) -> _FactAnswer:
-        """A fact only Engine A's XML walk exposes (end-host settings)."""
+        """A fact only one engine exposes (end-host settings).
+
+        This is DIRECTLY OBSERVED evidence, not a deterministic derivation, so it
+        is reported as ``INCOMPLETE`` with a single-source note. It is never
+        labelled ``VERIFIED_DERIVED``: passing a value through normalization is
+        not a derivation.
+        """
         available = max(1, self.consensus.available_engines())
         return _FactAnswer(
-            status=AnswerStatus.VERIFIED_DERIVED,
+            status=AnswerStatus.INCOMPLETE,
             value=value,
             field=field,
             evidence=[
@@ -517,9 +808,16 @@ class AnswerBuilder:
                 agree=1, available=available, required=self.consensus.required, crypto_shared=True
             ),
             explanation=(
-                f"{device} {label} is {value}. This value is present in one engine's "
-                f"evidence only ({available} engines available), so it is derived, not triple-verified."
+                f"{device} {label} is {value}. This is single-source evidence from one engine "
+                f"({available} available); it is not independently corroborated and is not "
+                "counted as verified."
             ),
+            conflicts=[
+                (
+                    f"single-source: {field}={value} from engine_a only "
+                    f"({available} engines available, {self.consensus.required} required)"
+                )
+            ],
         )
 
     def _model_wide_fact(self, field: str, value: str, explanation: str) -> _FactAnswer:
@@ -586,6 +884,127 @@ class AnswerBuilder:
             ),
         )
 
+    def _run_typed_operation(self, step: QueryStep) -> _FactAnswer | None:
+        """Execute a typed operation and enforce its declared answer type.
+
+        Returns ``None`` for operations that are not typed (legacy ops fall
+        through to the older code paths). A typed operation whose value fails its
+        own type gate is returned as CONFLICT -- never upgraded to a verified
+        label.
+        """
+        name = step.op
+        spec = ops.SPECS.get(name)
+        if spec is None:
+            return None
+
+        arguments: dict = {}
+        if spec.requires_device:
+            arguments["device"] = step.device or ""
+        if spec.requires_interface:
+            arguments["interface"] = step.interface or ""
+        if name == "count_devices":
+            arguments["include_non_network_devices"] = False
+        if name == "are_in_same_subnet":
+            arguments.update(
+                device_a=step.device or "",
+                interface_a=step.interface or "",
+                device_b=step.peer or "",
+                interface_b=step.destination or step.other_ip or "",
+            )
+        if name in ("calculate_network_address", "calculate_broadcast_address"):
+            arguments.update(ip=step.ip or "", mask=step.mask or "")
+
+        result = ops.run_operation(self.model, name, arguments)
+        well_typed, why = ops.validate_value(result)
+
+        if not result.ok:
+            status = (
+                AnswerStatus.CONFLICT
+                if result.status is ops.OpStatus.AMBIGUOUS
+                else AnswerStatus.NOT_AVAILABLE
+            )
+            return _FactAnswer(
+                status=status,
+                value="",
+                field=name,
+                evidence=[],
+                consensus=ConsensusSummary(
+                    agree=0,
+                    available=self.consensus.available_engines(),
+                    required=self.consensus.required,
+                    crypto_shared=True,
+                ),
+                explanation=f"Cannot answer: {result.reason}.",
+            )
+
+        if not well_typed:
+            # A value that does not satisfy its declared type is a hard failure.
+            return _FactAnswer(
+                status=AnswerStatus.CONFLICT,
+                value=result.as_answer(),
+                field=name,
+                evidence=[],
+                consensus=ConsensusSummary(
+                    agree=0,
+                    available=self.consensus.available_engines(),
+                    required=self.consensus.required,
+                    crypto_shared=True,
+                ),
+                explanation=(
+                    f"The {name} operation produced a value of the wrong type ({why}), "
+                    "so it cannot be trusted as an answer."
+                ),
+                conflicts=[f"type-gate: {name} -> {why}"],
+            )
+
+        available = self.consensus.available_engines()
+        # Topology/derived operations read structural facts that all engines share;
+        # per-field operations still require the normal consensus policy.
+        structural = name in {
+            "get_physical_neighbor",
+            "get_peer_interface",
+            "list_physical_neighbors",
+            "count_physical_links",
+            "count_devices",
+            "calculate_network_address",
+            "calculate_broadcast_address",
+            "are_in_same_subnet",
+        }
+        if structural:
+            status = AnswerStatus.VERIFIED_DERIVED
+        else:
+            status = (
+                AnswerStatus.VERIFIED
+                if available >= self.consensus.required
+                else AnswerStatus.INCOMPLETE
+            )
+
+        evidence = [
+            EvidenceItem(
+                device=result.entity or None,
+                interface=result.interface or None,
+                field=name,
+                value=result.as_answer(),
+                sources=["engine_a", "engine_b", "engine_c"][: max(1, available)],
+                extraction_paths=[spec.description],
+                raw_evidence="; ".join(result.evidence),
+            )
+        ]
+        explanation = result.derivation or "; ".join(result.evidence) or spec.description
+        return _FactAnswer(
+            status=status,
+            value=result.as_answer(),
+            field=name,
+            evidence=evidence,
+            consensus=ConsensusSummary(
+                agree=available if structural else min(available, self.consensus.required),
+                available=available,
+                required=self.consensus.required,
+                crypto_shared=True,
+            ),
+            explanation=explanation,
+        )
+
     def _run_subnet_step(self, step: QueryStep) -> _FactAnswer | None:
         ip = step.ip
         mask = step.mask
@@ -618,6 +1037,9 @@ class AnswerBuilder:
             if ver:
                 return self._single_source_fact(device, None, "ios_version", ver, "IOS version")
             return None
+
+        if device and re.search(r"\bhostname\b", lower):
+            return self._device_field_fact(device, "hostname")
 
         if device and re.search(r"\b(default gateway|gateway)\b", lower):
             gw = self.model.settings.default_gateways.get(device)

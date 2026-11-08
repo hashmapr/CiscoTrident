@@ -188,6 +188,8 @@ class AIClientError(RuntimeError):
 class AIClient:
     def __init__(self, cfg: Settings) -> None:
         self.cfg = cfg
+        #: Per-batch failures from the most recent ``plan_questions`` call.
+        self.last_batch_errors: list[str] = []
 
     @property
     def configured(self) -> bool:
@@ -200,10 +202,46 @@ class AIClient:
         }
 
     async def plan_questions(self, digest: dict, questions: list[dict]) -> list[QueryPlan]:
-        """Ask the model for a query plan. Returns [] when unconfigured or unusable."""
-        if not self.configured:
-            return []
+        """Ask the model for query plans, in bounded batches.
 
+        Backwards-compatible wrapper returning only the plans. Per-batch errors
+        are collected in ``self.last_batch_errors`` so a failing chunk never
+        hides the plans produced by the other chunks.
+        """
+        plans, errors = await self.plan_questions_with_errors(digest, questions)
+        self.last_batch_errors = errors
+        return plans
+
+    async def plan_questions_with_errors(
+        self, digest: dict, questions: list[dict]
+    ) -> tuple[list[QueryPlan], list[str]]:
+        """Ask the model for query plans, chunked, returning per-batch errors."""
+        if not self.configured:
+            return [], []
+        if not questions:
+            # Nothing to chunk, but still exercise the transport so callers see
+            # auth/transport failures immediately rather than a silent empty.
+            return await self._plan_one_batch(digest, questions), []
+
+        batch_size = max(1, self.cfg.ai_batch_size)
+        plans: list[QueryPlan] = []
+        errors: list[str] = []
+        total_batches = 0
+        for start in range(0, len(questions), batch_size):
+            chunk = questions[start : start + batch_size]
+            numbers = [q.get("question_number") for q in chunk]
+            total_batches += 1
+            try:
+                plans.extend(await self._plan_one_batch(digest, chunk))
+            except AIClientError as exc:
+                errors.append(f"questions {numbers[0]}-{numbers[-1]}: {exc}")
+        if errors and len(errors) == total_batches:
+            # Every batch failed: surface it as one error instead of pretending
+            # AI simply had nothing to say.
+            raise AIClientError(errors[0] if len(errors) == 1 else ";".join(errors))
+        return plans, errors
+
+    async def _plan_one_batch(self, digest: dict, questions: list[dict]) -> list[QueryPlan]:
         url = self.cfg.ai_base_url.rstrip("/") + "/chat/completions"
         body = {
             "model": self.cfg.ai_model,
@@ -230,11 +268,25 @@ class AIClient:
 
         try:
             payload = response.json()
-            content = payload["choices"][0]["message"]["content"]
+            choice = payload["choices"][0]
+            content = choice["message"]["content"]
         except (KeyError, IndexError, ValueError, TypeError):
             raise AIClientError("AI provider returned an unexpected response shape") from None
 
-        return parse_plan_json(content)
+        # Truncation is a real failure mode for long batches: the plan JSON is cut
+        # off mid-object. Refuse the batch's plans rather than silently dropping
+        # questions.
+        finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        plans = parse_plan_json(content)
+        if finish_reason == "length" and not plans:
+            raise AIClientError(
+                "AI response was truncated (finish_reason=length); reduce AI_BATCH_SIZE or raise AI_MAX_TOKENS"
+            )
+
+        # Reconcile against the questions that were actually sent: never return a
+        # plan for a question we did not ask, and never invent one we did.
+        requested = {int(q["question_number"]) for q in questions if "question_number" in q}
+        return [p for p in plans if p.question_number in requested]
 
 
 def _scrub(text: str, secret: str) -> str:

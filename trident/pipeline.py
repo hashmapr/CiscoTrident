@@ -91,17 +91,17 @@ async def analyze(
         file_path = ingested.temp_path(workdir)
         results = await _run_adapters(adapters, file_path, workdir, cfg)
 
-        model = Normalizer(results).build()
+        snap_warnings: list[str] = []
+        agreed_snapshot, snap_ambiguous = _agree_snapshot(results, snap_warnings)
+        model = Normalizer(results, snapshot_id=agreed_snapshot).build()
         model.file_sha256 = ingested.sha256
-
-        # propagate snapshot information from Engine A (it is the decode authority)
-        for res in results:
-            raw = res.raw or {}
-            if "snapshot" in raw:
-                model.snapshot_id = raw["snapshot"]
-                model.snapshot_ambiguous = bool(raw.get("snapshot_ambiguous", False))
-                model.snapshot_notes = list(raw.get("notes", []))
-                break
+        model.snapshot_ambiguous = snap_ambiguous or agreed_snapshot == "abstain"
+        model.snapshot_notes = [
+            note
+            for res in results
+            for note in ((res.raw or {}).get("snapshot_notes") or [])
+        ]
+        model.warnings.extend(snap_warnings)
 
         consensus = ConsensusEngine(model, cfg)
 
@@ -126,6 +126,8 @@ async def analyze(
                 )
                 plans = {p.question_number: p for p in plans_list}
                 ai_used = bool(plans)
+                for message in client.last_batch_errors:
+                    model.warnings.append(f"AI batch unavailable ({message})")
             except AIClientError as exc:
                 ai_error = str(exc)
 
@@ -165,6 +167,36 @@ async def analyze(
         warnings=warnings,
     )
     return AnalysisOutcome(response=response, model=model, adapter_results=results)
+
+
+def _agree_snapshot(results: list, warnings: list[str]) -> tuple[str, bool]:
+    """Every adapter must have selected the same snapshot; else abstain.
+
+    Abstained engines contribute no observations anyway; a disagreement between
+    engines that DID extract is a bug signal, so the model abstains too.
+    Returns ``(snapshot_id, ambiguous)``.
+    """
+    ids: set[str] = set()
+    ambiguous = False
+    snapshot_amb = False
+    for res in results:
+        raw = res.raw or {}
+        sid = raw.get("snapshot")
+        if raw.get("snapshot_abstained") or raw.get("snapshot_ambiguous"):
+            snapshot_amb = True
+        if sid and sid not in ("abstain", "unknown"):
+            ids.add(str(sid))
+            if raw.get("snapshot_ambiguous"):
+                ambiguous = True
+    if len(ids) > 1:
+        warnings.append(
+            "adapters disagreed about the selected snapshot (" + ", ".join(sorted(ids)) + "); "
+            "abstaining instead of merging"
+        )
+        return "abstain", True
+    if ambiguous or snapshot_amb:
+        warnings.append("snapshot selection was ambiguous for at least one adapter")
+    return next(iter(ids), ""), ambiguous
 
 
 def _summary(model: NetworkModel, consensus: ConsensusEngine) -> dict:

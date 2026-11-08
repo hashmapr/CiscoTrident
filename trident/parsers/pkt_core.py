@@ -15,13 +15,21 @@ and contributes nothing to consensus.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 from ..models import ParserReport, ParserState
+from ..normalization.configs import parse_running_config
 from ..normalization.values import canonical_interface_name
 from .base import AdapterResult, ParserAdapter
+from .snapshot import (
+    build_placeholder_map,
+    device_names_in,
+    resolve_display_name,
+    select_snapshot,
+)
 
 
 class EngineBAdapter(ParserAdapter):
@@ -65,15 +73,62 @@ class EngineBAdapter(ParserAdapter):
 
         messages: list[str] = []
 
+        # --- 0. snapshot selection (same policy as engines A and C) ------------
+        # The whole decoded document is inspected ONLY to select the snapshot;
+        # extraction below is filtered to that snapshot's device inventory, so
+        # reference/answer networks in other blocks or wrappers never leak in.
+        selected_names: set[str] | None = None
+        placeholder_map: dict[str, str] = {}
+        try:
+            decoded = pkt_core.decode_bytes(file_path.read_bytes()).xml
+            selection = select_snapshot(decoded.decode("utf-8", errors="replace"))
+            result.raw["snapshot"] = selection.snapshot_id
+            result.raw["snapshot_notes"] = selection.notes
+            result.raw["snapshot_abstained"] = selection.abstained
+            result.extraction_family = "pkt-core"
+            result.report.notes = list(selection.notes)
+            if selection.abstained:
+                result.report.state = ParserState.OK
+                result.report.message = (
+                    "snapshot selection abstained: " + "; ".join(selection.notes)
+                )
+                result.report.device_count = 0
+                return result
+            selected_names = set(device_names_in(selection.xml_text or ""))
+            # Engines report device names exactly as they appear in the raw XML,
+            # i.e. still carrying ``[[pr3-rt_Display_name]]`` placeholders. Resolve
+            # them the same way the selected snapshot was resolved, otherwise every
+            # real device is filtered out and only unnamed objects survive.
+            placeholder_map = build_placeholder_map(decoded.decode("utf-8", errors="replace"))
+            result.raw["placeholder_map"] = placeholder_map
+        except Exception as exc:  # noqa: BLE001 - pkt_core version differences
+            # Cannot identify the intended snapshot safely -> abstain entirely.
+            result.raw["snapshot"] = "abstain"
+            result.raw["snapshot_notes"] = [
+                (f"snapshot could not be determined ({type(exc).__name__}); abstaining instead of "
+                 "extracting from the whole document")
+            ]
+            result.raw["snapshot_abstained"] = True
+            result.report.notes = list(result.raw["snapshot_notes"])
+            result.report.message = "snapshot selection abstained: " + result.raw["snapshot_notes"][0]
+            result.report.device_count = 0
+            return result
+
         # --- 1. typed lab model ------------------------------------------------
         devices: list[str] = []
         links: list[tuple[str, str, str, str, str | None]] = []
         try:
             lab = pkt_core.open_lab(file_path)
             for dev in lab.devices:
-                if dev.name:
-                    devices.append(dev.name)
-            messages.append(f"typed model: {len(devices)} devices")
+                if not dev.name:
+                    continue
+                resolved = resolve_display_name(dev.name, placeholder_map)
+                if selected_names is None or resolved in selected_names:
+                    devices.append(resolved)
+            if selected_names is not None:
+                messages.append(f"typed model: {len(devices)} devices (snapshot-scoped)")
+            else:
+                messages.append(f"typed model: {len(devices)} devices")
         except Exception as exc:  # noqa: BLE001
             messages.append(f"typed model failed: {type(exc).__name__}: {exc}")
 
@@ -99,22 +154,48 @@ class EngineBAdapter(ParserAdapter):
         topology = _load_topology(outdir, cli_error, messages)
         if topology:
             cli_devices = [d.get("name") for d in topology.get("devices", []) if d.get("name")]
+            if selected_names is not None:
+                cli_devices = [
+                    n
+                    for n in (resolve_display_name(x, placeholder_map) for x in cli_devices)
+                    if n in selected_names
+                ]
             for name in cli_devices:
                 if name and name not in devices:
                     devices.append(name)
             result.raw["topology"] = topology
 
-        # links from topology.json are not emitted; use DOT if present
+        # links from topology.json are not emitted; use DOT if present.
+        # DOT edges are filtered to devices inside the selected snapshot so that
+        # links to reference-network devices cannot leak into the model.
         dot = next(outdir.glob("*.dot"), None)
         if dot is not None:
             links = _parse_dot(dot.read_text(encoding="utf-8", errors="replace"))
+            if selected_names is not None:
+                links = [
+                    ln for ln in links
+                    if ln[0] in selected_names and ln[2] in selected_names
+                ]
 
         # --- 3. per-device IOS configs ----------------------------------------
         configs: dict[str, list[str]] = {}
         cfg_dir = outdir / "configs"
         if cfg_dir.is_dir():
+            # pkt-core sanitises filenames; map slug -> real snapshot device name
+            # so configs are matched to the selected snapshot without dropping
+            # devices whose names contain spaces or punctuation.
+            slug_to_name = (
+                {_slug(name): name for name in selected_names} if selected_names is not None else {}
+            )
             for cfg_file in sorted(cfg_dir.glob("*.cfg")):
                 name = cfg_file.stem
+                if selected_names is not None:
+                    resolved = slug_to_name.get(name) or slug_to_name.get(_slug(name))
+                    if resolved is None:
+                        resolved = slug_to_name.get(_slug(resolve_display_name(name, placeholder_map)))
+                    if resolved is None:
+                        continue
+                    name = resolved
                 lines = [
                     ln.rstrip("\r")
                     for ln in cfg_file.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -127,7 +208,9 @@ class EngineBAdapter(ParserAdapter):
         result.configs = configs
         result.report.device_count = len(result.devices)
         result.report.link_count = len(links)
-        result.report.interface_count = sum(1 for _ in configs)
+        result.report.interface_count = sum(
+            len(parse_running_config(lines).interfaces) for lines in configs.values()
+        )
         result.report.message = "; ".join(messages) or "unpacked"
 
         if not result.devices and not result.configs:
@@ -137,6 +220,17 @@ class EngineBAdapter(ParserAdapter):
                 + (f"CLI error: {cli_error}" if cli_error else "This file may be an empty activity skeleton.")
             )
         return result
+
+
+def _slug(name: str) -> str:
+    """Sanitised filename stem used by pkt-core for per-device .cfg files.
+
+    pkt-core replaces every non-alphanumeric character with ``_`` and strips
+    edge underscores, so ``Hub Switch 1 (Our Trusty Sidekick)`` becomes
+    ``Hub_Switch_1__Our_Trusty_Sidekick``. Comparing raw names would drop every
+    config whenever a device name contains spaces or punctuation.
+    """
+    return re.sub(r"[^A-Za-z0-9]", "_", name).strip("_")
 
 
 def _load_topology(outdir: Path, cli_error: str | None, messages: list[str]) -> dict | None:

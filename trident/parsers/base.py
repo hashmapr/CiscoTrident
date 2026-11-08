@@ -35,6 +35,9 @@ class AdapterResult:
     end_hosts: dict[str, dict] = field(default_factory=dict)
     #: True when this engine's container decode is the shared public algorithm.
     crypto_shared: bool = True
+    #: The independent extraction pipeline that produced this result's facts.
+    #: Consensus requires distinct families, not merely distinct engine IDs.
+    extraction_family: str = ""
     #: Free-form engine-specific payload for debugging / export.
     raw: dict = field(default_factory=dict)
 

@@ -72,10 +72,17 @@ class Settings:
     ai_temperature: float = field(default_factory=lambda: _env_float("AI_TEMPERATURE", 0.0))
     ai_timeout: float = field(default_factory=lambda: _env_float("AI_TIMEOUT", 60.0))
     ai_max_tokens: int = field(default_factory=lambda: _env_int("AI_MAX_TOKENS", 1200))
+    #: Questions per AI request. Bounded so a 65-100 question batch cannot be
+    #: truncated mid-JSON; larger batches are chunked automatically.
+    ai_batch_size: int = field(default_factory=lambda: _env_int("AI_BATCH_SIZE", 12))
 
     # --- ingestion limits ---
     max_file_bytes: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_FILE_BYTES", 64 * 1024 * 1024))
     max_xml_bytes: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_XML_BYTES", 256 * 1024 * 1024))
+    #: Reject decoded payloads that inflate more than this multiple of the input.
+    max_decompression_ratio: int = field(
+        default_factory=lambda: _env_int("TRIDENT_MAX_DECOMPRESSION_RATIO", 200)
+    )
     max_questions: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_QUESTIONS", 500))
     max_question_chars: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_QUESTION_CHARS", 8_000))
 
@@ -94,6 +101,11 @@ class Settings:
     # --- engine A native library ---
     libtwofish: str = field(default_factory=lambda: os.environ.get("LIBTWOFISH", "").strip())
 
+    # --- local test corpus (read-only; never uploaded) ---
+    test_corpus_dir: str = field(
+        default_factory=lambda: os.environ.get("TRIDENT_TEST_CORPUS_DIR", "").strip()
+    )
+
     def __post_init__(self) -> None:
         if self.consensus_policy not in CONSENSUS_POLICIES:
             object.__setattr__(self, "consensus_policy", "strict")
@@ -111,11 +123,13 @@ class Settings:
             "ai_model": self.ai_model or None,
             "ai_base_url": self.ai_base_url or None,
             "ai_temperature": self.ai_temperature,
+            "ai_batch_size": self.ai_batch_size,
             "consensus_policy": self.consensus_policy,
             "max_file_bytes": self.max_file_bytes,
             "max_questions": self.max_questions,
             "parser_timeout": self.parser_timeout,
             "pt_convert_configured": bool(self.pt_convert_dir),
+            "test_corpus_configured": bool(self.test_corpus_dir),
         }
 
 

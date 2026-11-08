@@ -74,6 +74,10 @@ process.stdout.write(
   JSON.stringify({
     xml_bytes: xmlText.length,
     xml_sha256_input_len: bytes.length,
+    // Full decoded XML is passed back so TRIDENT (in Python) applies the ONE
+    // shared snapshot-selection policy to the exact bytes pt-convert decoded.
+    // pt-convert source is never copied or modified by this.
+    xml_text: xmlText,
     devices: simplified.devices ?? {},
     links: simplified.links ?? [],
     metadata: simplified.metadata ?? {},

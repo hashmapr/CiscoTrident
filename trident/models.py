@@ -45,7 +45,15 @@ class QuestionKind(str, enum.Enum):
 # ---------------------------------------------------------------------------
 
 class Provenance(BaseModel):
-    """Where one observation came from. Never empty for a trusted fact."""
+    """Where one observation came from. Never empty for a trusted fact.
+
+    The fields name the four independence layers explicitly:
+
+    * ``decoder``            - Layer A, container decode implementation
+    * ``extraction_family``  - Layer B, how the facts were pulled out
+    * ``interpretation_family`` - Layer C, how text became semantics
+    * ``validation``         - Layer D, checks applied afterwards
+    """
 
     engine: str = Field(description="Engine identifier: engine_a | engine_b | engine_c")
     extraction_path: str = Field(
@@ -57,6 +65,22 @@ class Provenance(BaseModel):
     crypto_shared: bool = Field(
         default=True,
         description="True when the container decode uses the shared public algorithm",
+    )
+    # --- explicit independence layers ---
+    decoder: str = Field(
+        default="", description="Layer A: container decode implementation (shared format)"
+    )
+    extraction_family: str = Field(
+        default="", description="Layer B: independent extraction pipeline"
+    )
+    interpretation_family: str = Field(
+        default="", description="Layer C: semantic interpretation implementation"
+    )
+    normalization: list[str] = Field(
+        default_factory=list, description="Normalization operations applied"
+    )
+    validation: list[str] = Field(
+        default_factory=list, description="Validation operations applied"
     )
 
 
@@ -120,6 +144,8 @@ class RouteInfo(BaseModel):
     next_hop: str | None = None
     outgoing_interface: str | None = None
     route_type: str
+    #: Device that owns this route. Required to answer "the default route of X".
+    device: str = ""
     administrative_distance: int | None = None
     protocol: str | None = None
     raw_config: str = ""
@@ -183,19 +209,23 @@ class NetworkModel(BaseModel):
         return sorted(self.devices)
 
     def find_device(self, name: str) -> DeviceInfo | None:
+        """Exact name/hostname lookup. Ambiguous aliases resolve to nothing."""
         if not name:
             return None
         key = name.strip().lower()
         for dev in self.devices.values():
             if dev.name.lower() == key:
                 return dev
+        for dev in self.devices.values():
             if dev.hostname and dev.hostname.lower() == key:
                 return dev
-        # alias: strip common suffixes like _Router, -1
-        for dev in self.devices.values():
-            base = dev.name.lower().split("_")[0]
-            if base == key:
-                return dev
+        # Explicit alias rule (strip a single leading segment), but only when it
+        # identifies exactly one device. Never pick arbitrarily between several.
+        base = key.split("_")[0]
+        if base != key:
+            alias_hits = [d for d in self.devices.values() if d.name.lower().split("_")[0] == base]
+            if len(alias_hits) == 1:
+                return alias_hits[0]
         return None
 
     def device_interfaces(self, device_name: str) -> list[InterfaceInfo]:
@@ -282,6 +312,8 @@ class ParserReport(BaseModel):
     link_count: int = 0
     capabilities: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    #: Adapter notes (e.g. snapshot selection remarks) surfaced to the user.
+    notes: list[str] = Field(default_factory=list)
 
 
 class AnalysisResponse(BaseModel):

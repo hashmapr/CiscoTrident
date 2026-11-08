@@ -43,6 +43,23 @@ _MAC_FIELDS = {"mac_address", "endhost_mac"}
 _IFACE_FIELDS = {"interface", "link_interface"}
 
 
+def _extraction_family(obs: Observation) -> str:
+    """The independent extraction pipeline that produced this observation.
+
+    Prefers the explicit ``extraction_family`` layer (B); falls back to the
+    ``family:how`` prefix in ``extraction_path``. A missing family cannot
+    participate in verification.
+    """
+    if obs.provenance.extraction_family:
+        return obs.provenance.extraction_family.strip().lower()
+    return (obs.provenance.extraction_path or "").split(":", 1)[0].strip().lower()
+
+
+def _interpretation_family(obs: Observation) -> str:
+    """Layer C. When every engine shares one parser, agreement is one opinion."""
+    return (obs.provenance.interpretation_family or "").strip().lower()
+
+
 class FieldConsensus:
     """Consensus for one (entity, field) pair."""
 
@@ -54,6 +71,7 @@ class FieldConsensus:
         observations: list[Observation],
         required: int,
         policy: str,
+        expected_snapshot: str = "",
     ) -> None:
         self.entity_type = entity_type
         self.entity_id = entity_id
@@ -61,6 +79,7 @@ class FieldConsensus:
         self.observations = observations
         self.required = required
         self.policy = policy
+        self.expected_snapshot = expected_snapshot
 
         self._by_value: dict[str, list[Observation]] = defaultdict(list)
         for obs in observations:
@@ -74,28 +93,66 @@ class FieldConsensus:
     def available(self) -> int:
         return len(self.engines)
 
+    def _verification_blockers(self, obs: list[Observation]) -> list[str]:
+        """Structural checks that must hold before any verification status."""
+        blockers: list[str] = []
+        families = {_extraction_family(o) for o in obs}
+        if "" in families:
+            blockers.append("missing extraction family in provenance")
+        snapshots = {o.provenance.snapshot for o in obs}
+        if not self.expected_snapshot:
+            blockers.append("model has no snapshot identity; cannot bind evidence to one snapshot")
+        elif len(snapshots) > 1:
+            blockers.append("observations reference different snapshots")
+        elif snapshots != {self.expected_snapshot}:
+            blockers.append(
+                "observations do not carry the selected snapshot id"
+            )
+        return blockers
+
     @property
     def status(self) -> AnswerStatus:
         if not self.observations:
             return AnswerStatus.NOT_AVAILABLE
 
         if len(self._by_value) > 1:
+            # Conflicting values remain a conflict regardless of policy.
             return AnswerStatus.CONFLICT
 
         best_value = max(self._by_value, key=lambda v: len(self._by_value[v]))
-        agreeing_engines = {o.provenance.engine for o in self._by_value[best_value]}
+        agreeing = list(self._by_value[best_value])
+        agreeing_engines = {o.provenance.engine for o in agreeing}
 
-        if len(agreeing_engines) >= self.required:
-            return AnswerStatus.VERIFIED
+        # Policy floors: availability never lowers the verification bar.
+        if self.policy == "strict":
+            threshold = 3
+        elif self.policy == "two_engine":
+            threshold = 2
+        else:  # deterministic
+            threshold = 1
 
-        # Deterministic policy: a single trusted derivation may be VERIFIED_DERIVED
-        if self.policy == "deterministic" and len(agreeing_engines) >= 1 and self.required <= 2:
+        if len(agreeing_engines) < threshold:
+            return AnswerStatus.INCOMPLETE
+
+        blockers = self._verification_blockers(agreeing)
+        if blockers:
+            return AnswerStatus.INCOMPLETE
+
+        families = {_extraction_family(o) for o in agreeing}
+        if len(families) < threshold:
+            # Distinct extraction pipelines required: agreeing values that all
+            # come from one extraction family are single-source evidence.
+            return AnswerStatus.INCOMPLETE
+
+        decoders = {o.provenance.decoder for o in agreeing if o.provenance.decoder}
+        if len(decoders) == 1 and len(agreeing) > 1 and "shared" not in next(iter(decoders)):
+            # One decoder claiming to be independent across engines is a lie we
+            # cannot verify; treat as single-source rather than verifying.
+            return AnswerStatus.INCOMPLETE
+
+        if self.policy == "deterministic":
             return AnswerStatus.VERIFIED_DERIVED
-
-        if len(agreeing_engines) >= 2 and self.policy == "two_engine" and self.required <= 2:
-            return AnswerStatus.VERIFIED
-
-        return AnswerStatus.INCOMPLETE
+        return AnswerStatus.VERIFIED
 
     @property
     def value(self) -> str | None:
@@ -189,17 +246,19 @@ class ConsensusEngine:
     @property
     def required(self) -> int:
         """How many agreeing engines a VERIFIED result demands."""
-        available = self.available_engines()
         if self.policy == "strict":
             return 3
         if self.policy == "two_engine":
-            return min(2, max(available, 1))
-        return min(3, max(available, 1))
+            return 2
+        return 1
 
     # ------------------------------------------------------------------
     def field(self, entity_type: str, entity_id: str, field: str) -> FieldConsensus:
         obs = self._groups.get((entity_type, entity_id, field), [])
-        return FieldConsensus(entity_type, entity_id, field, obs, self.required, self.policy)
+        return FieldConsensus(
+            entity_type, entity_id, field, obs, self.required, self.policy,
+            expected_snapshot=self.model.snapshot_id,
+        )
 
     def verify_interface_field(self, device: str, interface: str, field: str) -> FieldConsensus:
         canon = canonical_interface_name(interface)
@@ -212,7 +271,10 @@ class ConsensusEngine:
     def all_conflicts(self) -> list[str]:
         out: list[str] = []
         for (entity_type, entity_id, field), obs in sorted(self._groups.items()):
-            fc = FieldConsensus(entity_type, entity_id, field, obs, self.required, self.policy)
+            fc = FieldConsensus(
+                entity_type, entity_id, field, obs, self.required, self.policy,
+                expected_snapshot=self.model.snapshot_id,
+            )
             out.extend(fc.conflicts)
         return out
 
@@ -220,7 +282,10 @@ class ConsensusEngine:
         """Compact machine-readable view used by the UI and exports."""
         result: dict[str, dict] = {}
         for (entity_type, entity_id, field), obs in sorted(self._groups.items()):
-            fc = FieldConsensus(entity_type, entity_id, field, obs, self.required, self.policy)
+            fc = FieldConsensus(
+                entity_type, entity_id, field, obs, self.required, self.policy,
+                expected_snapshot=self.model.snapshot_id,
+            )
             result[f"{entity_id}.{field}"] = {
                 "status": fc.status.value,
                 "value": fc.value,

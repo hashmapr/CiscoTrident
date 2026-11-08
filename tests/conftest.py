@@ -22,8 +22,19 @@ REAL_PKT = FIXTURES / "sample_lab.pkt"
 REAL_PKA = FIXTURES / "sample_activity.pka"
 
 
+# Each engine declares the independent extraction pipeline that produced its
+# observations. Consensus requires distinct families, so synthetic observations
+# must carry the same family prefix the real adapters emit.
+_ENGINE_FAMILY = {
+    "engine_a": "raw-xml-walk",
+    "engine_b": "pkt-core",
+    "engine_c": "pt-convert",
+}
+
+
 def make_prov(engine: str, path: str = "ios-config") -> Provenance:
-    return Provenance(engine=engine, extraction_path=path, snapshot="block0")
+    family = _ENGINE_FAMILY.get(engine, engine)
+    return Provenance(engine=engine, extraction_path=f"{family}:{path}", snapshot="block0")
 
 
 def obs(

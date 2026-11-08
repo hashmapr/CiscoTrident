@@ -21,6 +21,7 @@ from ..models import ParserReport, ParserState
 from ..normalization.configs import parse_running_config
 from ..normalization.values import canonical_interface_name, normalize_mac
 from .base import AdapterResult, ParserAdapter
+from .snapshot import SnapshotSelection, select_snapshot
 
 VENDOR_DIR = REPO_ROOT / "vendor" / "engine_a"
 PKG_DIR = VENDOR_DIR / "pka2xml"
@@ -29,6 +30,8 @@ IMPORT_ROOT = VENDOR_DIR
 
 _TAG_RE = re.compile(r"<([A-Za-z0-9_]+)([^>]*)>")
 _LINE_RE = re.compile(r"<LINE>(.*?)</LINE>", re.DOTALL)
+_RUNNINGCONFIG_RE = re.compile(r"<RUNNINGCONFIG>(.*?)</RUNNINGCONFIG>", re.DOTALL)
+_STARTUPCONFIG_RE = re.compile(r"<STARTUPCONFIG>(.*?)</STARTUPCONFIG>", re.DOTALL)
 
 
 class EngineAAdapter(ParserAdapter):
@@ -88,28 +91,55 @@ class EngineAAdapter(ParserAdapter):
 
         raw = file_path.read_bytes()
         xml_bytes = decrypt_pka(raw)
+        # The vendored decoder inflates before returning, so these checks run
+        # after the fact and cannot stop a bomb in progress; they do refuse to
+        # hand oversized output to downstream parsers. Real lab files inflate
+        # ~10-13x, so the ratio cap is a backstop, not a primary control.
         if len(xml_bytes) > self.cfg.max_xml_bytes:
             raise ValueError("decoded XML exceeds configured maximum size")
+        if len(xml_bytes) > max(1, len(raw)) * self.cfg.max_decompression_ratio:
+            raise ValueError(
+                "decoded XML exceeds the maximum decompression ratio "
+                f"({self.cfg.max_decompression_ratio}x); refusing a possible bomb"
+            )
 
         xml_text = xml_bytes.decode("utf-8", errors="replace")
-        snapshot_id, snapshot_ambiguous, notes = _select_snapshot(xml_text)
+        selection = select_snapshot(xml_text)
 
         result = AdapterResult(
             engine_id=self.engine_id,
             report=ParserReport(
                 engine=self.engine_id,
                 state=ParserState.OK,
-                message=f"decoded {len(xml_bytes):,} bytes of XML",
+                message=(_abstain_message(selection) if selection.abstained
+                         else f"decoded {len(xml_bytes):,} bytes of XML"),
                 version="MIT build",
             ),
-            raw={"snapshot": snapshot_id, "snapshot_ambiguous": snapshot_ambiguous, "notes": notes},
+            raw={
+                "snapshot": selection.snapshot_id,
+                "snapshot_ambiguous": selection.ambiguous,
+                "snapshot_notes": selection.notes,
+                "snapshot_abstained": selection.abstained,
+                "snapshot_scope": "selection",  # the walk parse selection.xml_text only
+                "notes": selection.notes,
+            },
+            extraction_family="raw-xml-walk",
         )
 
-        walk = _walk_xml(xml_text)
+        if selection.abstained:
+            # Abstain: contribute nothing rather than analyse the wrong snapshot.
+            result.report.device_count = 0
+            result.report.link_count = 0
+            result.report.interface_count = 0
+            return result
+
+        walk = _walk_xml(selection.xml_text or "")
         result.devices = walk["devices"]
         result.configs = walk["configs"]
         result.links = walk["links"]
         result.end_hosts = walk["end_hosts"]
+        result.raw["models"] = walk.get("models", {})
+        result.report.notes = list(selection.notes)
         result.report.device_count = len(result.devices)
         result.report.link_count = len(result.links)
         result.report.interface_count = sum(
@@ -122,31 +152,10 @@ class EngineAAdapter(ParserAdapter):
 # Snapshot selection
 # ---------------------------------------------------------------------------
 
-_SNAPSHOT_BLOCK_RE = re.compile(r"<PACKETTRACER5>(.*?)</PACKETTRACER5>", re.DOTALL)
-_ACTIVITY_KEYS = ("<ACTIVITY>", "<COMPARISONS>", "<CLEAN_ACTIVITY>", "<INITIALSETUP>")
-
-
 def _select_snapshot(xml_text: str) -> tuple[str, bool, list[str]]:
-    """Pick one network snapshot; never merge and never read answer keys."""
-    blocks = _SNAPSHOT_BLOCK_RE.findall(xml_text)
-    notes: list[str] = []
-    if not blocks:
-        return "root", False, ["no <PACKETTRACER5> block; treating root as snapshot"]
-
-    counts = [len(re.findall(r"<DEVICE[ />]", b)) for b in blocks]
-    non_empty = [i for i, c in enumerate(counts) if c > 0]
-    if not non_empty:
-        return "block0", False, ["all snapshot blocks are empty"]
-
-    if len(non_empty) > 1:
-        best = max(non_empty, key=lambda i: counts[i])
-        notes.append(
-            "multiple non-empty snapshot blocks "
-            f"(device counts {counts}); analysing block index {best} only"
-        )
-        return f"block{best}", True, notes
-
-    return f"block{non_empty[0]}", False, notes
+    """Back-compat wrapper around the shared policy in ``parsers.snapshot``."""
+    sel = select_snapshot(xml_text)
+    return sel.snapshot_id, sel.ambiguous, list(sel.notes)
 
 
 # ---------------------------------------------------------------------------
@@ -163,16 +172,39 @@ _DNS_RE = re.compile(r"<SERVER_IP>(.*?)</SERVER_IP>", re.DOTALL)
 _ENDHOST_IP_RE = re.compile(r"<IP>(.*?)</IP>", re.DOTALL)
 _MAC_RE = re.compile(r"<MACADDRESS>(.*?)</MACADDRESS>", re.DOTALL)
 _LINK_BLOCK_RE = re.compile(r"<LINK>(.*?)</LINK>", re.DOTALL)
-_LINK_FIELD_RE = {
-    name: re.compile(rf"<{name}>(.*?)</{name}>", re.DOTALL)
-    for name in ("TYPE", "FROM", "PORT", "TO", "TYPE")
-}
+
+
+def _device_config_lines(scope: str) -> list[str]:
+    """Extract a device's *running* configuration lines.
+
+    A device block carries both ``<RUNNINGCONFIG>`` and ``<STARTUPCONFIG>``.
+    Concatenating every ``<LINE>`` in the block merges the two: the startup copy
+    (the previously saved state) overwrites the running interfaces with stale
+    IPs and hostnames, which then conflict against the other engines.
+
+    The running configuration is authoritative for what the network is doing
+    now; startup config is only a fallback when no running config is present.
+    """
+    for rx in (_RUNNINGCONFIG_RE, _STARTUPCONFIG_RE):
+        m = rx.search(scope)
+        if not m:
+            continue
+        lines = [line.strip() for line in _LINE_RE.findall(m.group(1))]
+        if lines:
+            return lines
+    # No wrapped config section: fall back to bare LINE elements only when the
+    # block has no RUNNINGCONFIG/STARTUPCONFIG at all (legacy layouts).
+    if _RUNNINGCONFIG_RE.search(scope) or _STARTUPCONFIG_RE.search(scope):
+        return []
+    return [line.strip() for line in _LINE_RE.findall(scope)]
+
 
 
 def _walk_xml(xml_text: str) -> dict:
     devices: list[str] = []
     configs: dict[str, list[str]] = {}
     end_hosts: dict[str, dict] = {}
+    models: dict[str, str] = {}
     ref_to_name: dict[str, str] = {}
 
     for block in _DEVICE_BLOCK_RE.findall(xml_text):
@@ -189,9 +221,16 @@ def _walk_xml(xml_text: str) -> dict:
             continue
         devices.append(name)
 
-        lines = [line for line in _LINE_RE.findall(scope)]
+        # Hardware model is carried as an attribute on <TYPE model="2911">.
+        type_m = _TYPE_RE.search(scope)
+        if type_m:
+            model = (type_m.group(1) or "").strip()
+            if model and model.lower() != "power distribution device":
+                models[name] = model
+
+        lines = _device_config_lines(scope)
         if lines:
-            configs[name] = [line.strip() for line in lines]
+            configs[name] = lines
 
         ref = _SAVEREF_RE.search(scope)
         if ref and ref.group(1).strip():
@@ -237,4 +276,14 @@ def _walk_xml(xml_text: str) -> dict:
             )
         )
 
-    return {"devices": devices, "configs": configs, "links": links, "end_hosts": end_hosts}
+    return {
+        "devices": devices,
+        "configs": configs,
+        "links": links,
+        "end_hosts": end_hosts,
+        "models": models,
+    }
+
+
+def _abstain_message(selection: SnapshotSelection) -> str:
+    return "snapshot selection abstained: " + "; ".join(selection.notes)

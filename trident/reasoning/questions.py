@@ -76,14 +76,13 @@ def parse_questions(
         m = _NUM_RE.match(line)
         if m:
             new_num = int(m.group(1))
-            # Only treat as a new question when numbering advances sensibly.
-            if current_lines and (current_number is None or new_num > current_number):
+            # Any numbered line starts a new question. Requiring the numbering to
+            # advance dropped every question after an out-of-order or duplicate
+            # number (e.g. a pasted excerpt starting at 65 then 57, 54), silently
+            # losing most of the batch.
+            if current_lines:
                 blocks.append((current_number, current_lines))
-                current_number, current_lines = new_num, [m.group(2)]
-            elif current_number is None or not current_lines:
-                current_number, current_lines = new_num, [m.group(2)]
-            else:
-                current_lines.append(line)
+            current_number, current_lines = new_num, [m.group(2)]
             continue
 
         if current_number is None:

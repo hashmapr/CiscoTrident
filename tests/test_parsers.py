@@ -124,7 +124,8 @@ def test_select_snapshot_single_block():
     assert ambiguous is False
 
 
-def test_select_snapshot_reports_ambiguity_for_multiple_non_empty():
+def test_select_snapshot_abstains_when_multiple_non_empty_differ():
+    """Different non-empty snapshots cannot be told apart; TRIDENT must abstain."""
     device = "<NETWORK><DEVICES><DEVICE/></DEVICES></NETWORK>"
     xml = (
         "<ROOT>"
@@ -134,8 +135,21 @@ def test_select_snapshot_reports_ambiguity_for_multiple_non_empty():
     )
     snapshot, ambiguous, notes = _select_snapshot(xml)
     assert ambiguous is True
-    assert snapshot == "block1"
-    assert notes
+    assert snapshot == "abstain"
+    assert "abstain" in notes[0].lower()
+
+
+def test_select_snapshot_identical_blocks_are_safe():
+    device = "<NETWORK><DEVICES><DEVICE/></DEVICES></NETWORK>"
+    xml = (
+        "<ROOT>"
+        f"<PACKETTRACER5>{device}</PACKETTRACER5>"
+        f"<PACKETTRACER5>{device}</PACKETTRACER5>"
+        "</ROOT>"
+    )
+    snapshot, ambiguous, notes = _select_snapshot(xml)
+    assert snapshot == "block0"
+    assert ambiguous is False
 
 
 def test_select_snapshot_empty_blocks():

@@ -20,8 +20,10 @@ import subprocess
 from pathlib import Path
 
 from ..models import ParserReport, ParserState
+from ..normalization.configs import parse_running_config
 from ..normalization.values import canonical_interface_name
 from .base import AdapterResult, ParserAdapter
+from .snapshot import SnapshotSelection, device_names_in, select_snapshot
 
 BRIDGE = Path(__file__).resolve().parent / "engine_c_bridge.mjs"
 
@@ -106,12 +108,40 @@ class EngineCAdapter(ParserAdapter):
         if "error" in payload:
             raise RuntimeError(str(payload["error"]))
 
+        # Snapshot selection uses the SAME shared policy on pt-convert's own
+        # decoded XML, so engines A, B and C always analyse the same block.
+        # pt-convert's whole-document simplification is then filtered to the
+        # selected snapshot's device inventory before anything is contributed.
+        if "xml_text" not in payload:
+            selection = SnapshotSelection(
+                snapshot_id="abstain",
+                xml_text=None,
+                ambiguous=False,
+                notes=[
+                    ("bridge did not return decoded XML; cannot verify snapshot identity; "
+                     "abstaining instead of trusting whole-document output")
+                ],
+                abstained=True,
+            )
+        else:
+            selection = select_snapshot(payload.get("xml_text") or "")
+        selected_names: set[str] | None = None
+        if not selection.abstained:
+            selected_names = set(device_names_in(selection.xml_text or ""))
+
         devices_raw = payload.get("devices") or {}
         links_raw = payload.get("links") or []
 
+        if selection.abstained:
+            devices_raw, links_raw = {}, []
+
         devices = sorted(devices_raw.keys())
+        if selected_names is not None:
+            devices = [d for d in devices if d in selected_names]
         configs: dict[str, list[str]] = {}
         for name, dev in devices_raw.items():
+            if selected_names is not None and str(name) not in selected_names:
+                continue
             cfg_lines = dev.get("config") if isinstance(dev, dict) else None
             if isinstance(cfg_lines, list) and cfg_lines:
                 configs[str(name)] = [str(line) for line in cfg_lines]
@@ -123,6 +153,10 @@ class EngineCAdapter(ParserAdapter):
             a = link.get("FromDevice")
             b = link.get("ToDevice")
             if not a or not b:
+                continue
+            if selected_names is not None and (
+                str(a) not in selected_names or str(b) not in selected_names
+            ):
                 continue
             links.append(
                 (
@@ -140,15 +174,22 @@ class EngineCAdapter(ParserAdapter):
             version=str((payload.get("metadata") or {}).get("converterVersion") or "pt-convert"),
             message=(
                 f"decoded {payload.get('xml_bytes', 0):,} chars of XML; "
-                f"{len(devices)} devices, {len(links)} links"
+                f"{len(devices)} devices, {len(links)} links (snapshot {selection.snapshot_id})"
             ),
             device_count=len(devices),
             link_count=len(links),
-            interface_count=0,
+            interface_count=sum(
+                len(parse_running_config(lines).interfaces) for lines in configs.values()
+            ),
+            notes=list(selection.notes),
         )
         if not devices:
-            report.state = ParserState.ERROR
-            report.message = "pt-convert returned zero devices (file may be an empty skeleton)"
+            report.state = ParserState.ERROR if not selection.abstained else ParserState.OK
+            report.message = (
+                "snapshot selection abstained: " + "; ".join(selection.notes)
+                if selection.abstained
+                else "pt-convert returned zero devices (file may be an empty skeleton)"
+            )
 
         return AdapterResult(
             engine_id=self.engine_id,
@@ -156,8 +197,13 @@ class EngineCAdapter(ParserAdapter):
             devices=devices,
             configs=configs,
             links=links,
+            extraction_family="pt-convert",
             raw={
                 "metadata": payload.get("metadata", {}),
+                "snapshot": selection.snapshot_id,
+                "snapshot_ambiguous": selection.ambiguous,
+                "snapshot_notes": selection.notes,
+                "snapshot_abstained": selection.abstained,
                 "activity_instruction_count": len(payload.get("activity_instructions") or []),
             },
         )

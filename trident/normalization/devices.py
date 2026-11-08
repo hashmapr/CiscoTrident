@@ -32,14 +32,30 @@ from .values import normalize_mac
 #: engines whose container decode is the same public algorithm
 SHARED_CRYPTO = True
 
+#: Extraction family per engine, populated by Normalizer from each adapter's
+#: declared ``extraction_family``. Consensus needs provenance that names the
+#: independent extraction pipeline, not only the engine ID.
+_FAMILY_PREFIXES: dict[str, str] = {}
+#: Snapshot id threaded from the agreed adapter snapshot selection.
+_CURRENT_SNAPSHOT: str = ""
 
-def _prov(engine: str, path: str, snapshot: str = "", raw: str = "") -> Provenance:
+
+def _prov(engine: str, path: str, snapshot: str | None = None, raw: str = "") -> Provenance:
+    family = _FAMILY_PREFIXES.get(engine, engine)
     return Provenance(
         engine=engine,
-        extraction_path=path,
-        snapshot=snapshot,
+        extraction_path=f"{family}:{path}" if family else path,
+        snapshot=_CURRENT_SNAPSHOT if snapshot is None else snapshot,
         source_path=raw,
         crypto_shared=SHARED_CRYPTO,
+        # Layer A: all three engines implement the same public Twofish-EAX format.
+        decoder="twofish-eax-qcompress-shared",
+        # Layer B: the engine's own extraction pipeline.
+        extraction_family=family,
+        # Layer C: configs from every engine are parsed by ONE shared parser.
+        interpretation_family="trident.parse_running_config",
+        normalization=["canonical-interface", "normalize-value"],
+        validation=[],
     )
 
 
@@ -47,10 +63,15 @@ class Normalizer:
     """Builds a NetworkModel from the successful adapter results."""
 
     def __init__(self, results: list[AdapterResult], snapshot_id: str = "root") -> None:
+        global _FAMILY_PREFIXES, _CURRENT_SNAPSHOT
         self.results = [r for r in results if r.ok]
         self.snapshot_id = snapshot_id
         self.observations: list[Observation] = []
         self.warnings: list[str] = []
+        _FAMILY_PREFIXES = {
+            r.engine_id: (r.extraction_family or r.engine_id) for r in self.results
+        }
+        _CURRENT_SNAPSHOT = snapshot_id
 
     # ------------------------------------------------------------------
     def build(self) -> NetworkModel:
@@ -295,8 +316,19 @@ def _raw_config_lines(results: list[AdapterResult], device: str) -> list[str]:
 
 
 def _infer_type_model(results: list[AdapterResult], device: str) -> tuple[str | None, str | None]:
+    """Resolve hardware model from any engine that exposes it.
+
+    Engine A records ``<TYPE model="2911">``; pkt-core exposes it in its topology
+    export. Preference is deterministic (engine order), never guesswork.
+    """
     for res in sorted(results, key=lambda r: r.engine_id):
-        topo = res.raw.get("topology") if isinstance(res.raw, dict) else None
+        raw = res.raw if isinstance(res.raw, dict) else None
+        if not raw:
+            continue
+        models = raw.get("models")
+        if isinstance(models, dict) and models.get(device):
+            return None, str(models[device]).strip()
+        topo = raw.get("topology")
         if not topo:
             continue
         for dev in topo.get("devices", []):
@@ -313,18 +345,29 @@ def _collect_routes(
 ) -> list[RouteInfo]:
     merged: dict[tuple, RouteInfo] = {}
     for engine in sorted(parsed_by_engine):
-        for _device, cfg in parsed_by_engine[engine].items():
+        for device, cfg in parsed_by_engine[engine].items():
             for route in cfg.routes:
-                key = (route.route_type, route.destination, route.next_hop, route.outgoing_interface, route.protocol)
+                # The device is part of the identity: two routers with the same
+                # default route are two distinct routes, not one.
+                key = (
+                    device,
+                    route.route_type,
+                    route.destination,
+                    route.next_hop,
+                    route.outgoing_interface,
+                    route.protocol,
+                )
                 prov = _prov(engine, "ios-config", snapshot, route.raw)
                 if key in merged:
-                    merged[key].provenance.append(prov)
+                    if prov not in merged[key].provenance:
+                        merged[key].provenance.append(prov)
                     continue
                 merged[key] = RouteInfo(
                     destination=route.destination,
                     next_hop=route.next_hop,
                     outgoing_interface=route.outgoing_interface,
                     route_type=route.route_type,
+                    device=device,
                     protocol=route.protocol,
                     raw_config=route.raw,
                     provenance=[prov],
