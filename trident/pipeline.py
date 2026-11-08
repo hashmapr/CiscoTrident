@@ -102,6 +102,12 @@ async def analyze(
             for note in ((res.raw or {}).get("snapshot_notes") or [])
         ]
         model.warnings.extend(snap_warnings)
+        for res in results:
+            raw = res.raw or {}
+            mapping = raw.get("placeholder_map")
+            if isinstance(mapping, dict) and mapping:
+                model.placeholder_map = dict(mapping)
+                break
 
         consensus = ConsensusEngine(model, cfg)
 

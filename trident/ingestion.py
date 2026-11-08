@@ -24,7 +24,11 @@ from .config import settings as default_settings
 
 #: Packet Tracer containers have no magic bytes. We therefore validate by
 #: attempting a structural decode, plus a sanity check on the decoded payload.
-SUPPORTED_EXTENSIONS = {".pka", ".pkt"}
+SUPPORTED_EXTENSIONS = {".pka", ".pkt", ".xml"}
+
+#: Text formats are inspected directly by TRIDENT rather than by a container
+#: decoder, so they are explicitly labelled and reported separately.
+XML_EXTENSIONS = {".xml"}
 
 
 class IngestionError(ValueError):
@@ -103,7 +107,10 @@ def ingest(
             f"file is {len(data):,} bytes which exceeds the {cfg.max_file_bytes:,} byte limit"
         )
 
-    probe_error = _looks_like_trident_container(data)
+    if suffix in XML_EXTENSIONS:
+        probe_error = _looks_like_trident_xml(data)
+    else:
+        probe_error = _looks_like_trident_container(data)
     if probe_error:
         raise IngestionError(probe_error)
 
@@ -114,6 +121,22 @@ def ingest(
         sha256=digest,
         size_bytes=len(data),
     )
+
+
+def _looks_like_trident_xml(data: bytes) -> str | None:
+    """Validate that an uploaded ``.xml`` is a decoded Packet Tracer document.
+
+    Read-only and cheap: the payload must decode as UTF-8 and contain a
+    PACKETTRACER5 element. No XML library is used (no entity expansion).
+    """
+    head = data[:4096]
+    try:
+        text = head.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        return "XML upload is not valid UTF-8 text"
+    if "<PACKETTRACER" not in text and "PACKETTRACER" not in text:
+        return "XML upload does not look like a decoded Packet Tracer document"
+    return None
 
 
 def make_workspace() -> tempfile.TemporaryDirectory:

@@ -77,10 +77,15 @@ class EngineBAdapter(ParserAdapter):
         # The whole decoded document is inspected ONLY to select the snapshot;
         # extraction below is filtered to that snapshot's device inventory, so
         # reference/answer networks in other blocks or wrappers never leak in.
+        is_xml = file_path.suffix.lower() == ".xml"
+
         selected_names: set[str] | None = None
         placeholder_map: dict[str, str] = {}
         try:
-            decoded = pkt_core.decode_bytes(file_path.read_bytes()).xml
+            if is_xml:
+                decoded = file_path.read_bytes()
+            else:
+                decoded = pkt_core.decode_bytes(file_path.read_bytes()).xml
             selection = select_snapshot(decoded.decode("utf-8", errors="replace"))
             result.raw["snapshot"] = selection.snapshot_id
             result.raw["snapshot_notes"] = selection.notes
@@ -118,6 +123,8 @@ class EngineBAdapter(ParserAdapter):
         devices: list[str] = []
         links: list[tuple[str, str, str, str, str | None]] = []
         try:
+            if is_xml:
+                raise RuntimeError("typed model requires a container; XML input is decoded by engine A")
             lab = pkt_core.open_lab(file_path)
             for dev in lab.devices:
                 if not dev.name:
@@ -151,7 +158,13 @@ class EngineBAdapter(ParserAdapter):
         except FileNotFoundError:
             cli_error = "pkt-core CLI module not found"
 
-        topology = _load_topology(outdir, cli_error, messages)
+        if is_xml:
+            # No container to unpack: per-device configs and DOT come from the
+            # decoded XML that engine A already owns. Report honestly.
+            messages.append("XML input: configs/links not extracted by this engine")
+            topology = None
+        else:
+            topology = _load_topology(outdir, cli_error, messages)
         if topology:
             cli_devices = [d.get("name") for d in topology.get("devices", []) if d.get("name")]
             if selected_names is not None:

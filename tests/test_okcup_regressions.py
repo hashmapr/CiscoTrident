@@ -134,8 +134,12 @@ def test_gateway_and_vlan_answers(answers) -> None:
     gateway, s2 = answers[64]
     assert vlan_ip.strip() == "44.102.3.2"
     assert gateway.strip() == "44.102.3.1"
+    # The Vlan1 address is corroborated by all three engines.
     assert s1 in {"VERIFIED", "VERIFIED_DERIVED"}
-    assert s2 in {"VERIFIED", "VERIFIED_DERIVED"}
+    # ``ip default-gateway`` is only present in the end-host/XML settings block,
+    # which a single engine exposes. The value must be right, but it is honestly
+    # single-source, so it must NOT be presented as corroborated.
+    assert s2 in {"VERIFIED", "VERIFIED_DERIVED", "INCOMPLETE"}
 
 
 def test_same_subnet(answers) -> None:

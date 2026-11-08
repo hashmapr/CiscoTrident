@@ -38,6 +38,13 @@ _IP_RE_Q = re.compile(r"\b(ip\s+address|ipv4\s+address|ip\b)", re.IGNORECASE)
 _PEER_IF_RE = re.compile(
     r"\b(peer|remote|other|opposite|far[- ]end)\s+(interface|port)\b", re.IGNORECASE
 )
+_COUNT_NEIGHBORS_RE = re.compile(
+    r"\bhow\s+many\s+(?:distinct\s+)?(?:physical\s+)?(?:neighbou?rs?|neighbou?ring\s+devices?|adjacent)\b",
+    re.I,
+)
+_IFACE_ON_RE = re.compile(
+    r"\bwhich\s+interface\s+on\s+(.+?)\s+is\s+physically\s+connected\s+to\b", re.I
+)
 _NEIGHBOR_RE = re.compile(
     r"\b(connected\s+to|connects?\s+to|neighbou?r|attached\s+to)\b", re.IGNORECASE
 )
@@ -207,24 +214,35 @@ def resolve_devices_in_text(model: NetworkModel, text: str) -> list[str]:
     enforced. When a longer name contains a shorter one, only the longest is kept
     (``Main Hub Switch (Layer 3) (The Brainiac)`` wins over ``Main Hub Switch``).
     """
-    hits: list[str] = []
+    # Collect display-name hits and hostname hits separately.
+    display_hits: list[str] = []
+    host_hits: list[str] = []
     for key, info in model.devices.items():
-        label_hit = bool(info.name and _bounded_find(text, info.name))
-        host_hit = bool(info.hostname and _bounded_find(text, info.hostname))
-        if label_hit or host_hit:
-            hits.append(key)
-    if not hits:
-        return []
+        if info.name and _bounded_find(text, info.name):
+            display_hits.append(key)
+        elif info.hostname and _bounded_find(text, info.hostname):
+            host_hits.append(key)
 
-    # Prefer display-name hits: if any exist, drop hostname-only hits.
-    display_hits = [k for k in hits if _bounded_find(text, model.devices[k].name)]
     if display_hits:
+        # A display name is an unambiguous identity: it always wins.
         hits = display_hits
     else:
-        hosts = {(model.devices[k].hostname or "").lower() for k in hits}
-        if len(hosts) > 1 or len(hits) > 1:
-            # shared/ambiguous hostname text cannot identify a device
-            return []
+        # Hostnames identify a device only when the matched hostname is unique to
+        # it. Several devices sharing hostname "Router" is ambiguous; two
+        # different unique hostnames naming two different devices is not.
+        unique: list[str] = []
+        for key in host_hits:
+            host = (model.devices[key].hostname or "").lower()
+            same_host = [
+                k
+                for k, i in model.devices.items()
+                if (i.hostname or "").lower() == host
+            ]
+            if len(same_host) == 1:
+                unique.append(key)
+        hits = unique
+    if not hits:
+        return []
 
     hits.sort(key=lambda k: len(model.devices[k].name), reverse=True)
     kept: list[str] = []
@@ -307,6 +325,81 @@ def route(model: NetworkModel, question: str) -> Intent | None:
         return Intent("count_physical_links", {})
     if _COUNT_DEVICES_RE.search(q):
         return Intent("count_devices", {"include_non_network_devices": False})
+
+    # --- "which interface on X is connected to Y <iface>" ----------------
+    # Both devices are named and the local interface is the one on X, so the
+    # answer is the peer interface on Y. The interface token in the question
+    # belongs to Y, so it must be attributed to Y, not to X.
+    m_on = _IFACE_ON_RE.search(q)
+    if m_on:
+        # The subject (A) is the device mentioned first in the question; the
+        # interface token later in the sentence belongs to B.
+        subject = devices[0] if devices else None
+        tail = q[m_on.end():]
+        tail_ifaces = [
+            canonical_interface_name(x.group(1)) for x in _IFACE_RE.finditer(tail)
+        ]
+        tail_ifaces = [x for x in tail_ifaces if x]
+        if tail_ifaces and devices:
+            # Wording: "Which interface on A is connected to B interface X?"
+            # X belongs to B; the answer is the interface on A. Resolve the cable
+            # from the device that actually OWNS X, then report the other end --
+            # which must be on A when the key is consistent.
+            target_if = tail_ifaces[0]
+            owners = [
+                d
+                for d in devices
+                if any(
+                    info.device == d
+                    and canonical_interface_name(info.name).lower() == target_if.lower()
+                    for info in model.interfaces.values()
+                )
+            ]
+            if owners:
+                # "Which interface on A is connected to B interface X?" -> the
+                # answer is the far end of X, which is A's interface when the
+                # question is consistent. One lookup, no extra constraints.
+                return Intent(
+                    "get_peer_interface",
+                    {"device": owners[0], "interface": target_if},
+                )
+            # Fall back to the explicitly named subject device.
+            subject = subject or devices[0]
+            return Intent(
+                "get_peer_interface",
+                {"device": subject, "interface": target_if},
+            )
+        return None
+
+    # --- "which interface ... connected to ..." always wants an interface ----
+    if re.search(r"\bwhich\s+interface\b", q, re.I):
+        m_conn = re.search(r"connected\s+to\s+(.+?)\s+interface\b", q, re.I)
+        if m_conn:
+            target_devs = resolve_devices_in_text(model, m_conn.group(1))
+            if target_devs:
+                target = target_devs[0]
+                target_ifaces = [
+                    canonical_interface_name(x.group(1))
+                    for x in _IFACE_RE.finditer(q[m_conn.end() - len("interface"):])
+                ]
+                target_ifaces = [x for x in target_ifaces if x]
+                if not target_ifaces:
+                    tail = q[m_conn.end():]
+                    target_ifaces = [
+                        canonical_interface_name(x.group(1))
+                        for x in _IFACE_RE.finditer(tail)
+                    ]
+                    target_ifaces = [x for x in target_ifaces if x]
+                if target_ifaces:
+                    return Intent(
+                        "get_peer_interface",
+                        {"device": target, "interface": target_ifaces[0]},
+                    )
+        return None
+
+    # --- neighbour count: no local interface mentioned -------------------
+    if _COUNT_NEIGHBORS_RE.search(q) and primary:
+        return Intent("count_physical_neighbors", {"device": primary})
 
     # --- peer interface: needs device + interface ------------------------
     if _PEER_IF_RE.search(q):

@@ -21,7 +21,11 @@ from ..models import ParserReport, ParserState
 from ..normalization.configs import parse_running_config
 from ..normalization.values import canonical_interface_name, normalize_mac
 from .base import AdapterResult, ParserAdapter
-from .snapshot import SnapshotSelection, select_snapshot
+from .snapshot import (
+    SnapshotSelection,
+    build_placeholder_map,
+    select_snapshot,
+)
 
 VENDOR_DIR = REPO_ROOT / "vendor" / "engine_a"
 PKG_DIR = VENDOR_DIR / "pka2xml"
@@ -87,10 +91,17 @@ class EngineAAdapter(ParserAdapter):
         if lib is not None:
             os.environ.setdefault("LIBTWOFISH", str(lib))
 
-        from pka2xml import decrypt_pka
-
         raw = file_path.read_bytes()
-        xml_bytes = decrypt_pka(raw)
+
+        if file_path.suffix.lower() == ".xml":
+            # Already-decoded XML: TRIDENT inspects it directly. No container
+            # decode happens, so this is reported as an XML-only analysis rather
+            # than a successful PKA ingestion.
+            xml_bytes = raw
+        else:
+            from pka2xml import decrypt_pka
+
+            xml_bytes = decrypt_pka(raw)
         # The vendored decoder inflates before returning, so these checks run
         # after the fact and cannot stop a bomb in progress; they do refuse to
         # hand oversized output to downstream parsers. Real lab files inflate
@@ -121,6 +132,7 @@ class EngineAAdapter(ParserAdapter):
                 "snapshot_notes": selection.notes,
                 "snapshot_abstained": selection.abstained,
                 "snapshot_scope": "selection",  # the walk parse selection.xml_text only
+                "placeholder_map": build_placeholder_map(xml_text),
                 "notes": selection.notes,
             },
             extraction_family="raw-xml-walk",

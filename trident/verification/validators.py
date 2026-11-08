@@ -224,14 +224,37 @@ class AnswerBuilder:
             manual_check="Check the question wording or inspect the device configuration directly.",
         )
 
+    def _resolve_question_placeholders(self, text: str) -> str:
+        """Replace resolvable ``[[...]]`` references in the question text.
+
+        An activity benchmark may be written against the raw XML, so a question
+        can name a device as ``[[pr3-0-pc_Display_name]]``. The model already
+        holds those resolved names, so they are substituted before routing.
+        Unknown placeholders are left untouched (and will fail to resolve, which
+        is the honest outcome).
+        """
+        if not text or "[[" not in text:
+            return text
+        mapping = self.model.placeholder_map if hasattr(self.model, "placeholder_map") else {}
+        if not mapping:
+            return text
+
+        def repl(m):
+            return mapping.get(m.group(1).strip(), m.group(0))
+
+        import re as _re
+
+        return _re.sub(r"\[\[([^\]]+)\]\]", repl, text)
+
     def _route_intent(self, question: ParsedQuestion, text: str) -> _FactAnswer | None:
         """Deterministically route a question to a typed operation.
 
         Returns ``None`` when the question is not unambiguously routable, so the
         caller can keep its previous behaviour.
         """
+        text = self._resolve_question_placeholders(text or question.stem)
         try:
-            intent = intent_router.route(self.model, text or question.stem)
+            intent = intent_router.route(self.model, text)
         except Exception:  # noqa: BLE001 - routing must never crash the pipeline
             return None
         if intent is None:
@@ -282,6 +305,7 @@ class AnswerBuilder:
             "get_physical_neighbor",
             "get_peer_interface",
             "list_physical_neighbors",
+            "count_physical_neighbors",
             "count_physical_links",
             "count_devices",
             "calculate_network_address",
@@ -352,6 +376,7 @@ class AnswerBuilder:
             "get_hostname": "hostname",
             "get_interface_ip": "ipv4_address",
             "get_interface_mask": "ipv4_address",
+            "get_interface_network": "ipv4_address",
             "get_default_route_next_hop": "next_hop",
             "get_switch_default_gateway": "default_gateway",
             "get_interface_vlan": "vlan",
@@ -378,7 +403,13 @@ class AnswerBuilder:
         entity_type = "device" if operation == "get_hostname" else "interface"
         entity_id = result.entity
         if (
-            operation in {"get_interface_ip", "get_interface_mask", "get_interface_vlan"}
+            operation
+            in {
+                "get_interface_ip",
+                "get_interface_mask",
+                "get_interface_network",
+                "get_interface_vlan",
+            }
             and result.interface
         ):
             entity_id = f"{result.entity}:{canonical_interface_name(result.interface)}"
@@ -964,6 +995,7 @@ class AnswerBuilder:
             "get_physical_neighbor",
             "get_peer_interface",
             "list_physical_neighbors",
+            "count_physical_neighbors",
             "count_physical_links",
             "count_devices",
             "calculate_network_address",

@@ -202,6 +202,9 @@ class NetworkModel(BaseModel):
     snapshot_id: str = ""
     snapshot_ambiguous: bool = False
     snapshot_notes: list[str] = Field(default_factory=list)
+    #: Display-name placeholder table recovered from the source document
+    #: (``pr3-rt_Display_name`` -> ``Node One Router (Our Loyal Minion)``).
+    placeholder_map: dict[str, str] = Field(default_factory=dict)
     file_sha256: str = ""
     warnings: list[str] = Field(default_factory=list)
 

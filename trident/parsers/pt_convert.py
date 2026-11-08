@@ -82,6 +82,22 @@ class EngineCAdapter(ParserAdapter):
         return True, f"ready (node at {node})"
 
     def _extract(self, file_path: Path, workdir: Path) -> AdapterResult:
+        if file_path.suffix.lower() == ".xml":
+            # pt-convert's bridge decrypts Packet Tracer containers. A decoded XML
+            # upload has no container to decode, so this engine does not
+            # participate; reporting it as an error would be misleading.
+            return AdapterResult(
+                engine_id=self.engine_id,
+                report=ParserReport(
+                    engine=self.engine_id,
+                    state=ParserState.OK,
+                    message="XML input: container decode not applicable; engine does not participate",
+                    duration_ms=0,
+                ),
+                extraction_family="pt-convert",
+                raw={"snapshot": "", "snapshot_notes": ["xml-input: engine skipped"]},
+            )
+
         node = self._node()
         pt = self._pt_dir()
         if node is None or pt is None:

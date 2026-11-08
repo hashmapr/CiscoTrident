@@ -121,6 +121,10 @@ SPECS: dict[str, OpSpec] = {
         "count_physical_links", AnswerType.INTEGER, Cardinality.ONE, False, False,
         "number of physical cables, counted once each",
     ),
+    "count_physical_neighbors": OpSpec(
+        "count_physical_neighbors", AnswerType.INTEGER, Cardinality.ONE, True, False,
+        "number of distinct devices with a direct cable to this device",
+    ),
     "count_devices": OpSpec(
         "count_devices", AnswerType.INTEGER, Cardinality.ONE, False, False,
         "number of devices",
@@ -314,7 +318,9 @@ def get_physical_neighbor(model: NetworkModel, device: str, interface: str) -> O
     )
 
 
-def get_peer_interface(model: NetworkModel, device: str, interface: str) -> OpResult:
+def get_peer_interface(
+    model: NetworkModel, device: str, interface: str, peer: str = ""
+) -> OpResult:
     spec = SPECS["get_peer_interface"]
     dev_key, cands = find_device(model, device)
     if dev_key is None:
@@ -338,6 +344,31 @@ def get_peer_interface(model: NetworkModel, device: str, interface: str) -> OpRe
             reason=f"no physical cable terminates on {device} {iface_name}",
         )
     peer_dev, peer_if = peers[0]
+    # When the question states which device the answer must belong to, only
+    # return that device's interface; otherwise report the cable as found.
+    if peer:
+        wanted, _cands = find_device(model, peer)
+        if wanted is not None:
+            if wanted == peer_dev:
+                # Far end is the device the question asks about.
+                pass
+            elif wanted == dev_key:
+                # The question asks for this device's own interface: report the
+                # interface we started from, which is the local end of the cable.
+                return OpResult(
+                    spec.name, OpStatus.OK, spec.answer_type, spec.cardinality,
+                    value=iface_name, entity=dev_key, interface=iface_name,
+                    evidence=[f"{device} {iface_name} <-> {peer_dev} {peer_if}"],
+                )
+            else:
+                return OpResult(
+                    spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+                    entity=dev_key, interface=iface_name,
+                    reason=(
+                        f"{device} {iface_name} connects to {peer_dev}, not to the "
+                        "device named in the question"
+                    ),
+                )
     return OpResult(
         spec.name, OpStatus.OK, spec.answer_type, spec.cardinality,
         value=peer_if, entity=dev_key, interface=iface_name,
@@ -385,6 +416,30 @@ def count_physical_links(model: NetworkModel) -> OpResult:
         value=str(len(seen)),
         derivation="count of unique physical link endpoint pairs",
         evidence=[f"{len(model.links)} link records -> {len(seen)} unique cables"],
+    )
+
+
+def count_physical_neighbors(model: NetworkModel, device: str) -> OpResult:
+    spec = SPECS["count_physical_neighbors"]
+    dev_key, cands = find_device(model, device)
+    if dev_key is None:
+        return _bad(spec, "device", device, cands, "device not found or ambiguous")
+    neighbours: set[str] = set()
+    for a_dev, _a_if, b_dev, _b_if, _ in _link_pairs(model):
+        if a_dev == dev_key:
+            neighbours.add(b_dev)
+        elif b_dev == dev_key:
+            neighbours.add(a_dev)
+    if not neighbours:
+        return OpResult(
+            spec.name, OpStatus.UNAVAILABLE, spec.answer_type, spec.cardinality,
+            entity=dev_key, reason=f"no physical cables attach to {device}",
+        )
+    return OpResult(
+        spec.name, OpStatus.OK, spec.answer_type, spec.cardinality,
+        value=str(len(neighbours)), entity=dev_key,
+        derivation="count of unique physical neighbour devices",
+        evidence=[f"{dev_key}: {len(neighbours)} distinct neighbour(s)"],
     )
 
 
@@ -782,6 +837,7 @@ OPERATIONS = {
     "get_peer_interface": get_peer_interface,
     "list_physical_neighbors": list_physical_neighbors,
     "count_physical_links": count_physical_links,
+    "count_physical_neighbors": count_physical_neighbors,
     "count_devices": count_devices,
     "get_device_model": get_device_model,
     "get_hostname": get_hostname,
