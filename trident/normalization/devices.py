@@ -92,6 +92,32 @@ class Normalizer:
                     )
                 )
 
+        # 1b. hardware model (structural metadata, independently extracted by
+        #     each engine that exposes it: A from <TYPE model="...">, B from
+        #     pkt-core's parsed device model, C from pt-convert's simplified JSON).
+        for res in self.results:
+            models = (res.raw or {}).get("models") or {}
+            if not isinstance(models, dict):
+                continue
+            for device, model_value in models.items():
+                value = str(model_value).strip()
+                if not value:
+                    continue
+                device_obs[device].add(res.engine_id)
+                self.observations.append(
+                    Observation(
+                        field="hardware_model",
+                        entity_type="device",
+                        entity_id=device,
+                        value=value,
+                        provenance=_prov(
+                            res.engine_id,
+                            "structural-type",
+                            raw=f"DEVICE/ENGINE/TYPE/@model = {value}",
+                        ),
+                    )
+                )
+
         # 2. per-engine IOS configs --------------------------------------------
         parsed_by_engine: dict[str, dict[str, ParsedConfig]] = {}
         for res in self.results:

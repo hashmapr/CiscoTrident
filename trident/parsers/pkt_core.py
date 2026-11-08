@@ -121,6 +121,7 @@ class EngineBAdapter(ParserAdapter):
 
         # --- 1. typed lab model ------------------------------------------------
         devices: list[str] = []
+        models: dict[str, str] = {}
         links: list[tuple[str, str, str, str, str | None]] = []
         lab = None
         try:
@@ -139,6 +140,10 @@ class EngineBAdapter(ParserAdapter):
                 resolved = resolve_display_name(dev.name, placeholder_map)
                 if selected_names is None or resolved in selected_names:
                     devices.append(resolved)
+                    # pkt-core exposes the hardware model as its own parsed field.
+                    model = (getattr(dev, "model", None) or "").strip()
+                    if model and model.lower() != "power distribution device":
+                        models[resolved] = model
             if selected_names is not None:
                 messages.append(f"typed model: {len(devices)} devices (snapshot-scoped)")
             else:
@@ -236,6 +241,7 @@ class EngineBAdapter(ParserAdapter):
             messages.append(f"configs: {len(configs)} devices")
 
         result.devices = sorted(set(devices))
+        result.raw["models"] = models
         result.links = links
         result.configs = configs
         result.report.device_count = len(result.devices)

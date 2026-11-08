@@ -378,15 +378,11 @@ class AnswerBuilder:
             "get_interface_mask": "ipv4_address",
             "get_interface_network": "ipv4_address",
             "get_interface_prefix_length": "ipv4_address",
+            "get_device_model": "hardware_model",
             "get_default_route_next_hop": "next_hop",
             "get_switch_default_gateway": "default_gateway",
             "get_interface_vlan": "vlan",
         }
-
-        # Device model is a structural attribute of the device block, held in the
-        # model itself rather than as a per-field observation.
-        if operation == "get_device_model":
-            return 1 if self.model.devices.get(result.entity or "") else 0
 
         field = field_map.get(operation)
         if field is None:
@@ -401,7 +397,8 @@ class AnswerBuilder:
             )
             return 1 if has_value else 0
 
-        entity_type = "device" if operation == "get_hostname" else "interface"
+        device_level = {"get_hostname", "get_device_model"}
+        entity_type = "device" if operation in device_level else "interface"
         entity_id = result.entity
         if (
             operation

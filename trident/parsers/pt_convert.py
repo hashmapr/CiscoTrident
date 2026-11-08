@@ -162,6 +162,11 @@ class EngineCAdapter(ParserAdapter):
             resolved_devices[resolved] = dev if isinstance(dev, dict) else {}
 
         devices = sorted(resolved_devices)
+        models: dict[str, str] = {}
+        for name, dev in resolved_devices.items():
+            model = str(dev.get("model") or "").strip()
+            if model and model.lower() != "power distribution device":
+                models[name] = model
         configs: dict[str, list[str]] = {}
         for name, dev in resolved_devices.items():
             cfg_lines = dev.get("config")
@@ -223,6 +228,7 @@ class EngineCAdapter(ParserAdapter):
             extraction_family="pt-convert",
             raw={
                 "metadata": payload.get("metadata", {}),
+                "models": models,
                 "snapshot": selection.snapshot_id,
                 "snapshot_ambiguous": selection.ambiguous,
                 "snapshot_notes": selection.notes,
