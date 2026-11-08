@@ -76,6 +76,7 @@ button:disabled { opacity: .45; cursor: default; }
 .status.error { color: var(--bad); }
 
 .muted { color: var(--muted); font-size: .82rem; margin: .4rem 0 0; }
+.ok { color: var(--info); font-size: .82rem; margin: .4rem 0 0; }
 
 .hidden { display: none !important; }
 

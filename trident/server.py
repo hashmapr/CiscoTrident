@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import REPO_ROOT, settings
 from .ingestion import IngestionError, ingest
 from .models import AnalysisResponse
+from .phase3_api import router as phase3_router
 from .pipeline import VERSION, analyze, build_adapters, health
 from .reasoning.questions import QuestionParseError
 
@@ -34,6 +35,12 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
 )
+
+
+# Phase 3 routes: simulator status, modes, and the payload builders they expose.
+# Mounted before the UI routes so /api/phase3/* resolves to the router, not the
+# static mount.
+app.include_router(phase3_router)
 
 
 @app.get("/api/health", response_model=None)

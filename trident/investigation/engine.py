@@ -149,6 +149,12 @@ class Investigator:
         ledger means it is collected once per session.
         """
         self._log("analyzing network", f"{len(self.model.devices)} devices")
+        if not self.runtime_available:
+            # Say why, once, in the timeline the user actually reads.
+            self._log(
+                "initializing isolated simulator",
+                f"skipped: {self.runtime_reason or 'no simulator backend available'}",
+            )
         report = InvestigationReport(
             mode=self.mode,
             runtime_available=self.runtime_available,
@@ -191,12 +197,16 @@ class Investigator:
                 if exhausted and decision.testability is Testability.OBSERVABLE
                 else _stop_for(decision.testability, status)
             )
+            if stop is StopReason.RUNTIME_UNAVAILABLE and self.runtime_reason:
+                reason = f"{decision.reason}: {self.runtime_reason}"
+            else:
+                reason = decision.reason
             self._log("stopping", f"{question}: {decision.reason}")
             return QuestionOutcome(
                 question=question,
                 status=status,
                 answer=None,
-                reason=decision.reason,
+                reason=reason,
                 stop_reason=stop,
                 evidence_tier="NO_OPERATIONAL_EVIDENCE",
                 unresolved=list(missing),

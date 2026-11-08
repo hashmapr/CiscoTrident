@@ -422,3 +422,33 @@ $("export-text").addEventListener("click", () => {
 });
 
 loadParsers();
+
+// ---------------------------------------------------------------------------
+// Phase 3: simulator availability
+// ---------------------------------------------------------------------------
+// Shown before anything runs, so the user knows whether Double-Check can do
+// operational work. Nothing here launches Packet Tracer; it only reads status.
+
+async function loadSimulatorStatus() {
+  const target = document.getElementById("sim-status-text");
+  if (!target) return;
+  try {
+    const response = await fetch("/api/phase3/simulator/status");
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    const data = await response.json();
+    if (data.available) {
+      target.textContent =
+        "Operational simulation is available. Smart Investigation and Double-Check can run live diagnostics.";
+      target.className = "ok";
+    } else {
+      target.textContent =
+        `Operational simulation unavailable: ${data.reason}. Static analysis works normally.`;
+      target.className = "muted";
+    }
+  } catch (error) {
+    target.textContent = "Operational simulation status could not be read.";
+    target.className = "muted";
+  }
+}
+
+loadSimulatorStatus();
