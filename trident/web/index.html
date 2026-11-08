@@ -47,7 +47,16 @@
       <button id="export-text">Export text</button>
     </section>
 
-    <section id="results"></section>
+    <section id="results-header" class="results-header hidden">
+      <p id="results-summary" class="results-summary"></p>
+      <p id="decoder-caveat" class="decoder-caveat hidden">
+        All engines share the public Twofish-EAX decoder; agreement is extraction-level.
+      </p>
+    </section>
+
+    <section id="evidence-panel" class="evidence-panel" aria-label="Per-answer verification evidence">
+      <div id="results"></div>
+    </section>
   </main>
 
   <script src="/static/app.js"></script>

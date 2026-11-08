@@ -89,25 +89,6 @@ def _is_prompt(device: str, rest: str) -> bool:
     return head in _PROMPT_COMMANDS
 
 
-_COMMAND_ECHO_RE = re.compile(
-    r"^(?:(?:do|no)\s+)?(?:"
-    r"show\s+\S.*|"
-    r"(?:configure|conf)\b[^#]*|"
-    r"enable(?:\s+\S+)?|disable|end|exit|"
-    r"(?:terminal|line|interface|ip|ipv6|router|vlan|spanning-tree|switchport|access-list|"
-    r"banner|username|service|description|shutdown|speed|duplex|crypto|aaa|logging|ntp|"
-    r"snmp-server|hostname|port-security|channel-group|channel-protocol|dot1x|clear|copy|"
-    r"write|reload|ping|traceroute|clock)\b.*"
-    r")$",
-    re.IGNORECASE,
-)
-
-
-def _is_command_echo(remainder: str) -> bool:
-    """True for the echoed command that follows a prompt, e.g. ``show ip int brief``."""
-    return bool(_COMMAND_ECHO_RE.match(remainder.strip()))
-
-
 def strip_prompts(text: str) -> tuple[list[str], list[str], list[str]]:
     """Return ``(body_lines, prompt_devices, echoed_commands)``.
 

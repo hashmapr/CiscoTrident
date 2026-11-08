@@ -213,14 +213,6 @@ def _prefix(lines: tuple[tuple[int, str], ...], prefix: str) -> tuple[int, str] 
     return None
 
 
-def _contains(lines: tuple[tuple[int, str], ...], needle: str) -> tuple[int, str] | None:
-    target = needle.lower()
-    for number, text in lines:
-        if target in text.lower():
-            return number, text
-    return None
-
-
 def _redact(text: str) -> str:
     """Replace PSK/passphrase material, keeping the directive readable."""
     lowered = text.lower()

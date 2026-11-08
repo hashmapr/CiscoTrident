@@ -713,3 +713,157 @@ def test_records_are_immutable() -> None:
     with pytest.raises(FrozenInstanceError):
         record.device = "OTHER"  # type: ignore[misc]
     assert isinstance(record.notes, tuple)
+
+
+# ---------------------------------------------------------------------------
+# 12. Additional adversarial shapes
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_sessions_of_one_command_are_rejected() -> None:
+    text = """SW1#show interfaces trunk
+
+Port        Mode             Encapsulation  Status        Native vlan
+Gi0/24      on               802.1q         trunking      99
+
+Port        Vlans allowed on trunk
+Gi0/24      1-10
+
+SW1#show interfaces trunk
+
+Port        Mode             Encapsulation  Status        Native vlan
+Gi0/24      on               802.1q         trunking      98
+
+Port        Vlans allowed on trunk
+Gi0/24      1-20
+"""
+    record = parse_cli_output(text)
+    assert record.device is None
+    assert record.status is ParseStatus.PARTIAL
+    assert record.parsed == {}
+    assert any("separate command sessions" in note for note in record.notes)
+
+
+def test_vlan_wrapped_port_columns_merge_into_their_vlan() -> None:
+    text = """SW1#show vlan brief
+
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Gi0/1, Gi0/2, Gi0/3, Gi0/4,
+                                                Gi0/5, Gi0/6
+10   DATA                             active    Gi0/7
+"""
+    vlans = parse_cli_output(text).parsed
+    assert vlans["1"]["ports"] == [f"Gi0/{n}" for n in range(1, 7)]
+    assert vlans["10"]["ports"] == ["Gi0/7"]
+
+
+def test_recognised_command_with_no_rows_is_partial_not_invented() -> None:
+    record = parse_cli_output("R1#show ip route\n")
+    assert record.kind is EvidenceKind.IP_ROUTE
+    assert record.status is ParseStatus.PARTIAL
+    assert record.parsed == []
+    assert any("no parsable rows" in note for note in record.notes)
+
+
+def test_ambiguous_structural_signals_are_not_resolved_by_preference() -> None:
+    text = """VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Gi0/1
+Gateway of last resort is not set
+"""
+    kind, confidence = detect_kind(text)
+    assert kind is EvidenceKind.UNKNOWN
+    assert confidence < 0.5
+
+
+def test_by_kind_includes_unattributed_records() -> None:
+    bundle = EvidenceBundle()
+    body = "\n".join(IP_INT_BRIEF.splitlines()[1:])
+    bundle.add(parse_cli_output(body))
+    records = bundle.by_kind(EvidenceKind.IP_INTERFACE_BRIEF)
+    assert len(records) == 1
+    assert records[0].device is None
+    assert bundle.devices() == ()
+    assert bundle.unattributed() == records
+
+
+def test_notes_are_strings_and_never_empty_for_partial() -> None:
+    record = parse_cli_output("SW1#show ip int brief\nGi0/2 10.0.0.2 YES\n")
+    assert record.status is ParseStatus.PARTIAL
+    assert all(isinstance(note, str) and note for note in record.notes)
+
+
+def test_spanning_tree_without_vlan_header_is_not_assigned_a_vlan() -> None:
+    text = """SW1#show spanning-tree
+  Spanning tree enabled protocol ieee
+  Root ID    Priority    32769
+             Address     0011.2233.4455
+Interface        Role Sts Cost      Prio.Nbr Type
+---------------- ---- --- --------- -------- --------------------------------
+Gi0/1            Desg FWD 4         128.1    P2p
+"""
+    record = parse_cli_output(text)
+    assert record.kind is EvidenceKind.SPANNING_TREE
+    assert record.status is ParseStatus.PARTIAL
+    assert sorted(record.parsed) == ["unknown"]
+    assert any("no VLAN header" in note for note in record.notes)
+
+
+def test_detection_without_an_echo_still_works() -> None:
+    for kind, text in _SAMPLES.items():
+        body = "\n".join(text.splitlines()[1:])
+        detected, confidence = detect_kind(body)
+        assert detected is kind, f"{kind.value} lost without its command echo"
+        assert confidence >= 0.85
+
+
+def test_running_config_without_a_banner_still_detects_as_config() -> None:
+    text = """hostname R9
+!
+interface GigabitEthernet0/0
+ ip address 10.9.9.9 255.255.255.0
+!
+end
+"""
+    record = parse_cli_output(text)
+    assert record.kind is EvidenceKind.RUNNING_CONFIG
+    assert record.source is ObservationSource.STATIC_CONFIG
+    assert record.parsed["hostname"] == "R9"
+    assert record.device is None
+    assert record.status is ParseStatus.PARTIAL
+
+
+def test_record_round_trips_through_json_spellings() -> None:
+    """A record rebuilt from serialised JSON validates like a parsed one."""
+    original = parse_cli_output(VLAN_BRIEF)
+    rebuilt = CliRecord(
+        device=original.device,
+        kind=original.kind.value,
+        source=original.source.value,
+        captured_at=original.captured_at,
+        raw_text=original.raw_text,
+        parsed=original.parsed,
+        status=original.status.value,
+        notes=list(original.notes),
+        line_count=original.line_count,
+    )
+    assert rebuilt.kind is EvidenceKind.VLAN_BRIEF
+    assert rebuilt.source is ObservationSource.RUNTIME_STATE
+    assert rebuilt.status is ParseStatus.PARSED
+    assert rebuilt.parsed == original.parsed
+
+
+def test_record_rejects_an_unknown_enum_spelling() -> None:
+    with pytest.raises(ValueError, match="unrecognised enum value"):
+        CliRecord(
+            device="R1",
+            kind="NOT_A_KIND",
+            source="RUNTIME_STATE",
+            captured_at=None,
+            raw_text="",
+            parsed={},
+            status="PARSED",
+            notes=(),
+            line_count=0,
+        )

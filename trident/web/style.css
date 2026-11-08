@@ -7,6 +7,8 @@
   --warn: #8a5a00;
   --bad: #a11;
   --info: #14507a;
+  --teal: #0f7b74;
+  --grey: #999;
 }
 
 * { box-sizing: border-box; }
@@ -96,10 +98,10 @@ pre {
   margin-bottom: .85rem;
 }
 .result.VERIFIED { border-left-color: var(--ok); }
-.result.VERIFIED_DERIVED { border-left-color: var(--info); }
+.result.VERIFIED_DERIVED { border-left-color: var(--teal); }
 .result.INCOMPLETE { border-left-color: var(--warn); }
 .result.CONFLICT { border-left-color: var(--bad); }
-.result.NOT_AVAILABLE { border-left-color: #999; }
+.result.NOT_AVAILABLE { border-left-color: var(--grey); }
 .result.ERROR { border-left-color: var(--bad); }
 
 .result-head { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
@@ -113,10 +115,10 @@ pre {
   border-radius: 3px;
 }
 .badge.VERIFIED { color: var(--ok); }
-.badge.VERIFIED_DERIVED { color: var(--info); }
+.badge.VERIFIED_DERIVED { color: var(--teal); }
 .badge.INCOMPLETE { color: var(--warn); }
 .badge.CONFLICT { color: var(--bad); }
-.badge.NOT_AVAILABLE { color: #666; }
+.badge.NOT_AVAILABLE { color: var(--grey); }
 .badge.ERROR { color: var(--bad); }
 
 .answer { font-size: 1.05rem; font-weight: 600; margin: .45rem 0 .3rem; }
@@ -132,3 +134,119 @@ details pre { margin-top: .4rem; background: #fafafa; padding: .5rem; border: 1p
 
 .conflict { color: var(--bad); font-size: .82rem; }
 .hint { color: var(--warn); font-size: .82rem; }
+
+/* ---------- results header / decoder caveat ---------- */
+
+.results-header {
+  margin: 0 0 .85rem;
+  padding: .6rem .85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--info);
+  border-radius: 4px;
+}
+.results-summary { margin: 0; font-size: .84rem; }
+.decoder-caveat {
+  margin: .35rem 0 0;
+  font-size: .78rem;
+  color: var(--warn);
+}
+
+/* ---------- per-answer verification metadata ---------- */
+
+.meta-line.families { font-variant-numeric: tabular-nums; }
+.meta-line.snapshot {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .74rem;
+}
+
+/* ---------- conflicts / missing evidence ---------- */
+
+.issues {
+  margin: .55rem 0;
+  padding: .5rem .65rem;
+  border: 1px dashed var(--bad);
+  border-radius: 3px;
+  background: rgba(170, 17, 17, .05);
+}
+.issues-title {
+  margin: .1rem 0 .25rem;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.issues-title.conflict { color: var(--bad); }
+.issues-title.missing { color: var(--warn); }
+.issue-list { margin: 0 0 .4rem; padding-left: 1.1rem; font-size: .82rem; }
+.issue-list:last-child { margin-bottom: 0; }
+.conflict-list li { color: var(--bad); }
+.missing-list li { color: var(--warn); }
+
+/* ---------- evidence ---------- */
+
+.evidence { margin-top: .5rem; }
+.evidence-body {
+  margin-top: .4rem;
+  border-top: 1px solid var(--line);
+}
+.evidence-item {
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.evidence-item:last-child { border-bottom: none; }
+.ev-head { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+.ev-device { font-weight: 600; font-size: .84rem; }
+.ev-iface {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  color: var(--muted);
+}
+.ev-field {
+  font-size: .74rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--info);
+}
+.ev-row { display: flex; gap: .5rem; margin-top: .25rem; align-items: baseline; }
+.ev-label {
+  flex: 0 0 6.5rem;
+  font-size: .72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.ev-value-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  word-break: break-word;
+}
+.ev-chips { display: flex; gap: .25rem; flex-wrap: wrap; }
+.chip {
+  font-size: .72rem;
+  padding: .05rem .35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f6f6f6;
+}
+.ev-paths { margin: 0; padding-left: 1rem; font-size: .78rem; }
+.ev-paths li { margin: 0 0 .15rem; }
+.ev-paths .family { font-weight: 600; }
+.ev-paths .path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+}
+.ev-paths .path::before { content: " : "; }
+.ev-row.structural .structural-path { display: flex; flex-direction: column; gap: .1rem; }
+.structural-path code {
+  font-size: .76rem;
+  color: var(--ok);
+  word-break: break-word;
+}
+.ev-raw {
+  margin: .4rem 0 0;
+  padding: .45rem .55rem;
+  background: #fafafa;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  max-height: 16rem;
+  overflow: auto;
+}

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from .types import EvidenceKind
+
 _IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 _MAC_DOTTED_RE = re.compile(r"^[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}$")
 _VLAN_TOKEN_RE = re.compile(r"^(\d+)(?:-(\d+))?$")
@@ -318,6 +320,7 @@ _ACL_ENTRY_RE = re.compile(
     re.IGNORECASE,
 )
 _ACL_MATCH_SUFFIX_RE = re.compile(r"\s+\([^)]*match[^)]*\)\s*$", re.IGNORECASE)
+_ACL_NON_ACE_RE = re.compile(r"^\d*\s*(?:remark\b|evaluate\b|log\b)", re.IGNORECASE)
 
 
 def parse_access_lists(text: str) -> tuple[dict, list[str], bool]:
@@ -344,6 +347,9 @@ def parse_access_lists(text: str) -> tuple[dict, list[str], bool]:
         if current is None:
             continue
         body = _ACL_MATCH_SUFFIX_RE.sub("", stripped)
+        if _ACL_NON_ACE_RE.match(body):
+            # Remarks and evaluation helpers are not access-control entries.
+            continue
         entry = _ACL_ENTRY_RE.match(body)
         if entry is None:
             notes.append(f"skipped malformed acl line: {stripped!r}")
@@ -526,17 +532,23 @@ def parse_spanning_tree(text: str) -> tuple[dict, list[str], bool]:
                     "priority": row.group("prio"),
                 }
             )
+    if "unknown" in parsed:
+        notes.append(
+            "spanning-tree output carries no VLAN header; rows are keyed under "
+            "'unknown' rather than assigned to a guessed VLAN"
+        )
     return parsed, notes, bool(parsed)
 
 
-#: Dispatch table for the eight runtime artefacts.
+#: Dispatch table for the eight runtime artefacts. Each parser returns
+#: ``(parsed, notes, found_any_rows)``.
 PARSERS = {
-    "IP_INTERFACE_BRIEF": parse_ip_interface_brief,
-    "VLAN_BRIEF": parse_vlan_brief,
-    "INTERFACES_TRUNK": parse_interfaces_trunk,
-    "IP_ROUTE": parse_ip_route,
-    "ACCESS_LISTS": parse_access_lists,
-    "OSPF_NEIGHBOR": parse_ospf_neighbor,
-    "ETHERCHANNEL_SUMMARY": parse_etherchannel_summary,
-    "SPANNING_TREE": parse_spanning_tree,
+    EvidenceKind.IP_INTERFACE_BRIEF: parse_ip_interface_brief,
+    EvidenceKind.VLAN_BRIEF: parse_vlan_brief,
+    EvidenceKind.INTERFACES_TRUNK: parse_interfaces_trunk,
+    EvidenceKind.IP_ROUTE: parse_ip_route,
+    EvidenceKind.ACCESS_LISTS: parse_access_lists,
+    EvidenceKind.OSPF_NEIGHBOR: parse_ospf_neighbor,
+    EvidenceKind.ETHERCHANNEL_SUMMARY: parse_etherchannel_summary,
+    EvidenceKind.SPANNING_TREE: parse_spanning_tree,
 }

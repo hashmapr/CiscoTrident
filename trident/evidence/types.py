@@ -86,7 +86,12 @@ class CliRecord:
     ``device`` is supplied by the caller or detected from an unambiguous prompt
     in the paste. It is never guessed. ``captured_at`` is caller-supplied and is
     never generated. ``parsed`` is the kind-specific structured result and holds
-    no prose.
+    no prose: a mapping for most kinds, a list of rows for ``IP_ROUTE``,
+    ``OSPF_NEIGHBOR`` and ``ETHERCHANNEL_SUMMARY``.
+
+    Enum fields accept their string spellings and are normalised in
+    ``__post_init__``, so a record rebuilt from serialised JSON validates
+    exactly like a freshly parsed one.
     """
 
     device: str | None
@@ -94,34 +99,44 @@ class CliRecord:
     source: ObservationSource
     captured_at: str | None
     raw_text: str
-    parsed: dict
+    parsed: dict | list
     status: ParseStatus
     notes: tuple[str, ...]
     line_count: int
 
     def __post_init__(self) -> None:
-        expected_source = SOURCE_BY_KIND.get(self.kind)
+        try:
+            kind = EvidenceKind(self.kind)
+            source = ObservationSource(self.source)
+            status = ParseStatus(self.status)
+        except ValueError as exc:
+            raise ValueError(f"unrecognised enum value in CliRecord: {exc}") from exc
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "source", source)
+        object.__setattr__(self, "status", status)
+
+        expected_source = SOURCE_BY_KIND.get(kind)
         if expected_source is None:
-            raise ValueError(f"unknown evidence kind {self.kind!r}")
-        if self.source is not expected_source:
+            raise ValueError(f"unknown evidence kind {kind!r}")
+        if source is not expected_source:
             raise ValueError(
-                f"kind {self.kind.value} must be sourced from {expected_source.value}, "
-                f"not {self.source.value}"
+                f"kind {kind.value} must be sourced from {expected_source.value}, "
+                f"not {source.value}"
             )
         if self.line_count < 0:
             raise ValueError("line_count cannot be negative")
-        if self.kind is EvidenceKind.UNKNOWN:
-            if self.status is not ParseStatus.UNRECOGNISED:
+        if kind is EvidenceKind.UNKNOWN:
+            if status is not ParseStatus.UNRECOGNISED:
                 raise ValueError("an UNKNOWN kind can only be UNRECOGNISED")
             if self.parsed:
                 raise ValueError("an UNKNOWN kind can never carry parsed data")
-        elif self.status is ParseStatus.UNRECOGNISED:
+        elif status is ParseStatus.UNRECOGNISED:
             raise ValueError(
-                f"kind {self.kind.value} was recognised; status cannot be UNRECOGNISED"
+                f"kind {kind.value} was recognised; status cannot be UNRECOGNISED"
             )
-        if self.status is ParseStatus.PARTIAL and not self.notes:
+        if status is ParseStatus.PARTIAL and not self.notes:
             raise ValueError("a PARTIAL record must carry at least one explanatory note")
-        if self.device is None and self.status is ParseStatus.PARSED:
+        if self.device is None and status is ParseStatus.PARSED:
             raise ValueError(
                 "a record without a device is unattributed and cannot claim PARSED"
             )

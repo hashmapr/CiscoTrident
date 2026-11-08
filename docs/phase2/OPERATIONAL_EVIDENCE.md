@@ -73,11 +73,16 @@ class CliRecord:
     source: ObservationSource
     captured_at: str | None
     raw_text: str
-    parsed: dict
+    parsed: dict | list      # list for IP_ROUTE / OSPF_NEIGHBOR / ETHERCHANNEL_SUMMARY
     status: ParseStatus
     notes: tuple[str, ...]
     line_count: int
 ```
+
+Enum fields accept their string spellings (`"IP_ROUTE"`, `"RUNTIME_STATE"`,
+`"PARSED"`) and are normalised on construction, so a record rebuilt from
+serialised JSON is validated exactly like a freshly parsed one — and the
+source/kind guard still fires.
 
 ### `ParseStatus`
 
@@ -278,8 +283,8 @@ Do not re-derive a device name from `raw_text`; use `record.device`. It is
 
 ## 8. Testing
 
-`tests/test_phase2/test_evidence.py` covers, for every kind, both the happy path
-and the honesty contract:
+`tests/test_phase2/test_evidence.py` (77 tests) covers, for every kind, both the
+happy path and the honesty contract:
 
 * each of the nine kinds parses real-looking output into the documented shape
 * runtime vs static classification for every kind, plus a constructor-level test
@@ -292,6 +297,9 @@ and the honesty contract:
 * prompt-derived device detection (`Router#`, `SW1(config)#`, `R1>`, dotted names)
 * a malformed route line is skipped while the others parse
 * bundle typed views, latest-record-wins, and empty results for unknown devices
+* serialisation round-trip (`CliRecord` rebuilt from raw enum spellings)
+* a spanning-tree paste with no VLAN header is keyed `"unknown"` and `PARTIAL`,
+  never assigned a guessed VLAN
 
 Run:
 
@@ -318,10 +326,11 @@ Stated plainly, because a diagnostics engine must not over-trust this layer:
   masks, `via <hop>` and `is directly connected, <iface>`. It does not model
   recursive-route resolution, VRF-specific tables, or multi-line route detail
   blocks.
-* **`show spanning-tree` requires `VLANnnnn` section headers** (or a single
-  implicit VLAN for the unkeyed case) and the `Interface Role Sts Cost Prio.Nbr`
-  table header. Multi-instance MST output with per-instance blocks keyed only by
-  `MST0` is not separated.
+* **`show spanning-tree` requires `VLANnnnn` section headers** and the
+  `Interface Role Sts Cost Prio.Nbr` table header. Output with no VLAN header at
+  all is keyed under `"unknown"` and reported `PARTIAL` — a VLAN is never
+  guessed for it. Multi-instance MST output keyed only by `MST0` is not
+  separated per instance.
 * **`show etherchannel summary` requires the `Group Port-channel Protocol`
   header.** The per-port bundle detail below the summary is not merged into the
   group rows.

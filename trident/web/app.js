@@ -3,11 +3,49 @@
 const $ = (id) => document.getElementById(id);
 let lastResponse = null;
 
+const STATUS_BADGES = [
+  "VERIFIED",
+  "VERIFIED_DERIVED",
+  "INCOMPLETE",
+  "CONFLICT",
+  "NOT_AVAILABLE",
+  "ERROR",
+];
+
+const HTML_ESCAPES = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value) {
+  return String(value === null || value === undefined ? "" : value).replace(
+    /[&<>"']/g,
+    (ch) => HTML_ESCAPES[ch]
+  );
+}
+
 function el(tag, cls, text) {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
-  if (text !== undefined) node.textContent = text;
+  if (text !== undefined && text !== null) node.textContent = String(text);
   return node;
+}
+
+function num(value, fallback) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function statusClass(status) {
+  return STATUS_BADGES.includes(status) ? status : "NOT_AVAILABLE";
+}
+
+function textList(items, cls) {
+  const list = el("ul", cls);
+  for (const item of items) list.appendChild(el("li", null, item));
+  return list;
 }
 
 async function loadParsers() {
@@ -15,7 +53,7 @@ async function loadParsers() {
     const res = await fetch("/api/parsers");
     const data = await res.json();
     const table = $("parser-table");
-    table.innerHTML = "";
+    table.replaceChildren();
     const head = el("tr");
     ["Engine", "Status", "Detail"].forEach((h) => head.appendChild(el("th", null, h)));
     table.appendChild(head);
@@ -96,13 +134,40 @@ async function analyze() {
 
 function render(data) {
   renderMeta(data);
+  renderResultsHeader(data);
   const root = $("results");
-  root.innerHTML = "";
+  root.replaceChildren();
+  const meta = {
+    snapshot_id: data.snapshot_id || "—",
+    snapshot_ambiguous: Boolean(data.snapshot_ambiguous),
+  };
   for (const r of data.results) {
-    root.appendChild(renderResult(r));
+    root.appendChild(renderResult(r, meta));
   }
   $("toolbar").classList.remove("hidden");
   loadParsers();
+}
+
+function renderResultsHeader(data) {
+  const header = $("results-header");
+  const summary = $("results-summary");
+  const caveat = $("decoder-caveat");
+  const results = data.results || [];
+  const total = results.length;
+  const counts = {};
+  for (const r of results) {
+    counts[r.status] = (counts[r.status] || 0) + 1;
+  }
+  const parts = STATUS_BADGES.filter((s) => counts[s]).map(
+    (s) => `${counts[s]} ${s.toLowerCase().replace(/_/g, " ")}`
+  );
+  summary.textContent =
+    `${total} question${total === 1 ? "" : "s"}` + (parts.length ? " — " + parts.join(", ") : "");
+  const shared =
+    results.some((r) => (r.consensus || {}).crypto_shared === true) ||
+    (data.network_summary || {}).crypto_shared === true;
+  caveat.classList.toggle("hidden", !(shared && total > 0));
+  header.classList.remove("hidden");
 }
 
 function renderMeta(data) {
@@ -145,19 +210,27 @@ function renderMeta(data) {
   box.classList.remove("hidden");
 }
 
-function renderResult(r) {
-  const box = el("div", `result ${r.status}`);
+function renderResult(r, meta) {
+  const status = statusClass(r.status);
+  const box = el("div", `result ${status}`);
+  const cons = r.consensus || {};
 
   const head = el("div", "result-head");
   head.appendChild(el("span", "qnum", `Q${r.question_number}`));
-  head.appendChild(el("span", `badge ${r.status}`, r.status));
-  const cons = r.consensus || {};
+  head.appendChild(el("span", `badge ${status}`, status));
+
+  const agree = num(cons.agree, 0);
+  const required = num(cons.required, 3);
+  const available = num(cons.available, agree);
+  head.appendChild(el("span", "meta-line families", `${agree}/${required} families`));
+  if (available !== agree) {
+    head.appendChild(el("span", "meta-line families", `${available} available`));
+  }
   head.appendChild(
     el(
       "span",
-      "meta-line",
-      `agreement ${cons.agree ?? 0}/${cons.available ?? 0} (required ${cons.required ?? 3})` +
-        (cons.crypto_shared ? " · shared container decode" : "")
+      "meta-line snapshot",
+      `snapshot ${meta.snapshot_id}${meta.snapshot_ambiguous ? " (ambiguous)" : ""}`
     )
   );
   box.appendChild(head);
@@ -175,30 +248,103 @@ function renderResult(r) {
 
   if (r.explanation) box.appendChild(el("div", "explain", r.explanation));
 
-  for (const c of r.conflicts || []) box.appendChild(el("div", "conflict", `Conflict: ${c}`));
-  for (const m of r.missing_evidence || [])
-    box.appendChild(el("div", "hint", `Missing: ${m}`));
-  if (r.manual_check) box.appendChild(el("div", "hint", `Manual check: ${r.manual_check}`));
-
-  if ((r.evidence || []).length) {
-    const details = el("details");
-    details.appendChild(el("summary", null, `Evidence (${r.evidence.length})`));
-    const pre = el("pre");
-    pre.textContent = r.evidence
-      .map((e) => {
-        const where = [e.device, e.interface].filter(Boolean).join(" ");
-        const src = (e.sources || []).join(", ");
-        const paths = (e.extraction_paths || []).join(", ");
-        let line = `${where ? where + " · " : ""}${e.field} = ${e.value}\n  sources: ${src}\n  via: ${paths}`;
-        if (e.raw_evidence) line += `\n  raw: ${e.raw_evidence}`;
-        return line;
-      })
-      .join("\n\n");
-    details.appendChild(pre);
-    box.appendChild(details);
+  const conflicts = r.conflicts || [];
+  const missing = r.missing_evidence || [];
+  if (conflicts.length || missing.length) {
+    const issues = el("section", "issues");
+    if (conflicts.length) {
+      issues.appendChild(el("h3", "issues-title conflict", "Conflicts"));
+      issues.appendChild(textList(conflicts, "issue-list conflict-list"));
+    }
+    if (missing.length) {
+      issues.appendChild(el("h3", "issues-title missing", "Missing evidence"));
+      issues.appendChild(textList(missing, "issue-list missing-list"));
+    }
+    box.appendChild(issues);
   }
 
+  if (r.manual_check) box.appendChild(el("div", "hint", `Manual check: ${r.manual_check}`));
+
+  const evidence = Array.isArray(r.evidence) ? r.evidence : [];
+  if (evidence.length) box.appendChild(renderEvidence(evidence));
+
   return box;
+}
+
+function renderEvidence(evidence) {
+  const details = el("details", "evidence");
+  details.appendChild(el("summary", null, `Evidence (${evidence.length})`));
+  const body = el("div", "evidence-body");
+  evidence.forEach((item) => body.appendChild(renderEvidenceItem(item)));
+  details.appendChild(body);
+  return details;
+}
+
+function renderEvidenceItem(e) {
+  const item = el("div", "evidence-item");
+
+  const head = el("div", "ev-head");
+  if (e.device) head.appendChild(el("span", "ev-device", e.device));
+  if (e.interface) head.appendChild(el("span", "ev-iface", e.interface));
+  if (!e.device && !e.interface) head.appendChild(el("span", "ev-device", "network"));
+  head.appendChild(el("span", "ev-field", e.field));
+  item.appendChild(head);
+
+  const valueRow = el("div", "ev-value");
+  valueRow.appendChild(el("span", "ev-label", "value"));
+  valueRow.appendChild(el("code", "ev-value-text", e.value));
+  item.appendChild(valueRow);
+
+  const sources = Array.isArray(e.sources) ? e.sources : [];
+  if (sources.length) {
+    const row = el("div", "ev-row");
+    row.appendChild(el("span", "ev-label", "sources"));
+    const chips = el("span", "ev-chips");
+    for (const s of sources) chips.appendChild(el("span", "chip", s));
+    row.appendChild(chips);
+    item.appendChild(row);
+  }
+
+  const paths = Array.isArray(e.extraction_paths) ? e.extraction_paths : [];
+  if (paths.length) {
+    const row = el("div", "ev-row");
+    row.appendChild(el("span", "ev-label", paths.length > 1 ? "extraction paths" : "extraction path"));
+    const list = el("ul", "ev-paths");
+    for (const p of paths) {
+      const raw = String(p);
+      const split = raw.indexOf(":");
+      const family = split > 0 ? raw.slice(0, split) : raw;
+      const step = split > 0 ? raw.slice(split + 1) : "";
+      const entry = el("li");
+      entry.appendChild(el("span", "family", family));
+      if (step) entry.appendChild(el("span", "path", step));
+      list.appendChild(entry);
+    }
+    row.appendChild(list);
+    item.appendChild(row);
+  }
+
+  const raw = e.raw_evidence === null || e.raw_evidence === undefined ? "" : String(e.raw_evidence);
+  if (raw) {
+    const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== "");
+    let structural = lines.filter((line) => /TYPE\/@model|DEVICE\/ENGINE\/TYPE/.test(line));
+    if (!structural.length && e.field === "hardware_model") {
+      structural = ["DEVICE/ENGINE/TYPE/@model"];
+    }
+    if (structural.length) {
+      const row = el("div", "ev-row structural");
+      row.appendChild(el("span", "ev-label", "structural source"));
+      const code = el("div", "structural-path");
+      for (const line of structural) code.appendChild(el("code", null, line));
+      row.appendChild(code);
+      item.appendChild(row);
+    }
+    const pre = el("pre", "ev-raw");
+    pre.textContent = raw;
+    item.appendChild(pre);
+  }
+
+  return item;
 }
 
 /* ---------- exports ---------- */
@@ -221,6 +367,7 @@ function asPlainText(data) {
     );
     if (r.explanation) out.push(`Explanation: ${r.explanation}`);
     for (const c of r.conflicts || []) out.push(`Conflict: ${c}`);
+    for (const m of r.missing_evidence || []) out.push(`Missing: ${m}`);
     if (r.manual_check) out.push(`Manual check: ${r.manual_check}`);
     out.push("");
   }

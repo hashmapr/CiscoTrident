@@ -16,28 +16,8 @@ import re
 from trident.normalization.configs import parse_running_config
 
 from .detect import detect_kind, resolve_device, strip_prompts
-from .parsers import (
-    parse_access_lists,
-    parse_etherchannel_summary,
-    parse_interfaces_trunk,
-    parse_ip_interface_brief,
-    parse_ip_route,
-    parse_ospf_neighbor,
-    parse_spanning_tree,
-    parse_vlan_brief,
-)
+from .parsers import PARSERS
 from .types import SOURCE_BY_KIND, CliRecord, EvidenceKind, ParseStatus
-
-_RUNTIME_PARSERS = {
-    EvidenceKind.IP_INTERFACE_BRIEF: parse_ip_interface_brief,
-    EvidenceKind.VLAN_BRIEF: parse_vlan_brief,
-    EvidenceKind.INTERFACES_TRUNK: parse_interfaces_trunk,
-    EvidenceKind.IP_ROUTE: parse_ip_route,
-    EvidenceKind.ACCESS_LISTS: parse_access_lists,
-    EvidenceKind.OSPF_NEIGHBOR: parse_ospf_neighbor,
-    EvidenceKind.ETHERCHANNEL_SUMMARY: parse_etherchannel_summary,
-    EvidenceKind.SPANNING_TREE: parse_spanning_tree,
-}
 
 #: Session markers that should appear at most once per pasted artefact.
 #: A second occurrence means two outputs were concatenated, not one session.
@@ -53,6 +33,9 @@ _SESSION_MARKERS: dict[EvidenceKind, re.Pattern[str]] = {
         r"\bIP-Address\b.*\bOK\?.*\bMethod\b.*\bStatus\b.*\bProtocol\b", re.IGNORECASE
     ),
     EvidenceKind.VLAN_BRIEF: re.compile(r"^VLAN\s+Name\s+Status\s+Ports\b", re.IGNORECASE),
+    EvidenceKind.INTERFACES_TRUNK: re.compile(
+        r"^Port\s+Mode\s+Encapsulation\s+Status\s+Native\s+vlan\b", re.IGNORECASE
+    ),
     EvidenceKind.IP_ROUTE: re.compile(r"^Gateway of last resort\b", re.IGNORECASE),
     EvidenceKind.OSPF_NEIGHBOR: re.compile(r"^Neighbor\s+ID\s+Pri\b", re.IGNORECASE),
     EvidenceKind.ETHERCHANNEL_SUMMARY: re.compile(
@@ -139,7 +122,7 @@ def _parse_known(kind: EvidenceKind, lines: list[str]) -> tuple[dict | list, lis
     if kind is EvidenceKind.RUNNING_CONFIG:
         parsed, found = _config_to_dict(lines)
         return parsed, [], found
-    parsed, notes, found = _RUNTIME_PARSERS[kind]("\n".join(lines))
+    parsed, notes, found = PARSERS[kind]("\n".join(lines))
     return parsed, list(notes), found
 
 
