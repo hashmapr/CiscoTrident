@@ -23,7 +23,13 @@ from ..models import ParserReport, ParserState
 from ..normalization.configs import parse_running_config
 from ..normalization.values import canonical_interface_name
 from .base import AdapterResult, ParserAdapter
-from .snapshot import SnapshotSelection, device_names_in, select_snapshot
+from .snapshot import (
+    SnapshotSelection,
+    build_placeholder_map,
+    device_names_in,
+    resolve_display_name,
+    select_snapshot,
+)
 
 BRIDGE = Path(__file__).resolve().parent / "engine_c_bridge.mjs"
 
@@ -129,20 +135,32 @@ class EngineCAdapter(ParserAdapter):
         if not selection.abstained:
             selected_names = set(device_names_in(selection.xml_text or ""))
 
+        # pt-convert's simplifier keys devices by the raw XML name, which is still
+        # a ``[[...]]`` placeholder in an activity file. Resolve through the same
+        # STRING_VAR table used for the snapshot, or every real device is filtered
+        # out against the resolved inventory.
+        placeholder_map = build_placeholder_map(payload.get("xml_text") or "")
+
+        def _resolve(name: str) -> str:
+            return resolve_display_name(str(name), placeholder_map)
+
         devices_raw = payload.get("devices") or {}
         links_raw = payload.get("links") or []
 
         if selection.abstained:
             devices_raw, links_raw = {}, []
 
-        devices = sorted(devices_raw.keys())
-        if selected_names is not None:
-            devices = [d for d in devices if d in selected_names]
-        configs: dict[str, list[str]] = {}
+        resolved_devices: dict[str, dict] = {}
         for name, dev in devices_raw.items():
-            if selected_names is not None and str(name) not in selected_names:
+            resolved = _resolve(name)
+            if selected_names is not None and resolved not in selected_names:
                 continue
-            cfg_lines = dev.get("config") if isinstance(dev, dict) else None
+            resolved_devices[resolved] = dev if isinstance(dev, dict) else {}
+
+        devices = sorted(resolved_devices)
+        configs: dict[str, list[str]] = {}
+        for name, dev in resolved_devices.items():
+            cfg_lines = dev.get("config")
             if isinstance(cfg_lines, list) and cfg_lines:
                 configs[str(name)] = [str(line) for line in cfg_lines]
 
@@ -154,15 +172,16 @@ class EngineCAdapter(ParserAdapter):
             b = link.get("ToDevice")
             if not a or not b:
                 continue
+            a_name, b_name = _resolve(a), _resolve(b)
             if selected_names is not None and (
-                str(a) not in selected_names or str(b) not in selected_names
+                a_name not in selected_names or b_name not in selected_names
             ):
                 continue
             links.append(
                 (
-                    str(a),
+                    a_name,
                     canonical_interface_name(str(link.get("FromPort") or "")),
-                    str(b),
+                    b_name,
                     canonical_interface_name(str(link.get("ToPort") or "")),
                     None,
                 )

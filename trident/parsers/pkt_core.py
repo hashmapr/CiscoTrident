@@ -170,7 +170,9 @@ class EngineBAdapter(ParserAdapter):
         # links to reference-network devices cannot leak into the model.
         dot = next(outdir.glob("*.dot"), None)
         if dot is not None:
-            links = _parse_dot(dot.read_text(encoding="utf-8", errors="replace"))
+            links = _parse_dot(
+                dot.read_text(encoding="utf-8", errors="replace"), placeholder_map
+            )
             if selected_names is not None:
                 links = [
                     ln for ln in links
@@ -181,18 +183,27 @@ class EngineBAdapter(ParserAdapter):
         configs: dict[str, list[str]] = {}
         cfg_dir = outdir / "configs"
         if cfg_dir.is_dir():
-            # pkt-core sanitises filenames; map slug -> real snapshot device name
-            # so configs are matched to the selected snapshot without dropping
-            # devices whose names contain spaces or punctuation.
-            slug_to_name = (
-                {_slug(name): name for name in selected_names} if selected_names is not None else {}
-            )
+            # pkt-core names config files after the raw XML device name, which in
+            # an activity file is still the placeholder (``pr3-rt_Display_name``).
+            # Build the lookup from BOTH the resolved name and the raw placeholder,
+            # so neither naming convention drops configs.
+            lookup: dict[str, str] = {}
+            if selected_names is not None:
+                for name in selected_names:
+                    lookup[_slug(name)] = name
+                    lookup[_slug(resolve_display_name(name, placeholder_map))] = name
+                for raw_key, resolved_value in placeholder_map.items():
+                    if resolved_value in selected_names:
+                        lookup[_slug(raw_key)] = resolved_value
+
             for cfg_file in sorted(cfg_dir.glob("*.cfg")):
                 name = cfg_file.stem
                 if selected_names is not None:
-                    resolved = slug_to_name.get(name) or slug_to_name.get(_slug(name))
-                    if resolved is None:
-                        resolved = slug_to_name.get(_slug(resolve_display_name(name, placeholder_map)))
+                    resolved = (
+                        lookup.get(name)
+                        or lookup.get(_slug(name))
+                        or lookup.get(_slug(resolve_display_name(name, placeholder_map)))
+                    )
                     if resolved is None:
                         continue
                     name = resolved
@@ -255,13 +266,22 @@ def _load_topology(outdir: Path, cli_error: str | None, messages: list[str]) -> 
 _DOT_EDGE_RE = None
 
 
-def _parse_dot(text: str) -> list[tuple[str, str, str, str, str | None]]:
-    """Parse the ``dN [label=...]`` + ``dN -> dM`` Graphviz export from PKT-CORE."""
+def _parse_dot(
+    text: str, placeholder_map: dict[str, str] | None = None
+) -> list[tuple[str, str, str, str, str | None]]:
+    """Parse the ``dN [label=...]`` + ``dN -> dM`` Graphviz export from PKT-CORE.
+
+    Node labels carry the raw XML device name, which for an activity file is
+    still a ``[[...]]`` placeholder. They are resolved here so link endpoints
+    compare equal to resolved device names.
+    """
     import re
 
     labels: dict[str, str] = {}
     for m in re.finditer(r'^\s*(d\d+)\s*\[label="([^"]*)"', text, re.MULTILINE):
         raw = m.group(2).replace("\\\\n", "\\n").split("\\n")[0]
+        if placeholder_map:
+            raw = resolve_display_name(raw, placeholder_map)
         labels[m.group(1)] = raw
 
     links: list[tuple[str, str, str, str, str | None]] = []
