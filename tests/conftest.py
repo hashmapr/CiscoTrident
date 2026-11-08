@@ -138,3 +138,77 @@ requires_real_file = pytest.mark.skipif(
 requires_all_engines = pytest.mark.skipif(
     not all_engines_available(), reason="not all three engines are available in this environment"
 )
+
+
+# ---------------------------------------------------------------------------
+# Simulator fixtures
+# ---------------------------------------------------------------------------
+# These live here rather than in tests/simulator/conftest.py: a nested conftest
+# would shadow this module for the whole tests/ tree, because pytest imports a
+# bare `conftest` module by name.
+
+#: A minimal lab file. Content is irrelevant to the scripted backend, but the
+#: file must exist so hashing and copying are real.
+SIMULATOR_LAB_BYTES = b"PKT\x00synthetic-test-lab"
+
+SIMULATOR_SCENARIO = {
+    "devices": [
+        {
+            "name": "R1",
+            "device_type": "router",
+            "commands": {
+                "show ip route": (
+                    "Codes: C - connected, S - static\n"
+                    "Gateway of last resort is 203.0.113.1\n"
+                    "S*   0.0.0.0/0 [1/0] via 203.0.113.1\n"
+                    "C    10.10.10.0/24 is directly connected, GigabitEthernet0/1\n"
+                ),
+                "show ip interface brief": (
+                    "Interface              IP-Address      OK? Method Status   Protocol\n"
+                    "GigabitEthernet0/0     203.0.113.2     YES manual up       up\n"
+                ),
+                "ping 10.10.20.10": (
+                    "Success rate is 100 percent (5/5), round-trip min/avg/max = 1/2/4 ms"
+                ),
+            },
+        },
+        {
+            "name": "PC1",
+            "device_type": "host",
+            "commands": {
+                "ping 10.10.20.10": "Success rate is 0 percent (0/5)",
+                "ping 10.10.20.11": (
+                    "Success rate is 100 percent (5/5), round-trip min/avg/max = 1/1/2 ms"
+                ),
+            },
+        },
+        {"name": "SW1", "device_type": "switch", "commands": {}},
+    ]
+}
+
+
+@pytest.fixture()
+def simulator_lab(tmp_path: Path) -> Path:
+    path = tmp_path / "practice.pkt"
+    path.write_bytes(SIMULATOR_LAB_BYTES)
+    return path
+
+
+@pytest.fixture()
+def simulator_scenario(tmp_path: Path) -> Path:
+    import json
+
+    path = tmp_path / "scenario.json"
+    path.write_text(json.dumps(SIMULATOR_SCENARIO))
+    return path
+
+
+@pytest.fixture()
+def scripted_runtime(tmp_path: Path):
+    from trident.simulator import SimulatorRuntime
+
+    return SimulatorRuntime(
+        workspace_root=tmp_path / "ws",
+        prefer_live=False,
+        allow_scripted=True,
+    )
