@@ -40,10 +40,10 @@ _PEER_IF_RE = re.compile(
 )
 _COUNT_NEIGHBORS_RE = re.compile(
     r"\bhow\s+many\s+(?:distinct\s+)?(?:physical\s+)?(?:neighbou?rs?|neighbou?ring\s+devices?|adjacent)\b",
-    re.I,
+    re.IGNORECASE,
 )
 _IFACE_ON_RE = re.compile(
-    r"\bwhich\s+interface\s+on\s+(.+?)\s+is\s+physically\s+connected\s+to\b", re.I
+    r"\bwhich\s+interface\s+on\s+(.+?)\s+is\s+physically\s+connected\s+to\b", re.IGNORECASE
 )
 _NEIGHBOR_RE = re.compile(
     r"\b(connected\s+to|connects?\s+to|neighbou?r|attached\s+to)\b", re.IGNORECASE
@@ -372,8 +372,8 @@ def route(model: NetworkModel, question: str) -> Intent | None:
         return None
 
     # --- "which interface ... connected to ..." always wants an interface ----
-    if re.search(r"\bwhich\s+interface\b", q, re.I):
-        m_conn = re.search(r"connected\s+to\s+(.+?)\s+interface\b", q, re.I)
+    if re.search(r"\bwhich\s+interface\b", q, re.IGNORECASE):
+        m_conn = re.search(r"connected\s+to\s+(.+?)\s+interface\b", q, re.IGNORECASE)
         if m_conn:
             target_devs = resolve_devices_in_text(model, m_conn.group(1))
             if target_devs:

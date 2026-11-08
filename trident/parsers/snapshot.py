@@ -146,6 +146,14 @@ class SnapshotSelection:
     placeholders_resolved: bool = True
 
 
+_ADDRESS_LINE_RE = re.compile(r"<LINE>\s*ip address\s+\S+\s+\S+", re.IGNORECASE)
+
+
+def _count_config_addresses(body: str) -> int:
+    """Count configured interface addresses in a block (progress signal)."""
+    return len(_ADDRESS_LINE_RE.findall(body))
+
+
 def _template_tokens(body: str) -> int:
     return len(_TEMPLATE_TOKEN_RE.findall(body))
 
@@ -355,6 +363,48 @@ def select_snapshot(xml_text: str) -> SnapshotSelection:
             "snapshot block(s) carry placeholders that cannot be resolved"
         )
         return finish(f"block{index}", body, False, notes, "resolved-names")
+
+    # (d) Packet Tracer stores the initial network as the FIRST snapshot block of an
+    #     activity file; later blocks are saved/checkpoint states and the graded
+    #     state. When every populated block resolves cleanly (no placeholders) and
+    #     no other rule decided, the first block is the initial network by format
+    #     semantics. Later blocks are checked for the signature of a progressed
+    #     state so the choice is evidence-based, not positional guesswork.
+    if resolvable and len(resolvable) == len(non_empty) and len(non_empty) >= 2:
+        first_index, first_body = min(non_empty, key=lambda item: item[0])
+        later = [body for index, body in non_empty if index != first_index]
+        first_ips = _count_config_addresses(first_body)
+        later_ips = [_count_config_addresses(b) for b in later]
+        progressed = [n for n in later_ips if n > first_ips]
+        # Only apply the format rule when a later block visibly contains MORE
+        # configured state. Otherwise the blocks are genuinely different
+        # candidates and TRIDENT must abstain rather than pick positionally.
+        if not progressed:
+            counts_summary = [counts[i] for i, _ in candidates]
+            return finish(
+                "abstain",
+                None,
+                True,
+                [
+                    *notes,
+                    "cannot safely identify the intended snapshot: blocks differ and "
+                    f"none looks like a progressed state (addresses {first_ips} vs {later_ips}); "
+                    "abstaining instead of choosing by position",
+                ],
+                "abstain",
+                abstained=True,
+            )
+        notes.append(
+            f"selected block{first_index}: Packet Tracer stores the initial network "
+            f"as the first snapshot block; later block(s) carry "
+            f"{later_ips} configured address(es) versus {first_ips} here"
+            + (
+                " (strictly more, consistent with a saved/graded state)"
+                if progressed
+                else " (no clear progression marker)"
+            )
+        )
+        return finish(f"block{first_index}", first_body, False, notes, "first-block-initial")
 
     counts_summary = [counts[i] for i, _ in candidates]
     return finish(

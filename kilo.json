@@ -1,0 +1,5 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "model": "ollama-cloud/deepseek-v4.1-flash:1017-cloud",
+  "small_model": "ollama-cloud/deepseek-v4.1-flash:1017-cloud"
+}
