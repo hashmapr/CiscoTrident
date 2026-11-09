@@ -22,7 +22,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Self
 
-from .backends import Backend, select_backend
+from .backends import Backend, live_allowed, select_backend
 from .contracts import (
     BackendKind,
     Budget,
@@ -215,27 +215,46 @@ class SimulatorRuntime:
         workspace_root: str | Path | None = None,
         budget: Budget | None = None,
         max_sessions: int = 1,
-        prefer_live: bool = True,
+        prefer_live: bool | None = None,
         allow_scripted: bool = True,
     ) -> None:
         self.workspace = Workspace(workspace_root)
         self.budget = budget or Budget()
         self.max_sessions = max_sessions
-        self.prefer_live = prefer_live
+        # Launching Packet Tracer is opt-in. The default is "live only when the
+        # operator has explicitly allowed it", because starting a GUI app on
+        # someone's desktop mid-task is disruptive and is not something a library
+        # should do implicitly.
+        self.prefer_live = live_allowed() if prefer_live is None else prefer_live
         self.allow_scripted = allow_scripted
         self._sessions: dict[str, Session] = {}
 
     def is_available(self) -> bool:
-        """Cheap check used by the escalation policy. Never starts the simulator."""
-        from .backends import credentials_from_env, find_packet_tracer
+        """Whether LIVE simulation is usable. Never starts the simulator.
 
-        if not self.prefer_live:
-            return self.allow_scripted
+        The scripted backend deliberately does not count here: it produces no
+        simulator evidence, so treating it as "available" would let the
+        escalation policy claim an operational capability the process does not
+        have.
+        """
+        from .backends import credentials_from_env, find_packet_tracer, live_allowed
+
+        if not self.prefer_live or not live_allowed():
+            return False
         return find_packet_tracer() is not None and credentials_from_env() is not None
+
+    def scripted_available(self) -> bool:
+        """Whether a deterministic scripted backend can serve sessions."""
+        return self.allow_scripted
 
     def availability_reason(self) -> str:
         from .backends import credentials_from_env, find_packet_tracer
 
+        if not live_allowed():
+            return (
+                "live simulator is disabled. Set TRIDENT_ALLOW_LIVE_SIMULATOR=1 "
+                "to allow Packet Tracer to be started."
+            )
         bundle = find_packet_tracer()
         if bundle is None:
             return "Packet Tracer is not installed in a searchable location"

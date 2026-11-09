@@ -341,10 +341,19 @@ def test_session_info_is_complete(simulator_lab, simulator_scenario, scripted_ru
         session.close()
 
 
-def test_availability_reason_names_the_real_cause():
+def test_availability_reason_names_the_real_cause(monkeypatch):
+    monkeypatch.delenv("TRIDENT_ALLOW_LIVE_SIMULATOR", raising=False)
     runtime = SimulatorRuntime(workspace_root=os.environ.get("TMPDIR", "/tmp") + "/trident-avail")
     reason = runtime.availability_reason()
     assert isinstance(reason, str) and reason
-    # Never claims live availability without a registered app.
+    assert runtime.is_available() is False
+    assert "TRIDENT_ALLOW_LIVE_SIMULATOR" in reason
+
+
+def test_availability_reason_names_registration_after_consent(monkeypatch):
+    monkeypatch.setenv("TRIDENT_ALLOW_LIVE_SIMULATOR", "1")
+    runtime = SimulatorRuntime(workspace_root=os.environ.get("TMPDIR", "/tmp") + "/trident-avail2")
+    reason = runtime.availability_reason()
+    assert isinstance(reason, str) and reason
     if not runtime.is_available():
         assert "registered ExApp" in reason or "not installed" in reason

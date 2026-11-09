@@ -31,6 +31,16 @@ from trident.simulator.backends import (
 
 pytestmark = pytest.mark.live_simulator
 
+
+@pytest.fixture(autouse=True)
+def _allow_live_simulation(monkeypatch):
+    """These tests are the explicit consent to start Packet Tracer.
+
+    Launch is opt-in everywhere else, including in production, so each live test
+    states its consent rather than relying on an ambient environment variable.
+    """
+    monkeypatch.setenv("TRIDENT_ALLOW_LIVE_SIMULATOR", "1")
+
 BUNDLE = find_packet_tracer()
 CREDENTIALS = credentials_from_env()
 

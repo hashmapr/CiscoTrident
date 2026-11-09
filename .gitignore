@@ -11,3 +11,6 @@ dist/
 vendor/engine_a/pka2xml/*.so
 vendor/engine_a/pka2xml/*.dylib
 vendor/engine_a/pka2xml/*.dll
+
+# Local practice labs supplied by the operator; never committed
+/test-labs/

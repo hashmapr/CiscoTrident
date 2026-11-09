@@ -33,7 +33,7 @@ def test_simulator_status_is_available_and_explained():
     assert data["reason"]
 
 
-def test_status_does_not_claim_live_without_registration():
+def test_status_does_not_claim_live_when_unavailable():
     """If it says unavailable, the reason must name a real cause."""
     data = client.get("/api/phase3/simulator/status").json()
     if not data["available"]:
@@ -41,6 +41,7 @@ def test_status_does_not_claim_live_without_registration():
         assert (
             "registered ExApp" in data["reason"]
             or "not installed" in data["reason"]
+            or "TRIDENT_ALLOW_LIVE_SIMULATOR" in data["reason"]
         )
         assert "Static analysis works normally" in data["note"]
 

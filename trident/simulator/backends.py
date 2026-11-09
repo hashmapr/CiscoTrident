@@ -55,6 +55,19 @@ _SEARCH_ROOTS = (
 # ---------------------------------------------------------------------------
 
 
+#: Launching Packet Tracer is opt-in. Set to "1" to allow the runtime to start it.
+ALLOW_LIVE_ENV = "TRIDENT_ALLOW_LIVE_SIMULATOR"
+
+
+def live_allowed() -> bool:
+    """Whether this process may start Packet Tracer.
+
+    Starting a GUI application on the operator's desktop is intrusive, so it is
+    never implicit. ``TRIDENT_ALLOW_LIVE_SIMULATOR=1`` is the explicit consent.
+    """
+    return os.environ.get(ALLOW_LIVE_ENV, "").strip() not in {"", "0", "false", "no"}
+
+
 def find_packet_tracer() -> Path | None:
     """Locate a Packet Tracer ``*.app`` bundle, or return ``None``."""
     override = os.environ.get(_ENV_HOME)
@@ -807,7 +820,12 @@ def select_backend(
     branches on — never a configuration flag.
     """
     reasons: list[str] = []
-    if prefer_live:
+    if prefer_live and not live_allowed():
+        reasons.append(
+            "live simulator is disabled; set TRIDENT_ALLOW_LIVE_SIMULATOR=1 to "
+            "allow Packet Tracer to start"
+        )
+    elif prefer_live:
         bundle = find_packet_tracer()
         if bundle is None:
             reasons.append("no Packet Tracer install found")
