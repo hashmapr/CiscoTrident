@@ -1,0 +1,267 @@
+"""ExApp registration bootstrap.
+
+Packet Tracer accepts PTMP connections only from registered external
+applications, and registration is a one-time interactive step that Packet Tracer
+exposes no IPC call for. This module does everything that *can* be automated and
+stops at the one click that cannot:
+
+1. render the app manifest XML with a generated app id and secret,
+2. run Cisco's own ``meta`` utility, unchanged, to encrypt it into a ``.pta``,
+3. report the exact remaining steps and the exact commands to verify them.
+
+It never drives the Packet Tracer GUI, never edits ``PT.conf``, and never
+patches a binary. Those would be authentication bypasses, and they are out of
+scope by design.
+
+Usage::
+
+    python -m trident.simulator.registration
+
+    # or programmatically
+    from trident.simulator.registration import prepare
+    result = prepare(output_dir=Path("~/.config/trident"))
+    print(result.export_commands())
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import secrets
+import string
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from .backends import find_packet_tracer
+
+DEFAULT_APP_ID = "dev.trident.ipc"
+DEFAULT_OUTPUT_DIR = Path.home() / ".config" / "trident"
+MANIFEST_NAME = "trident-exapp.xml"
+PTA_NAME = "trident.pta"
+INTEGRITY_NAME = "trident-exapp"
+
+#: Every privilege in the shipped framework's SecurityPrivilege enum. The
+#: runtime refuses mutations regardless, so granting them does not widen what
+#: this project will do; it only avoids a second registration later.
+PRIVILEGES = (
+    "GET_NETWORK_INFO",
+    "CHANGE_NETWORK_INFO",
+    "SIMULATION_MODE",
+    "MISC_GUI",
+    "FILE",
+    "CHANGE_PREFERENCES",
+    "CHANGE_GUI",
+    "ACTIVITY_WIZARD",
+    "MULTIUSER",
+    "IPC",
+    "APPLICATION",
+)
+
+_MANIFEST = """<?xml version="1.0" encoding = "iso-8859-1"?>
+<!DOCTYPE PT_APP_META>
+<PT_APP_META>
+    <PT_VERSION>9.0.0</PT_VERSION>
+    <IPC_VERSION>1.0</IPC_VERSION>
+    <NAME>trident</NAME>
+    <VERSION>1.0.0</VERSION>
+    <ID>{app_id}</ID>
+    <DESCRIPTION>TRIDENT headless investigation runtime</DESCRIPTION>
+    <AUTHOR>TRIDENT</AUTHOR>
+    <CONTACT>trident</CONTACT>
+    <EXECUTABLE_PATH>trident</EXECUTABLE_PATH>
+    <KEY>{secret}</KEY>
+    <SECURITY_SETTINGS>
+{privileges}
+    </SECURITY_SETTINGS>
+    <LOADING>ON_DEMAND</LOADING>
+    <SAVING>NEVER</SAVING>
+    <INSTANCES>1</INSTANCES>
+</PT_APP_META>
+"""
+
+
+class RegistrationError(RuntimeError):
+    """A required input or tool was missing."""
+
+
+@dataclass(frozen=True)
+class RegistrationResult:
+    app_id: str
+    secret: str
+    pta_path: Path
+    meta_tool: Path
+    bundle: Path
+
+    def export_commands(self) -> str:
+        """Shell lines the operator runs after registering the .pta."""
+        return (
+            f'export TRIDENT_PT_APP_ID="{self.app_id}"\n'
+            f'export TRIDENT_PT_SECRET="{self.secret}"\n'
+            f'export TRIDENT_PT_HOME="{self.bundle}"'
+        )
+
+    def steps(self) -> list[str]:
+        return [
+            f"Open Packet Tracer from {self.bundle}.",
+            "Choose Extensions > IPC > Configure Apps.",
+            f"Click Add and select {self.pta_path}.",
+            "Click Ok.",
+            (
+                "Quit Packet Tracer normally (Cmd+Q or File > Exit) so the "
+                "registration is saved. A crash or forced quit loses it."
+            ),
+            (
+                "Export the credentials shown by --show-credentials, then run "
+                "`pytest tests/simulator/test_live_integration.py -v`."
+            ),
+        ]
+
+    def as_dict(self) -> dict:
+        return {
+            "app_id": self.app_id,
+            "pta_path": str(self.pta_path),
+            "meta_tool": str(self.meta_tool),
+            "bundle": str(self.bundle),
+            "steps": self.steps(),
+            "export_commands": self.export_commands(),
+            "secret_redacted": True,
+        }
+
+
+def _validate_app_id(app_id: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,80}", app_id or ""):
+        raise RegistrationError(
+            "app id may only contain letters, digits, dots, dashes and underscores"
+        )
+    return app_id
+
+
+def generate_secret(length: int = 32) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def render_manifest(app_id: str, secret: str) -> str:
+    privileges = "\n".join(f"        <PRIVILEGE>{name}</PRIVILEGE>" for name in PRIVILEGES)
+    return _MANIFEST.format(app_id=app_id, secret=secret, privileges=privileges)
+
+
+def _write_private(path: Path, text: str) -> None:
+    path.write_text(text)
+    os.chmod(path, 0o600)
+
+
+def prepare(
+    output_dir: Path | None = None,
+    app_id: str = DEFAULT_APP_ID,
+    secret: str | None = None,
+) -> RegistrationResult:
+    """Build the ``.pta`` and return what the operator must do next.
+
+    Raises :class:`RegistrationError` when Packet Tracer or its ``meta`` tool is
+    missing, so the caller can report a real reason rather than a generic failure.
+    """
+    bundle = find_packet_tracer()
+    if bundle is None:
+        raise RegistrationError(
+            "Packet Tracer was not found in a searchable location; set "
+            "TRIDENT_PT_HOME to the installation folder"
+        )
+    meta_tool = bundle / "Contents" / "extensions" / "meta"
+    if not meta_tool.is_file():
+        raise RegistrationError(f"Packet Tracer's meta tool is missing at {meta_tool}")
+    if os.access(meta_tool, os.X_OK) is False:
+        raise RegistrationError(f"{meta_tool} is not executable")
+
+    app_id = _validate_app_id(app_id)
+    secret = secret or generate_secret()
+    if not re.fullmatch(r"[A-Za-z0-9]{16,128}", secret):
+        raise RegistrationError("secret must be 16-128 alphanumeric characters")
+
+    target = Path(output_dir).expanduser() if output_dir else DEFAULT_OUTPUT_DIR
+    target.mkdir(parents=True, exist_ok=True)
+    os.chmod(target, 0o700)
+
+    manifest_path = target / MANIFEST_NAME
+    pta_path = target / PTA_NAME
+    integrity_path = target / INTEGRITY_NAME
+    _write_private(manifest_path, render_manifest(app_id, secret))
+    integrity_path.write_text("#!/bin/sh\nexit 0\n")
+    os.chmod(integrity_path, 0o755)
+
+    # ``meta`` resolves its arguments relative to the working directory and
+    # refuses absolute paths for the integrity file, so it must run inside the
+    # output directory with bare filenames.
+    completed = subprocess.run(
+        [
+            str(meta_tool),
+            PTA_NAME,
+            MANIFEST_NAME,
+            "-i",
+            INTEGRITY_NAME,
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    # The plaintext secret must not linger once it is inside the encrypted .pta.
+    manifest_path.unlink(missing_ok=True)
+
+    if completed.returncode != 0 or not pta_path.is_file():
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise RegistrationError(f"meta tool did not produce {pta_path}: {detail}")
+
+    return RegistrationResult(
+        app_id=app_id,
+        secret=secret,
+        pta_path=pta_path,
+        meta_tool=meta_tool,
+        bundle=bundle,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(
+        prog="trident.simulator.registration",
+        description=(
+            "Prepare the Packet Tracer ExApp registration file and print the "
+            "remaining manual steps. Never drives the GUI."
+        ),
+    )
+    parser.add_argument("--output-dir", default=None)
+    parser.add_argument("--app-id", default=DEFAULT_APP_ID)
+    parser.add_argument(
+        "--show-credentials",
+        action="store_true",
+        help="include the secret in the output (it grants full control of Packet Tracer)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        result = prepare(Path(args.output_dir) if args.output_dir else None, args.app_id)
+    except RegistrationError as exc:
+        print(f"registration not prepared: {exc}")
+        return 2
+
+    print(f"Prepared {result.pta_path}")
+    print("\nRemaining steps (manual, one time):")
+    for index, step in enumerate(result.steps(), start=1):
+        print(f"  {index}. {step}")
+    print("\nAfter registering, export:")
+    print(result.export_commands())
+    if args.show_credentials:
+        print("\nFull result:")
+        print(json.dumps({**result.as_dict(), "secret": result.secret}, indent=2))
+    else:
+        print("\n(the secret is printed by --show-credentials; it is not shown above)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

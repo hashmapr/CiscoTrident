@@ -46,6 +46,43 @@ class AnalysisOutcome:
     adapter_results: list[AdapterResult] = field(default_factory=list)
 
 
+def phase3_summary(model: NetworkModel, results: list[AnswerResult]) -> dict:
+    """Static Phase 3 view of one analysis.
+
+    Deliberately does not touch the simulator: this runs on every upload, so it
+    must stay cheap and must work when Packet Tracer is absent. It reports the
+    network diagnosis and, per unresolved answer, whether the gap is testable, so
+    the caller knows what escalation would buy.
+    """
+    from .investigation import Investigator
+    from .investigation.escalation import classify_testability
+    from .models import AnswerStatus
+
+    try:
+        investigator = Investigator(model, runtime_available=False)
+        diagnosis = investigator.diagnose_network()
+    except Exception as exc:  # noqa: BLE001 - never break analysis over Phase 3
+        return {"available": False, "error": f"diagnosis failed: {exc}"}
+
+    unresolved = [
+        {
+            "question_number": result.question_number,
+            "status": result.status.value,
+            "missing_evidence": list(result.missing_evidence),
+            "testable": classify_testability(result.missing_evidence).value,
+        }
+        for result in results
+        if result.status
+        in {AnswerStatus.INCOMPLETE, AnswerStatus.CONFLICT, AnswerStatus.NOT_AVAILABLE}
+    ]
+    return {
+        "available": True,
+        "findings": diagnosis["findings"],
+        "unresolved_questions": unresolved,
+        "escalatable": sum(1 for entry in unresolved if entry["testable"] == "OBSERVABLE"),
+    }
+
+
 async def _run_adapters(
     adapters: list[ParserAdapter], file_path, workdir, cfg: Settings
 ) -> list[AdapterResult]:
@@ -171,6 +208,7 @@ async def analyze(
         network_summary=_summary(model, consensus),
         results=results_out,
         warnings=warnings,
+        phase3=phase3_summary(model, results_out),
     )
     return AnalysisOutcome(response=response, model=model, adapter_results=results)
 

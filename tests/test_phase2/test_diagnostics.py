@@ -259,3 +259,160 @@ def test_unattributed_evidence_never_confirms_a_device():
         if h.kind == SHUTDOWN_INTERFACE
     )
     assert hypothesis.status is HypothesisStatus.CONFIRMED_DEFECT
+
+
+# ---------------------------------------------------------------------------
+# Precision on real, working networks
+# ---------------------------------------------------------------------------
+# These cases came from running the engine against the four-network benchmark.
+# Each one was a false positive on a real, functioning lab, and each fix is a
+# rule that generalises rather than a special case for one file.
+
+
+def test_unaddressed_unconnected_shutdown_is_not_a_defect():
+    """A default-state port being down is normal, not a fault."""
+    model = baseline_lab()
+    from trident.models import InterfaceInfo
+
+    model.interfaces["R1:Vlan1"] = InterfaceInfo(
+        device="R1",
+        name="Vlan1",
+        canonical_name="Vlan1",
+        admin_state="administratively down",
+    )
+    assert not [
+        h
+        for h in diagnose(model).hypotheses
+        if h.kind == SHUTDOWN_INTERFACE and h.interface == "Vlan1"
+    ]
+
+
+def test_addressed_shutdown_interface_is_a_defect():
+    """A shut interface that holds an address is serving something."""
+    model = baseline_lab()
+    interface = next(
+        i for i in model.interfaces.values() if i.device == "R2" and i.ipv4_address
+    )
+    interface.admin_state = "administratively down"
+    found = [
+        h
+        for h in diagnose(model).hypotheses
+        if h.kind == SHUTDOWN_INTERFACE and h.interface == interface.name
+    ]
+    assert found and found[0].status is HypothesisStatus.CONFIRMED_DEFECT
+
+
+def test_cabled_but_unaddressed_shutdown_is_not_reported():
+    """Cabled-and-shut without addressing is a valid configuration choice."""
+    model = baseline_lab()
+    interface = next(
+        i for i in model.interfaces.values() if i.device == "SW2" and not i.ipv4_address
+    )
+    interface.admin_state = "administratively down"
+    interface.vlan_assignments = []
+    interface.access_mode = None
+    # Remove the link so it is also uncabled.
+    model.links = [
+        link
+        for link in model.links
+        if not (
+            (link.device_a, link.interface_a) == (interface.device, interface.name)
+            or (link.device_b, link.interface_b) == (interface.device, interface.name)
+        )
+    ]
+    assert not [
+        h
+        for h in diagnose(model).hypotheses
+        if h.kind == SHUTDOWN_INTERFACE and h.interface == interface.name
+    ]
+
+
+def test_dynamic_routing_suppresses_missing_static_route():
+    """A network routed by OSPF is not missing a static route."""
+    model = baseline_lab()
+    router = model.devices["R2"]
+    router.configuration = [*router.configuration, "router ospf 1", " network 10.10.20.0 0.0.0.255 area 0"]
+    from trident.models import RouteInfo
+
+    model.routes.append(
+        RouteInfo(
+            device="R2",
+            destination="10.10.99.0/24",
+            route_type="dynamic",
+            protocol="ospf 1",
+            raw_config="O 10.10.99.0/24 [110/2] via 10.10.10.1",
+        )
+    )
+    assert [
+        h for h in diagnose(model).hypotheses if h.kind == MISSING_STATIC_ROUTE
+    ] == []
+
+
+def test_public_only_edge_router_is_not_told_to_hold_private_routes():
+    """An ISP edge addressed in public space routes nothing private by design."""
+    from trident.models import InterfaceInfo, RouteInfo
+
+    model = baseline_lab()
+    model.interfaces["R1:Gi0/0"] = InterfaceInfo(
+        device="R1",
+        name="GigabitEthernet0/0",
+        canonical_name="GigabitEthernet0/0",
+        ipv4_address="203.0.113.2",
+        prefix_length=30,
+    )
+    for key in [k for k, i in model.interfaces.items() if i.device == "R1" and i.ipv4_address]:
+        interface = model.interfaces[key]
+        if not interface.ipv4_address.startswith("203."):
+            interface.ipv4_address = f"198.51.100.{len(key) % 200 + 1}"
+            interface.prefix_length = 24
+    model.routes = [
+        RouteInfo(device="R1", destination="0.0.0.0", next_hop="203.0.113.1", route_type="static"),
+    ]
+    assert not [
+        h
+        for h in diagnose(model).hypotheses
+        if h.kind == MISSING_STATIC_ROUTE and h.device == "R1"
+    ]
+
+
+def test_missing_route_is_reported_once_per_pair_not_once_per_subnet():
+    """Repeating the same pair for every subnet buries the operator."""
+    model = baseline_lab()
+    from trident.models import InterfaceInfo
+
+    for index in range(5):
+        model.interfaces[f"R2:Loop{index}"] = InterfaceInfo(
+            device="R2",
+            name=f"Loopback{index}",
+            canonical_name=f"Loopback{index}",
+            ipv4_address=f"10.99.{index}.1",
+            prefix_length=24,
+        )
+    findings = [h for h in diagnose(model).hypotheses if h.kind == MISSING_STATIC_ROUTE]
+    pairs = {(h.device, h.kind) for h in findings}
+    assert len(findings) == len(pairs), findings
+
+
+def test_gateway_inside_served_subnet_but_unowned_is_confirmed():
+    """The subnet is served here, so an unowned address in it is a real defect."""
+    scenario = next(s for s in scenarios() if s.name == "wrong-gateway")
+    found = [
+        h
+        for h in diagnose(scenario.model).hypotheses
+        if h.kind == WRONG_GATEWAY and h.device == "PC1"
+    ]
+    assert found and found[0].status is HypothesisStatus.CONFIRMED_DEFECT
+
+
+def test_gateway_outside_every_subnet_is_only_suspected():
+    """It may belong to a neighbour this file does not describe."""
+    model = baseline_lab()
+    model.settings.default_gateways["PC1"] = "192.0.2.1"
+    found = [
+        h
+        for h in diagnose(model).hypotheses
+        if h.kind == WRONG_GATEWAY and h.device == "PC1"
+    ]
+    assert found
+    assert found[0].status is HypothesisStatus.SUSPECTED
+    assert "owning device" in " ".join(found[0].missing_evidence)

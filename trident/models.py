@@ -332,6 +332,10 @@ class AnalysisResponse(BaseModel):
     network_summary: dict[str, Any] = Field(default_factory=dict)
     results: list[AnswerResult] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    #: Phase 3 investigation summary. Present on every analysis so the caller can
+    #: see which answers were resolved statically and which would need a
+    #: simulator. Empty only when Phase 3 was explicitly disabled.
+    phase3: dict[str, Any] = Field(default_factory=dict)
 
 
 class HealthResponse(BaseModel):

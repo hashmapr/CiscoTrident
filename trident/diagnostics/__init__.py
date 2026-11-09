@@ -147,6 +147,25 @@ def _vlan_ids(values) -> set[int]:
     return out
 
 
+#: Route types that represent a path the device actually learned or was given.
+#: A network routed by OSPF/EIGRP/RIP is not missing a static route; the earlier
+#: version of this detector only counted static routes and therefore reported
+#: every dynamically-routed lab as broken.
+_LEARNED_ROUTE_TYPES = {"static", "default", "dynamic", "connected", "local"}
+_LEARNED_PROTOCOLS = {"static", "connected", "local"}
+
+
+def _is_learned_route(route) -> bool:
+    route_type = (route.route_type or "").lower()
+    protocol = (route.protocol or "").lower()
+    if route_type in {"static", "default", "connected", "local"}:
+        return True
+    # Dynamic routes carry their protocol (``ospf 1``, ``eigrp 10``, ``rip``).
+    if route_type == "dynamic":
+        return True
+    return any(protocol.startswith(name) for name in ("ospf", "eigrp", "rip", "bgp", "isis"))
+
+
 def _route_network(destination: str) -> ipaddress.IPv4Network | None:
     text = (destination or "").strip()
     if not text or text in _DEFAULT_DESTINATIONS:
@@ -251,11 +270,39 @@ def detect_invalid_mask(model: NetworkModel, bundle: EvidenceBundle) -> list[Hyp
     return found
 
 
+def _proves_intended_service(model: NetworkModel, interface: InterfaceInfo) -> str | None:
+    """How strongly this interface's state proves a service is meant to run.
+
+    Returns ``"address"`` (it holds an address), ``"vlan"`` (it is assigned to a
+    VLAN or is a trunk), ``"cable"`` (merely connected) or ``None``.
+
+    The distinction drives confidence, not detection: a shut interface with no
+    address, no VLAN and no cable is normal; a shut interface that holds a
+    private address is a defect on a real lab. This is what keeps the engine
+    usable on real files instead of drowning them in default-state ports.
+    """
+    if interface.ipv4_address or interface.ipv6_address:
+        return "address"
+    if interface.vlan_assignments or _is_trunk(interface):
+        return "vlan"
+    if _peer_interface(model, interface.device, interface.name) is not None:
+        return "cable"
+    return None
+
+
 def detect_shutdown_interface(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypothesis]:
-    """An interface an administrator has disabled."""
+    """An interface an administrator has disabled that should have been up."""
     found: list[Hypothesis] = []
     for interface in _interfaces(model):
         if (interface.admin_state or "").lower() not in _DOWN_STATES:
+            continue
+        proof = _proves_intended_service(model, interface)
+        if proof is None:
+            # Nothing indicates this port was ever meant to be up.
+            continue
+        if proof == "cable":
+            # Cabled but unaddressed and not in a VLAN: shutting it is a valid
+            # configuration choice, so it is a suspicion, not a confirmed defect.
             continue
         supporting = (
             Observation(
@@ -313,6 +360,13 @@ def detect_wrong_gateway(model: NetworkModel, bundle: EvidenceBundle) -> list[Hy
         in_subnet = [net for net in local_nets if gateway_ip in net]
         if gateway in owners:
             continue
+        # A gateway inside one of this device's own subnets that no interface
+        # holds is a defect: the subnet is served here, so the address must be
+        # real and is not. A gateway outside every local subnet is a different
+        # situation - it may belong to a neighbour this file does not fully
+        # describe - so that case is reported at reduced confidence below rather
+        # than as a confirmed defect.
+        outside_only = not in_subnet
         # The gateway address exists nowhere on the network.
         supporting = (
             Observation(
@@ -337,18 +391,33 @@ def detect_wrong_gateway(model: NetworkModel, bundle: EvidenceBundle) -> list[Hy
                         )
                     )
                     break
-        found.append(
-            _hypothesis(
-                WRONG_GATEWAY,
-                device,
-                None,
-                f"Default gateway {gateway} is not an address that exists on the network.",
-                supporting,
-                "show ip interface brief",
-                "Set the default gateway to the router address inside the local subnet.",
-                tuple(contradicting),
-            )
+        hypothesis = _hypothesis(
+            WRONG_GATEWAY,
+            device,
+            None,
+            f"Default gateway {gateway} is not an address that exists on the network.",
+            supporting,
+            "show ip interface brief",
+            "Set the default gateway to the router address inside the local subnet.",
+            tuple(contradicting),
         )
+        if outside_only and not contradicting:
+            # Downgrade: the address may belong to a device this file does not
+            # describe. Still worth reporting, but not as a confirmed defect.
+            hypothesis = Hypothesis(
+                kind=hypothesis.kind,
+                status=HypothesisStatus.SUSPECTED,
+                confidence=Confidence.LOW,
+                device=hypothesis.device,
+                interface=hypothesis.interface,
+                suspected_cause=hypothesis.suspected_cause,
+                supporting=hypothesis.supporting,
+                contradicting=hypothesis.contradicting,
+                missing_evidence=("the owning device of the gateway address",),
+                next_command=hypothesis.next_command,
+                repair_hint=hypothesis.repair_hint,
+            )
+        found.append(hypothesis)
     return found
 
 
@@ -551,6 +620,48 @@ def detect_trunk_mismatch(model: NetworkModel, _bundle: EvidenceBundle) -> list[
     return found
 
 
+def _is_private_address(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        return ipaddress.IPv4Address(value).is_private
+    except ValueError:
+        return False
+
+
+def _device_uses_private_addressing(model: NetworkModel, device: str) -> bool:
+    """True when the device has at least one RFC1918 interface.
+
+    An edge router addressed entirely in public space is not expected to hold
+    routes to private internals - that is what NAT is for - so the missing-route
+    rule does not apply to it.
+    """
+    return any(
+        interface.device == device and _is_private_address(interface.ipv4_address)
+        for interface in _interfaces(model)
+    )
+
+
+def _runs_dynamic_routing(model: NetworkModel, device: str) -> bool:
+    """True when the device has any dynamic routing configured or learned."""
+    if any(
+        _is_learned_route(route)
+        and (route.route_type or "").lower() == "dynamic"
+        and route.device == device
+        for route in model.routes
+    ):
+        return True
+    info = model.devices.get(device)
+    if info is None:
+        return False
+    markers = ("router ospf", "router eigrp", "router rip", "router bgp", "router isis")
+    for line in info.configuration or ():
+        lowered = line.strip().lower()
+        if any(lowered.startswith(marker) for marker in markers):
+            return True
+    return False
+
+
 def detect_missing_static_route(model: NetworkModel, _bundle: EvidenceBundle) -> list[Hypothesis]:
     """A router that is the default transit for a neighbour but cannot return traffic.
 
@@ -562,6 +673,7 @@ def detect_missing_static_route(model: NetworkModel, _bundle: EvidenceBundle) ->
     """
     owners = _address_owners(model)
     found: list[Hypothesis] = []
+    reported_pairs: set[tuple[str, str]] = set()
     for route in model.routes:
         if route.destination not in _DEFAULT_DESTINATIONS or not route.next_hop:
             continue
@@ -572,12 +684,20 @@ def detect_missing_static_route(model: NetworkModel, _bundle: EvidenceBundle) ->
         dependent = route.device
         if transit == dependent:
             continue
+        if _runs_dynamic_routing(model, transit):
+            # A dynamically routed network is not missing a static route.
+            continue
+        if not _device_uses_private_addressing(model, transit):
+            # A public-only edge router routes nothing private by design.
+            continue
+        if (transit, dependent) in reported_pairs:
+            continue
         dependent_nets = _device_networks(model, dependent)
         transit_nets = _device_networks(model, transit)
         transit_routes = [
             net
             for other in model.routes
-            if other.device == transit
+            if other.device == transit and _is_learned_route(other)
             for net in [_route_network(other.destination)]
             if net is not None
         ]
@@ -586,13 +706,14 @@ def detect_missing_static_route(model: NetworkModel, _bundle: EvidenceBundle) ->
                 continue
             if any(net.subnet_of(r) or net == r for r in transit_routes):
                 continue
+            reported_pairs.add((transit, dependent))
             supporting = (
                 Observation(
                     source=_MODEL,
                     device=transit,
                     detail=(
                         f"{dependent} sends unknown traffic to {transit} via {route.next_hop}, "
-                        f"but {transit} has no route to {net} which is directly connected on {dependent}"
+                        f"but {transit} has no route to {net}, which is directly connected on {dependent}"
                     ),
                 ),
             )
@@ -607,6 +728,7 @@ def detect_missing_static_route(model: NetworkModel, _bundle: EvidenceBundle) ->
                     f"Add a static route on {transit} for {net}.",
                 )
             )
+            break
     return found
 
 
