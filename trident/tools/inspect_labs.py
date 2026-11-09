@@ -238,6 +238,9 @@ def _inspect_live(path: Path) -> dict:
         }
     finally:
         session.close()
+        # Release the runtime's own bookkeeping too, so no owned process is
+        # left behind even if close() only partly succeeded.
+        runtime.close_all()
 
 
 if __name__ == "__main__":

@@ -328,6 +328,20 @@ class SimulatorRuntime:
         self._sessions[session_id] = session
         return session
 
+    def owned_pids(self) -> list[int]:
+        """PIDs of simulator processes this runtime started.
+
+        Only processes this runtime spawned are listed, so a caller can clean up
+        without touching a Packet Tracer instance the operator opened.
+        """
+        pids: list[int] = []
+        for session in self._sessions.values():
+            supervisor = getattr(session.backend, "supervisor", None)
+            process = getattr(supervisor, "process", None)
+            if process is not None and process.poll() is None:
+                pids.append(process.pid)
+        return pids
+
     def _forget(self, session_id: str) -> None:
         """Called by a session when it closes, so the slot is released."""
         self._sessions.pop(session_id, None)

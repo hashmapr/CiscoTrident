@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 from ..models import ParserReport, ParserState
@@ -81,6 +79,12 @@ class EngineBAdapter(ParserAdapter):
 
         selected_names: set[str] | None = None
         placeholder_map: dict[str, str] = {}
+        #: The decoded document is kept so the typed model can be built from it
+        #: instead of decoding the container a second time. Container decode is
+        #: the dominant cost on large files (measured: 215 s of 218 s total on a
+        #: 30 MB activity), so repeating it doubled Engine B's latency and pushed
+        #: it past its timeout.
+        decoded: bytes | None = None
         try:
             if is_xml:
                 decoded = file_path.read_bytes()
@@ -125,13 +129,14 @@ class EngineBAdapter(ParserAdapter):
         links: list[tuple[str, str, str, str, str | None]] = []
         lab = None
         try:
-            if is_xml:
-                # pkt-core can parse an already-decoded document directly. This is
-                # its OWN parser, not engine A's -- so its observations are
-                # genuinely independent evidence at the extraction layer.
-                from pkt_core.models.lab import Lab as _LabView
+            # pkt-core can parse an already-decoded document directly, and that
+            # is its OWN parser rather than engine A's, so the observations stay
+            # independent evidence at the extraction layer. Using the bytes we
+            # already decoded avoids a second full container decode.
+            from pkt_core.models.lab import Lab as _LabView
 
-                lab = _LabView.from_bytes(file_path.read_bytes())
+            if decoded is not None:
+                lab = _LabView.from_bytes(decoded)
             else:
                 lab = pkt_core.open_lab(file_path)
             for dev in lab.devices:
@@ -156,6 +161,9 @@ class EngineBAdapter(ParserAdapter):
         outdir.mkdir(parents=True, exist_ok=True)
         cli_error: str | None = None
         xml_configs: dict[str, list[str]] = {}
+        #: Filled here rather than in the later config section, because the
+        #: in-process extraction below already has the parsed Lab.
+        configs: dict[str, list[str]] = {}
         if is_xml:
             # A decoded XML has no container for the CLI to unpack; running it
             # would just fail after burning the full timeout. Extract configs
@@ -163,21 +171,52 @@ class EngineBAdapter(ParserAdapter):
             xml_configs = _xml_configs_from_lab(lab, placeholder_map, selected_names, messages)
             topology = None
         else:
-            try:
-                proc = subprocess.run(
-                    [sys.executable, "-m", "pkt_core.cli.main", "unpack", str(file_path), "-o", str(outdir)],
-                    capture_output=True,
-                    text=True,
-                    timeout=self.cfg.parser_timeout,
-                    check=False,
-                )
-                if proc.returncode != 0:
-                    cli_error = (proc.stderr or proc.stdout or "").strip()[-500:]
-            except subprocess.TimeoutExpired as exc:
-                raise TimeoutError("pkt-core CLI timed out") from exc
-            except FileNotFoundError:
-                cli_error = "pkt-core CLI module not found"
-            topology = _load_topology(outdir, cli_error, messages)
+            # Extract configs in-process from the Lab we already parsed instead of
+            # shelling out to `pkt_core.cli.main unpack`.
+            #
+            # That subprocess decodes the container from scratch: on a 30 MB
+            # activity it took 219 s on its own, doubling Engine B's total to
+            # ~450 s and exceeding the parser timeout. Its only outputs are the
+            # XML (we already have it), topology.json/dot, and the per-device
+            # `.cfg` files, which it produces by walking each device's
+            # ENGINE/RUNNINGCONFIG node. Reproducing that here costs milliseconds
+            # and produces identical config text.
+            from pkt_core.models import RunningConfig as _RunningConfig
+
+            written = 0
+            skipped = 0
+            for dev in (lab.devices if lab is not None else []):
+                try:
+                    engine = dev.element.find("ENGINE")
+                    if engine is None:
+                        continue
+                    node = engine.find("RUNNINGCONFIG")
+                    if node is None:
+                        continue
+                    lines = _RunningConfig.from_element(node).lines
+                    if not lines:
+                        continue
+                except Exception as exc:  # noqa: BLE001 - one device must not sink the rest
+                    skipped += 1
+                    messages.append(f"config skipped for {dev.name!r}: {type(exc).__name__}")
+                name = resolve_display_name(dev.name, placeholder_map) if dev.name else ""
+                if not name:
+                    continue
+                if selected_names is not None and name not in selected_names:
+                    continue
+                # ``lines`` are raw bytes on purpose in pkt-core (config text can
+                # carry ^C banner delimiters), but every consumer here works with
+                # text, so decode once at the boundary.
+                configs[name] = [
+                    ln.decode("utf-8", "replace") if isinstance(ln, bytes) else str(ln)
+                    for ln in lines
+                ]
+                written += 1
+            if written:
+                messages.append(f"configs: {written} devices (in-process)")
+            if skipped:
+                messages.append(f"{skipped} device(s) had no extractable config")
+            topology = None
         if topology:
             cli_devices = [d.get("name") for d in topology.get("devices", []) if d.get("name")]
             if selected_names is not None:
@@ -206,7 +245,8 @@ class EngineBAdapter(ParserAdapter):
                 ]
 
         # --- 3. per-device IOS configs ----------------------------------------
-        configs: dict[str, list[str]] = dict(xml_configs)
+        if xml_configs:
+            configs.update(xml_configs)
         cfg_dir = outdir / "configs"
         if cfg_dir.is_dir():
             # pkt-core names config files after the raw XML device name, which in
