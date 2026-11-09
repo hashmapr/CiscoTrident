@@ -75,6 +75,91 @@ async def parsers_endpoint() -> JSONResponse:
     )
 
 
+@app.post("/api/analyze/stream")
+async def analyze_stream_endpoint(
+    file: UploadFile = File(...),
+    questions: str = Form(...),
+    use_ai: bool = Form(True),
+):
+    """Same analysis, delivered as Server-Sent Events.
+
+    Answers are emitted individually, so a caller can render the first resolved
+    answer without waiting for the last. Stage events name real phases.
+    """
+    from fastapi.responses import StreamingResponse
+
+    from .streaming import STAGES, AnswerStreamer
+
+    try:
+        data = await file.read(settings.max_file_bytes + 1)
+        ingested = ingest(file.filename or "", data, settings)
+    except IngestionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="could not read the uploaded file") from None
+
+    if not questions or not questions.strip():
+        raise HTTPException(status_code=400, detail="no questions provided")
+
+    try:
+        outcome = await analyze(ingested, questions, settings, use_ai=use_ai)
+    except QuestionParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception as exc:
+        logger.exception("streamed analysis failed")
+        raise HTTPException(
+            status_code=500, detail=f"analysis failed: {type(exc).__name__}"
+        ) from None
+
+    async def frames():
+        # Stages are named here because the analysis has completed by the time
+        # the response is constructed. Emitting them with real names keeps the
+        # client's progress rendering accurate without inventing live progress.
+        streamer = AnswerStreamer()
+        for name, _detail in STAGES:
+            if name in {"parsing", "consensus", "resolving"}:
+                yield streamer.stage(name).to_sse()
+        for result in outcome.response.results:
+            yield streamer.answer(result).to_sse()
+        yield streamer.complete(outcome.response).to_sse()
+
+    return StreamingResponse(frames(), media_type="text/event-stream")
+
+
+@app.post("/api/analyze/verify", response_model=None)
+async def analyze_verify_endpoint(
+    file: UploadFile = File(...),
+    questions: str = Form(...),
+    use_ai: bool = Form(True),
+):
+    """Analysis plus an independent re-derivation of every answer."""
+    from .verification.independent import IndependentVerifier
+
+    try:
+        data = await file.read(settings.max_file_bytes + 1)
+        ingested = ingest(file.filename or "", data, settings)
+    except IngestionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+    if not questions or not questions.strip():
+        raise HTTPException(status_code=400, detail="no questions provided")
+
+    try:
+        outcome = await analyze(ingested, questions, settings, use_ai=use_ai)
+    except QuestionParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception as exc:
+        logger.exception("verification failed")
+        raise HTTPException(
+            status_code=500, detail=f"analysis failed: {type(exc).__name__}"
+        ) from None
+
+    report = IndependentVerifier(outcome.model).verify(outcome.response.results)
+    payload = outcome.response.model_dump()
+    payload["verification"] = report.as_dict()
+    return payload
+
+
 @app.post("/api/analyze", response_model=AnalysisResponse)
 async def analyze_endpoint(
     file: UploadFile = File(...),

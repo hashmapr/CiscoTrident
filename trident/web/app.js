@@ -111,25 +111,136 @@ async function analyze() {
   const started = performance.now();
 
   try {
-    const res = await fetch("/api/analyze", { method: "POST", body: form });
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const err = await res.json();
-        detail = err.detail || detail;
-      } catch (_) {}
-      throw new Error(detail);
+    // Streamed analysis: answers appear as they resolve, and stage events show
+    // real phases. Falls back to the buffered endpoint if streaming is
+    // unavailable in this browser or proxy.
+    const streamed = await analyzeStreamed(form, started);
+    if (!streamed) {
+      const res = await fetch("/api/analyze", { method: "POST", body: form });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          detail = err.detail || detail;
+        } catch (_) {}
+        throw new Error(detail);
+      }
+      const data = await res.json();
+      lastResponse = data;
+      const secs = ((performance.now() - started) / 1000).toFixed(1);
+      render(data);
+      setStatus(`Done in ${secs}s — ${data.results.length} question(s).`, "");
     }
-    const data = await res.json();
-    lastResponse = data;
-    const secs = ((performance.now() - started) / 1000).toFixed(1);
-    render(data);
-    setStatus(`Done in ${secs}s — ${data.results.length} question(s).`, "");
   } catch (err) {
     setStatus(`Failed: ${err.message}`, "error");
   } finally {
     $("analyze").disabled = false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Streamed analysis
+// ---------------------------------------------------------------------------
+// Renders each answer as it arrives. Returns false when streaming is not
+// usable, so the caller can fall back to the single-response endpoint.
+
+async function analyzeStreamed(form, started) {
+  let res;
+  try {
+    res = await fetch("/api/analyze/stream", { method: "POST", body: form });
+  } catch (_) {
+    return false;
+  }
+  if (!res.ok || !res.body) return false;
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const collected = [];
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const frame = buffer.slice(0, boundary).trim();
+      buffer = buffer.slice(boundary + 2);
+      if (frame.startsWith("data: ")) {
+        let event;
+        try {
+          event = JSON.parse(frame.slice(6));
+        } catch (_) {
+          boundary = buffer.indexOf("\n\n");
+          continue;
+        }
+        handleStreamEvent(event, collected, started);
+      }
+      boundary = buffer.indexOf("\n\n");
+    }
+  }
+  return true;
+}
+
+function handleStreamEvent(event, collected, started) {
+  if (event.kind === "STAGE") {
+    setStatus(`Analyzing… ${event.stage}`, "busy");
+    return;
+  }
+  if (event.kind === "ANSWER") {
+    collected.push(event.answer);
+    appendStreamedAnswer(event.answer);
+    return;
+  }
+  if (event.kind === "COMPLETE") {
+    const secs = ((performance.now() - started) / 1000).toFixed(1);
+    setStatus(
+      `Done in ${secs}s — ${collected.length} question(s): ${formatCounts(event.payload.status_counts)}.`,
+      ""
+    );
+    return;
+  }
+  if (event.kind === "ERROR") {
+    setStatus(`Failed: ${event.detail || "stream error"}`, "error");
+  }
+}
+
+function formatCounts(counts) {
+  if (!counts) return "no results";
+  return Object.entries(counts)
+    .map(([status, n]) => `${n} ${status.toLowerCase()}`)
+    .join(", ");
+}
+
+// Renders one answer into the results list without clearing what is already
+// shown, so the user sees earlier answers while later ones are still resolving.
+function appendStreamedAnswer(answer) {
+  const root = $("results");
+  if (!root) return;
+  const card = document.createElement("article");
+  card.className = "result";
+  const head = document.createElement("header");
+  const number = document.createElement("span");
+  number.className = "qnum";
+  number.textContent = `Q${answer.question_number}`;
+  const badge = document.createElement("span");
+  badge.className = `badge status-${String(answer.status).toLowerCase()}`;
+  badge.textContent = answer.status;
+  head.append(number, badge);
+  card.appendChild(head);
+
+  const body = document.createElement("p");
+  body.className = "answer";
+  body.textContent = answer.answer || "(no answer)";
+  card.appendChild(body);
+
+  if (answer.explanation) {
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = answer.explanation;
+    card.appendChild(note);
+  }
+  root.appendChild(card);
 }
 
 function render(data) {
