@@ -131,6 +131,57 @@ class Session:
             device, command, timeout if timeout is not None else self.budget.command_timeout_s
         )
 
+    def send_pdu(
+        self,
+        source_device: str,
+        destination_device: str,
+        protocol: str = "icmp",
+        timeout_seconds: float = 15.0,
+    ):
+        """Send a real simple PDU and return its delivery evidence.
+
+        This is the only method that can establish connectivity: a CLI ping is
+        interactive and yields no verdict, while a PDU produces frames whose
+        sent/dropped state is observable.
+        """
+        from .pdu import DeliveryStatus, PduResult
+
+        self._check_usable()
+        if not self.supports(Capability.SEND_PDU):
+            return PduResult(
+                status=DeliveryStatus.UNSUPPORTED,
+                source=source_device,
+                destination=destination_device,
+                protocol=protocol,
+                operation="addSimplePdu",
+                raw="",
+                provenance=self._provenance(None, None, "addSimplePdu"),
+                error=f"{self.backend.kind.value} backend cannot send PDUs",
+                caveats=("no live simulator connection for packet experiments",),
+            )
+        self._consume_operation()
+        executor = getattr(self.backend, "pdu_executor", None)
+        if executor is None:
+            return PduResult(
+                status=DeliveryStatus.UNSUPPORTED,
+                source=source_device,
+                destination=destination_device,
+                protocol=protocol,
+                operation="addSimplePdu",
+                raw="",
+                provenance=self._provenance(None, None, "addSimplePdu"),
+                error="live backend did not provide a PDU executor",
+            )
+        from .pdu import send_with_warmup
+
+        return send_with_warmup(
+            executor,
+            source_device,
+            destination_device,
+            protocol,
+            timeout_seconds,
+        )
+
     def ping(
         self, source: str, destination: str, timeout: float | None = None
     ) -> OperationResult:
@@ -192,6 +243,23 @@ class Session:
             raise BudgetExceeded(
                 f"session {self.session_id} exceeded its {self.budget.session_lifetime_s}s lifetime"
             )
+
+    def _provenance(self, device: str | None, interface: str | None, operation: str):
+        """Provenance for a packet experiment, tagged to this session."""
+        from .contracts import Provenance, utcnow
+
+        return Provenance(
+            backend=self.backend.kind,
+            simulator_version=self.backend.version,
+            session_id=self.session_id,
+            source_sha256=self.source_sha256,
+            working_copy_sha256=self.working_copy_sha256,
+            device=device,
+            interface=interface,
+            operation=operation,
+            executed_at=utcnow(),
+            parsed_by="pdu",
+        )
 
     def _check_capability(self, capability: Capability) -> None:
         if not self.supports(capability):

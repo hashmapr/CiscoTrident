@@ -508,6 +508,7 @@ class LiveBackend(Backend):
         self.ipc_port = ipc_port
         self.autostart = autostart
         self._device_index: dict[str, str] | None = None
+        self._pdu_executor = None
 
     def capabilities(self) -> frozenset[Capability]:
         return frozenset(
@@ -519,8 +520,22 @@ class LiveBackend(Backend):
                 Capability.ROUTING_TABLE,
                 Capability.VLAN_TABLE,
                 Capability.ACL_VIEW,
+                Capability.SEND_PDU,
             }
         )
+
+    @property
+    def pdu_executor(self):
+        """A PDU executor bound to this backend's connection, or ``None``."""
+        from .pdu import PduExecutor
+
+        if self.client is None:
+            return None
+        if getattr(self, "_pdu_executor", None) is None:
+            self._pdu_executor = PduExecutor(
+                self.client, self._provenance, self.session_id
+            )
+        return self._pdu_executor
 
     def connect(self, startup_timeout: float = 45.0) -> None:
         if self.autostart:

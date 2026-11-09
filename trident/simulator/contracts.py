@@ -71,6 +71,8 @@ class Capability(enum.StrEnum):
     VLAN_TABLE = "VLAN_TABLE"
     MAC_TABLE = "MAC_TABLE"
     ACL_VIEW = "ACL_VIEW"
+    #: Simple-PDU packet experiments: real traffic, real delivery evidence.
+    SEND_PDU = "SEND_PDU"
     MUTATE_CONFIG = "MUTATE_CONFIG"
 
 
