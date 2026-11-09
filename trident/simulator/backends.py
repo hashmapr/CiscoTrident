@@ -37,7 +37,13 @@ from .contracts import (
     utcnow,
 )
 from .isolation import sha256_file
-from .ptmp import PtmpAuthRejected, PtmpClient, PtmpDisconnected, PtmpError
+from .ptmp import (
+    TYPE_BOOL,
+    PtmpAuthRejected,
+    PtmpClient,
+    PtmpDisconnected,
+    PtmpError,
+)
 
 #: Packet Tracer bundle locations checked, newest first. The environment
 #: variable wins so an install on another volume is supported.
@@ -504,6 +510,22 @@ class LiveBackend(Backend):
         """
         if self.client is None:
             raise BackendUnavailable("live backend is not connected")
+        # Hide the window *before* opening the file. `fileOpen` activates the
+        # application and shows its main window, which steals focus from
+        # whatever the operator was doing; `setVisible(false)` beforehand keeps
+        # the whole session at zero windows with no focus change, and the lab
+        # still loads. This was measured, not assumed: hiding after the open is
+        # too late, because focus has already moved.
+        try:
+            self.client.call(
+                ["appWindow", ("setVisible", [(TYPE_BOOL, "false")])], timeout=15.0
+            )
+        except PtmpError as exc:
+            # A backend that cannot hide would break the invisibility promise,
+            # so treat it as unavailable rather than silently showing a window.
+            raise BackendUnavailable(
+                f"could not hide the Packet Tracer window before opening the lab: {exc}"
+            ) from exc
         try:
             reply = self.client.call(
                 ["appWindow", ("fileOpen", [(9, str(self.working_copy))])],

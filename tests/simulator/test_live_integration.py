@@ -209,3 +209,63 @@ def _packet_tracer_window_count(settle_seconds: float = 3.0) -> int:
             return 0
         time.sleep(1.0)
     return final or 0
+
+
+# ---------------------------------------------------------------------------
+# Invisibility, measured rather than assumed
+# ---------------------------------------------------------------------------
+
+
+def _frontmost_app() -> str:
+    import subprocess
+
+    if shutil.which("osascript") is None:
+        return ""
+    try:
+        out = subprocess.run(
+            ["osascript", "-e",
+             'tell application "System Events" to get name of first process whose frontmost is true'],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip()
+
+
+@requires_simulator
+@requires_registration
+def test_session_never_steals_focus_or_shows_a_window(tmp_path):
+    """The whole point of headless: the operator's desktop is untouched.
+
+    Opening a lab used to activate Packet Tracer and show its window, which
+    interrupted whatever the operator was doing. Hiding the window before the
+    open fixes it, and this test fails if that regresses.
+    """
+    lab = Path(__file__).parents[1] / "fixtures" / "sample_lab.pkt"
+    if not lab.is_file():
+        pytest.skip("sample_lab.pkt fixture is not present")
+
+    before_front = _frontmost_app()
+    before_windows = _packet_tracer_window_count()
+
+    runtime = SimulatorRuntime(workspace_root=tmp_path / "ws", prefer_live=True)
+    session = runtime.create_session(lab)
+    try:
+        assert session.is_live
+        # Load the lab and run real commands; both must stay invisible.
+        names = [device["name"] for device in session.backend.devices()]
+        assert names
+        target = "R1" if "R1" in names else names[0]
+        result = session.run_cli(target, "show ip interface brief", timeout=45)
+        assert result.ok and result.is_live
+
+        assert _packet_tracer_window_count() == 0, "a window became visible"
+        after_front = _frontmost_app()
+        if before_front and after_front:
+            assert after_front == before_front, (
+                f"focus moved from {before_front!r} to {after_front!r}"
+            )
+    finally:
+        session.close()
+
+    assert _packet_tracer_window_count() <= before_windows

@@ -47,6 +47,7 @@ MD5_AUTHENTICATION = 4
 
 # Argument type codes, from IPCMessageConstants in the shipped framework.
 TYPE_VOID = 0
+TYPE_BOOL = 2
 TYPE_INT = 4
 TYPE_STRING = 8
 #: Qt-style string. Most UI-facing methods (fileOpen, getDevice) take a QString;
