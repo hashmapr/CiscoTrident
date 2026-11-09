@@ -163,9 +163,15 @@ class EngineBAdapter(ParserAdapter):
             # is its OWN parser rather than engine A's, so the observations stay
             # independent evidence at the extraction layer. Using the bytes we
             # already decoded avoids a second full container decode.
-            from pkt_core.models.lab import Lab as _LabView
-
-            if decoded is not None:
+            # Prefer building the Lab from bytes we already decoded. If this
+            # pkt-core build (or a test double) does not expose the models
+            # package, fall back to its documented entry point rather than
+            # silently reporting zero devices.
+            try:
+                from pkt_core.models.lab import Lab as _LabView
+            except ImportError:
+                _LabView = None
+            if decoded is not None and _LabView is not None:
                 lab = _LabView.from_bytes(decoded)
             else:
                 lab = pkt_core.open_lab(file_path)
@@ -211,11 +217,20 @@ class EngineBAdapter(ParserAdapter):
             # `.cfg` files, which it produces by walking each device's
             # ENGINE/RUNNINGCONFIG node. Reproducing that here costs milliseconds
             # and produces identical config text.
-            from pkt_core.models import RunningConfig as _RunningConfig
+            try:
+                from pkt_core.models import RunningConfig as _RunningConfig
+            except ImportError:
+                # A pkt-core build without the models package (or a test double)
+                # cannot contribute configs in-process. That is not fatal: the
+                # snapshot, device and link evidence is still valid, and an
+                # empty config set is reported honestly rather than guessed.
+                messages.append("configs: unavailable (pkt-core has no models package)")
+                topology = None
+                _RunningConfig = None  # type: ignore[assignment]
 
             written = 0
             skipped = 0
-            for dev in (lab.devices if lab is not None else []):
+            for dev in (lab.devices if lab is not None and _RunningConfig else []):
                 try:
                     engine = dev.element.find("ENGINE")
                     if engine is None:

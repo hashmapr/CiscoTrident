@@ -126,6 +126,18 @@ def _stub_pkt_core(monkeypatch, xml: str):
     stub = types.ModuleType("pkt_core")
     stub.__version__ = "stub"
     stub.decode_bytes = lambda raw: types.SimpleNamespace(xml=xml.encode("utf-8"))
+    # Engine B prefers TRIDENT's own decoder, which would fail on these synthetic
+    # "stub" bytes and fall through to pkt_core. Pin the decoder to the stub so
+    # the test exercises the snapshot-filtering logic it is actually about,
+    # rather than the container format.
+    import trident.parsers.pkt_core as engine_module
+
+    monkeypatch.setattr(
+        engine_module,
+        "_decode_container",
+        lambda raw: xml.encode("utf-8"),
+        raising=False,
+    )
 
     class _Dev:
         def __init__(self, name):

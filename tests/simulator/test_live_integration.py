@@ -199,16 +199,22 @@ def _packet_tracer_window_count(settle_seconds: float = 3.0) -> int:
         return int(text) if text.isdigit() else None
 
     time.sleep(settle_seconds)
-    final: int | None = None
-    for _ in range(3):
+    # A window count of 0 is conclusive. A non-zero count is only a failure once
+    # it *persists*: when several live tests run back to back, the previous
+    # session's process can still be closing, and its window is briefly visible.
+    # Sampling once there reports a window that belongs to a different test.
+    # Requiring the count to stay non-zero for several seconds distinguishes a
+    # real window from a shutting-down process.
+    persistent = 0
+    for _ in range(12):
         value = sample()
         if value is None:
             return 0
-        final = value
         if value == 0:
             return 0
+        persistent += 1
         time.sleep(1.0)
-    return final or 0
+    return persistent
 
 
 # ---------------------------------------------------------------------------

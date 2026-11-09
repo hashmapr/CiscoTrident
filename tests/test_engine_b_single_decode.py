@@ -54,8 +54,17 @@ def test_engine_b_does_not_shell_out_to_the_cli(monkeypatch):
 
 
 def test_engine_b_decodes_once(monkeypatch):
-    """decode_bytes must be called exactly once per run."""
+    """The container must be decoded exactly once per run.
+
+    Engine B now prefers TRIDENT's own decoder and falls back to pkt-core only
+    for formats ours does not implement. The invariant is unchanged, so this
+    counts *whichever* decoder runs rather than assuming pkt-core will be the
+    one called.
+    """
     import pkt_core
+
+    import trident.parsers.pkt_core as engine_module
+    import trident.pktcrypto.container as own_container
 
     ok_adapter = EngineBAdapter(settings)
     ok, _ = ok_adapter.probe()
@@ -67,6 +76,18 @@ def test_engine_b_decodes_once(monkeypatch):
     calls = {"decode": 0, "open_lab": 0}
     real_decode = pkt_core.decode_bytes
     real_open = pkt_core.open_lab
+    real_own = own_container.decode_bytes
+
+    def counting_own(*args, **kwargs):
+        calls["decode"] += 1
+        return real_own(*args, **kwargs)
+
+    monkeypatch.setattr(engine_module, "decode_bytes", counting_own, raising=False)
+    # The adapter imports decode_bytes inside _decode_container, so patch the
+    # module attribute it resolves at call time.
+    import trident.pktcrypto as pktcrypto_pkg
+
+    monkeypatch.setattr(pktcrypto_pkg, "decode_bytes", counting_own)
 
     def counting_decode(*args, **kwargs):
         calls["decode"] += 1
