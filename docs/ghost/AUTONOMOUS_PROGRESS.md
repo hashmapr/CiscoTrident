@@ -237,3 +237,61 @@ for shutdown, VLAN, trunk, gateway, duplicate/overlapping addressing, static
 routing, ACL binding and DHCP gateway. STP loops, QoS policy, EtherChannel
 misconfiguration and routing-protocol authentication are **not modelled**, so a
 clean report says nothing about them.
+
+---
+
+## Milestone 6 — TRIDENT EVOLVE foundation (COMPLETE)
+
+`trident/evolve/registry.py` — an append-only lesson store.
+
+A lesson records: input identity, question, prediction, actual outcome, the
+incorrect assumption, root-cause class, minimal counterexample, regression test
+reference, proposed fix and validation.
+
+Trust rules are enforced in code, not by convention:
+
+- usable only when state is `VALIDATED` **and** evidence is at least
+  `CONSENSUS` **and** a counterexample is attached;
+- `UNVERIFIED` and `STATIC_REPRODUCED` evidence are recorded but never usable as
+  truth;
+- a "validated" record with no counterexample is auto-downgraded to `INCOMPLETE`;
+- nothing in the package changes production behaviour. There is deliberately no
+  "apply lesson" function.
+
+Seeded with the four real lessons from this session
+(`docs/ghost/lessons.jsonl`): 4 total, **2 trusted** (the two established by live
+simulator observation), 2 correctly held back as static-only.
+
+22 tests in `tests/test_evolve_registry.py`, including the downgrade rule and a
+corrupt-line test proving one bad record cannot hide the rest of the history.
+
+---
+
+## Final verification
+
+| Check | Result |
+|---|---|
+| Full test suite | **1068 passed** |
+| Ruff | **All checks passed** |
+| 260-question benchmark | **260/260, 0 false-verified, 32.0 s** |
+| Adversarial + holdout + simulator | **238 passed** |
+| Five practice networks | all 3 engines OK, originals byte-identical |
+
+### Real vs mocked
+
+| Capability | Live | Mocked |
+|---|---|---|
+| Ghost launch, no window, no focus | **yes** | — |
+| ExApp authentication | **yes** | fake server in adversarial tests |
+| Lab load (`.pkt` and `.pka`) | **yes** | — |
+| Device enumeration | **yes** (7 and 22 devices) | — |
+| CLI diagnostics | **yes** (2277 B, 1876 B, 390 B real IOS output) | scripted backend |
+| Ping verdict | inconclusive (interactive) | scripted success/failure |
+| Clean shutdown, source intact | **yes** | — |
+
+## Remaining blockers
+
+1. **PDU-level connectivity** is not implemented, so a ping cannot produce a real
+   success/failure verdict through the CLI. This is the next substantive feature,
+   not a defect.
+2. **30 MB decode cost** is inherent to pure-Python AES-EAX in `pkt-core`.
