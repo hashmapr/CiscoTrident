@@ -482,15 +482,19 @@ def detect_overlapping_subnet(model: NetworkModel, _bundle: EvidenceBundle) -> l
 
 
 def detect_wrong_vlan(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypothesis]:
-    """An access port whose VLAN disagrees with the VLAN its segment uses.
+    """An access port whose VLAN is wrong for the segment it serves.
 
-    The VLAN that serves a subnet is discovered from the network itself: every
-    access port reaches one device, and the devices on one subnet agree on a
-    dominant VLAN. A port that reports a different VLAN for the same subnet is
-    the defect. This needs no VLAN-to-subnet table, which is why it also works
-    on labs that never define explicit VLAN records.
+    Two independent signals, because either alone misses real cases:
+
+    * **Undefined VLAN** — the port is in a VLAN the network does not define, so
+      no host on it can reach the rest of the segment.
+    * **Minority VLAN** — several ports serve the same subnet and this one is in
+      the minority. This needs at least two ports, so a lone port cannot be
+      judged against itself, which was the bug that made the first version miss
+      every single-port case.
     """
-    # subnet -> VLANs seen on access ports attached to a device in that subnet
+    declared = {vlan.vlan_id for vlan in model.vlans}
+
     subnet_vlans: dict[ipaddress.IPv4Network, Counter] = defaultdict(Counter)
     port_subnet: dict[tuple[str, str], ipaddress.IPv4Network] = {}
     for interface in _interfaces(model):
@@ -516,27 +520,32 @@ def detect_wrong_vlan(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypot
 
     found: list[Hypothesis] = []
     for (device, name), net in port_subnet.items():
-        expected, count = subnet_vlans[net].most_common(1)[0]
         interface = _find_interface(model, device, name)
         if interface is None:
             continue
         actual = _vlan_ids(interface.vlan_assignments)
-        if not actual or expected in actual:
+        if not actual:
             continue
-        if count < 2 and not model.vlans:
-            # One port alone cannot establish a dominant VLAN unless the file
-            # declares the VLAN table itself.
+        vlan = next(iter(actual))
+
+        reason: str | None = None
+        expected: int | None = None
+        counts = subnet_vlans[net]
+        if declared and vlan not in declared:
+            reason = (
+                f"{name} is in VLAN {vlan}, which this network does not define "
+                f"(defined: {sorted(declared)})"
+            )
+        elif counts.total() >= 2:
+            expected, _count = counts.most_common(1)[0]
+            if expected != vlan:
+                reason = (
+                    f"{name} is in VLAN {vlan} but {counts[expected]} other port(s) on "
+                    f"subnet {net} use VLAN {expected}"
+                )
+        if reason is None:
             continue
-        supporting = (
-            Observation(
-                source=_MODEL,
-                device=device,
-                detail=(
-                    f"{name} is in VLAN {sorted(actual)} but subnet {net} is served by "
-                    f"VLAN {expected} ({count} other ports)"
-                ),
-            ),
-        )
+
         contradicting: list[Observation] = []
         row = _runtime_row(bundle, device, name)
         if row is not None and str(row.get("vlan", "")) == str(expected):
@@ -547,15 +556,16 @@ def detect_wrong_vlan(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypot
                     detail=f"{name} reports VLAN {expected} at runtime",
                 )
             )
+        fix = f"VLAN {expected}" if expected is not None else "a defined VLAN"
         found.append(
             _hypothesis(
                 WRONG_VLAN,
                 device,
                 name,
-                f"Access port is in VLAN {sorted(actual)} but its segment uses VLAN {expected}.",
-                supporting,
+                reason,
+                (Observation(source=_MODEL, device=device, detail=reason),),
                 "show vlan brief",
-                f"Move {name} into VLAN {expected}.",
+                f"Move {name} into {fix}.",
                 tuple(contradicting),
             )
         )
@@ -620,13 +630,25 @@ def detect_trunk_mismatch(model: NetworkModel, _bundle: EvidenceBundle) -> list[
     return found
 
 
+#: RFC1918 space only. ``IPv4Address.is_private`` is broader than RFC1918: it
+#: also matches the TEST-NET documentation ranges (192.0.2.0/24, 198.51.100.0/24,
+#: 203.0.113.0/24), which labs use to represent *public* addressing. Using the
+#: stdlib property therefore classifies a public-facing edge router as internal
+#: and produces a false missing-route finding.
+_RFC1918 = tuple(
+    ipaddress.IPv4Network(net)
+    for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
+
+
 def _is_private_address(value: str | None) -> bool:
     if not value:
         return False
     try:
-        return ipaddress.IPv4Address(value).is_private
+        address = ipaddress.IPv4Address(value)
     except ValueError:
         return False
+    return any(address in net for net in _RFC1918)
 
 
 def _device_uses_private_addressing(model: NetworkModel, device: str) -> bool:
