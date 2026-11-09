@@ -20,7 +20,6 @@ disguised as a product failure.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 from trident.faultlab import baseline_lab, grade, scenarios
@@ -31,6 +30,7 @@ from trident.investigation import (
     Mode,
     Outcome,
     evaluate,
+    should_escalate,
 )
 from trident.models import AnswerStatus
 from trident.simulator import SimulatorRuntime, sha256_file
@@ -44,45 +44,92 @@ def _status(ok: bool, label: str, detail: str = "") -> None:
 
 
 def demo_a(runtime: SimulatorRuntime) -> bool:
-    """Static evidence first, escalate only what is testable."""
+    """Unresolved question, observable gap, real simulator evidence."""
     print("\nDEMONSTRATION A — automatic uncertainty resolution")
-    model = next(s for s in scenarios() if s.name == "wrong-vlan").model
     available = runtime.is_available()
     reason = runtime.availability_reason()
 
-    # 1-4: static analysis and gap identification always run.
-    investigator = Investigator(
-        model, mode=Mode.SMART, runtime_available=available, runtime_reason=reason
+    lab = Path(__file__).parents[2] / "tests" / "fixtures" / "sample_lab.pkt"
+    if not lab.is_file():
+        _status(False, "live demonstration", "sample_lab.pkt fixture is missing")
+        return True
+
+    # 1. Static analysis, always. This is the fault-lab model, not the .pkt, so the
+    #    suspect is known and the escalation question is the one under test.
+    model = next(s for s in scenarios() if s.name == "wrong-vlan").model
+    static_findings = [
+        f["kind"] for f in Investigator(model, runtime_available=False).diagnose_network()["findings"]
+    ]
+    print(f"  static diagnosis: {static_findings}")
+    _status(bool(static_findings), "static analysis produced a named suspect")
+
+    # 2. Decide whether the gap is worth simulating at all.
+    decision = should_escalate(
+        AnswerStatus.INCOMPLETE,
+        mode=Mode.SMART,
+        runtime_available=available,
+        missing=["reachability between PC1 and the gateway"],
     )
-    report = investigator.investigate(
-        [("Why can't PC1 reach the server?", AnswerStatus.INCOMPLETE, ["reachability"])]
-    )
-    outcome = report.outcomes[0]
-    print(f"  static diagnosis: {[f['kind'] for f in investigator.diagnose_network()['findings']]}")
-    print(f"  escalation decision: {outcome.stop_reason.value}")
-    print(f"  reason: {outcome.reason}")
-    _status(True, "static analysis produced a named suspect")
+    print(f"  escalation decision: escalate={decision.escalate} ({decision.reason})")
     _status(
-        outcome.stop_reason.value in {"RUNTIME_UNAVAILABLE", "SUFFICIENT_EVIDENCE"},
-        "escalation decision is explicit",
-        outcome.stop_reason.value,
+        decision.escalate == available,
+        "escalation follows runtime availability",
+        decision.testability.value,
     )
+
     if not available:
-        _status(False, "invisible simulator session", reason)
+        print(f"  operational simulation unavailable: {reason}")
         print("  The remaining steps of A need a registered ExApp.")
         return True
 
-    lab = Path(tempfile.mkdtemp()) / "lab.pkt"
-    lab.write_bytes(model.model_dump_json().encode())
-    session = runtime.create_session(lab)
+    # 3. A real session over a real container.
+    source_sha = sha256_file(lab)
+    try:
+        session = runtime.create_session(lab)
+    except Exception as exc:  # noqa: BLE001 - environment, reported not hidden
+        _status(False, "invisible simulator session", str(exc)[:160])
+        return True
     try:
         _status(session.is_live, "session is live", session.backend.kind.value)
-        result = session.run_cli(next(iter(model.devices)), "show version")
-        _status(result.observed, "observation is genuine", f"raw={len(result.raw)}B")
+        names = [d["name"] for d in session.backend.devices()]
+        _status(bool(names), "lab loaded", f"{len(names)} devices")
+
+        # 4. Run the investigation against the live session.
+        investigator = Investigator(
+            model,
+            mode=Mode.SMART,
+            session=session,
+            runtime_available=True,
+            runtime_reason=reason,
+        )
+        report = investigator.investigate(
+            [("Why can't PC1 reach the gateway?", AnswerStatus.INCOMPLETE, ["interface state"])]
+        )
+        outcome = report.outcomes[0]
+        print(f"  investigation: stop={outcome.stop_reason.value} tier={outcome.evidence_tier}")
+        print(f"  reason: {outcome.reason[:150]}")
+        _status(
+            outcome.stop_reason.value
+            in {"SUFFICIENT_EVIDENCE", "NO_USEFUL_EXPERIMENT", "SIMULATOR_FAILED"},
+            "investigation ran against the simulator",
+            outcome.stop_reason.value,
+        )
+
+        # 5. A genuine diagnostic, asserted on its content.
+        target = "R1" if "R1" in names else (names[0] if names else "")
+        interfaces = session.run_cli(target, "show ip interface brief", timeout=45) if target else None
+        if interfaces is not None:
+            _status(interfaces.observed, "observation is genuine", f"raw={len(interfaces.raw)}B")
+            _status(
+                "GigabitEthernet" in interfaces.raw,
+                "lab-specific output returned",
+                f"raw={len(interfaces.raw)}B",
+            )
+            _status(interfaces.is_live, "provenance marks it live", interfaces.provenance.backend.value)
     finally:
         status = session.close()
     _status("source=INTACT" in status, "source untouched", status)
-    _status(sha256_file(lab) == session.source_sha256, "hash verified")
+    _status(sha256_file(lab) == source_sha, "original hash verified")
     return True
 
 

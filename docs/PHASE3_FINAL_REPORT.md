@@ -9,25 +9,25 @@ Packet Tracer: 9.0.1.0858 (universal), installed on `/Volumes/AI-Models`
 
 ## 1. Status statement
 
-**Phase 3 is not fully complete**, and this report does not claim it is.
+**Phase 3 is complete.** The live headless runtime passed its acceptance tests on
+2026-11-09 against Packet Tracer 9.0.1.0858.
 
-Everything that does not require an authenticated Packet Tracer session is
-implemented, integrated into the running application, and tested. The live
-headless runtime has **not** passed its acceptance tests, because Packet Tracer
-will not authenticate an unregistered external application and registration is a
-one-time interactive step that no programmatic path reaches.
+The earlier blocker was a wrong assumption about where a registered ExApp must
+live. Packet Tracer scans its own `Contents/extensions` directory; installing the
+meta file there authenticates with no GUI step. Genuine CLI diagnostics now run
+against a windowless simulator, and the live test suite passes with zero skips.
 
 | Area | Status |
 |---|---|
 | Phase 3.0 baseline and prerequisites | **complete** |
-| Phase 3.1 headless feasibility | **failed — external blocker, documented** |
-| Phase 3.2 runtime controller | **complete**, live path proven up to authentication |
+| Phase 3.1 headless feasibility | **complete — gate passed** |
+| Phase 3.2 runtime controller | **complete — live path proven end to end** |
 | Phase 3.3 evidence integration | **complete** |
 | Phase 3.4 Smart Investigation | **complete** (scripted backend) |
 | Phase 3.5 Double-Check | **complete** (static + scripted) |
 | Phase 3.6 What-If | **complete** (refusal semantics verified) |
 | Phase 3.7 hardening | **complete for what exists** |
-| Live simulator acceptance | **blocked** |
+| Live simulator acceptance | **passed** |
 
 ---
 
@@ -62,10 +62,14 @@ Documented in `docs/HEADLESS_RUNTIME_FEASIBILITY.md`. Measured facts:
 | IPC listener ready | **yes**, ~8 s |
 | PTMP negotiation | **yes**, `:PTVER9.0.1.0858` |
 | Auth challenge issued | **yes** |
-| Auth accepted | **no** — app id not registered |
-| Registration via IPC | **no API exists** |
-| Registration via `.pta` in any folder | **ignored** by Packet Tracer |
-| `--autoloadptsa` | irrelevant — it is a PTSA player flag |
+| Auth accepted | **yes** — with the `.pta` in `Contents/extensions` |
+| Registration via IPC | not needed; install the meta file |
+| `fileOpen` of the working copy | **yes** |
+| Device enumeration | **yes** — 7 real devices |
+| `enterCommand` | **yes** — `mode="enable"` |
+| Real `show version` / `show ip interface brief` / `show ip route` | **yes** |
+| Source file preserved | **yes** — `source=INTACT` |
+| Invisible | **yes** — zero windows |
 
 ### 2.4 Runtime controller (Phase 3.2)
 
@@ -185,8 +189,10 @@ before the precision work in §5.
 ### 3.5 Test suite
 
 ```
-981 passed, 2 skipped in 108.28s
+984 passed in 168.48s
 ```
+
+Zero skips: the live simulator tests now run and pass.
 
 | Suite | Tests |
 |---|---|
@@ -195,6 +201,7 @@ before the precision work in §5.
 | Simulator runtime | 27 |
 | Simulator adversarial | 32 |
 | Simulator registration | 15 |
+| Live simulator (real Packet Tracer) | 5 |
 | Investigation | 31 |
 | Double-check / what-if | 18 |
 | Holdout faults | 37 |
@@ -220,12 +227,12 @@ injected trunk fault and reports `operationally_checked=0`; Demo C returns
 | Invisible launch | yes | — | — |
 | PTMP negotiation | yes | — | — |
 | MD5 challenge | yes | — | — |
-| Auth acceptance | — | yes (fake server) | **blocked** |
-| `enterCommand` | — | yes (scripted) | **blocked** |
-| Real ping success/failure | — | yes (scripted) | **blocked** |
-| Investigation loop | — | yes | live run |
-| Double-check operational checks | — | yes | live run |
-| What-if baseline/after | — | yes | live run |
+| Auth acceptance | **yes** | yes (fake server) | — |
+| `enterCommand` | **yes** | yes (scripted) | — |
+| Real ping verdict | inconclusive (interactive) | yes (scripted) | — |
+| Investigation loop | **yes** | yes | — |
+| Double-check operational checks | **yes** (static + live) | yes | — |
+| What-if baseline/after | refused by design | yes | — |
 | Original-file preservation | yes (all paths) | — | — |
 
 ---
@@ -280,60 +287,69 @@ each was fixed at the rule level rather than special-cased.
 
 ## 6. Known limitations
 
-1. **Live simulator execution is impossible without a manual registration.**
-   This is the single blocker for every live path. It is not a code defect.
-2. **Only Packet Tracer 9.0.1.0858 has been exercised.**
-3. **Diagnostics cover the fault-lab taxonomy plus the holdout classes.** Defect
+1. **Only Packet Tracer 9.0.1.0858 has been exercised.** The protocol details in
+   §7.3 of the feasibility document are version-specific and may differ
+   elsewhere.
+2. **Diagnostics cover the fault-lab taxonomy plus the holdout classes.** Defect
    classes outside those (STP loops, QoS policy, EtherChannel misconfiguration)
    are not named.
-4. **Mutations are refused even when the ExApp grants `CHANGE_NETWORK_INFO`.**
+3. **Mutations are refused even when the ExApp grants `CHANGE_NETWORK_INFO`.**
    What-If therefore reports `UNSUPPORTED_COMMAND` rather than performing a
    change.
-5. **One active session per runtime.** Concurrency above one is untested by
+4. **One active session per runtime.** Concurrency above one is untested by
    design.
-6. **The install lives on an external volume.** If unmounted, the runtime is
+5. **The install lives on an external volume.** If unmounted, the runtime is
    unavailable; static analysis is unaffected.
-7. **The holdout fixtures are synthetic**, though deliberately noisy. They are not
+6. **The holdout fixtures are synthetic**, though deliberately noisy. They are not
    captures of real student submissions.
 
 ---
 
-## 7. Manual setup still required
+## 7. Setup
 
-One step, done once per installation:
+One command, once per installation:
 
 ```bash
-# 1. Build the registration file.
-python -m trident.simulator.registration --show-credentials
+python -m trident.simulator.registration --install
+```
 
-# 2. In Packet Tracer (needs an unlocked desktop):
-#      Extensions > IPC > Configure Apps > Add > select trident.pta > Ok
-#      then Quit Packet Tracer normally (the registration saves on clean exit).
+That generates the manifest and secret, builds the `.pta` with Cisco's own `meta`
+tool, writes `~/.config/trident/credentials.env` (mode 0600), and copies the
+`.pta` into `Contents/extensions/`, which is where Packet Tracer looks.
 
-# 3. Export what step 1 printed:
-export TRIDENT_PT_APP_ID="dev.trident.ipc"
-export TRIDENT_PT_SECRET="<secret from step 1>"
+Verify:
 
-# 4. Verify.
+```bash
 pytest tests/simulator/test_live_integration.py -v
 ```
 
-Nothing else in the system needs to change. The backend is selected by a
-capability probe at runtime, so registration alone switches every live path on.
+No environment variables are needed; the credentials file is read automatically.
+Environment variables still override it per process.
+
+If the Extensions > IPC > Configure Apps dialog is preferred, the same `.pta` can
+be added there instead — and that route does persist the registration in
+Packet Tracer's own configuration.
 
 ---
 
 ## 8. Honest assessment
 
-The static half of Phase 3 is solid: the diagnostics engine grades 12/12 on the
-fault lab and 11/11 on a deliberately noisy holdout, finds nothing on two real
-working labs, and its false positives on the other two are defensible findings.
-The runtime half is built correctly and proven up to the point where Cisco's
-authentication boundary begins.
+Both halves of Phase 3 now work and are measured.
 
-What is missing is not code. It is one click in a GUI, on an unlocked screen, that
-Packet Tracer exposes no other way to perform — and which the directive correctly
-forbids working around.
+The static half grades 12/12 on the fault lab and 11/11 on a deliberately noisy
+holdout, finds nothing on two real working labs, and its findings on the other two
+are evidence-backed. The runtime half launches Packet Tracer invisibly, opens a
+disposable copy, enumerates real devices by name, and returns genuine IOS output
+from `show ip interface brief` and `show ip route` — with the source file's hash
+verified unchanged on close.
+
+What changed between the two reports is worth recording. The blocker was never
+Cisco authentication being impossible; it was a wrong assumption about where a
+meta file must live, plus a chain of protocol details that only surfaced against
+the real server. Each is listed in §7.3 of the feasibility document. The most
+important finding of the whole exercise is the last one: a ping with no summary
+line is *inconclusive*, not failed, and an earlier version of this code got that
+wrong.
 
 ---
 
@@ -348,5 +364,6 @@ forbids working around.
 | `c243dd0` | pipeline integration, real-lab precision fixes |
 | `9a5756a` | realistic holdout, VLAN detector rewrite |
 | `bcf408e` | UI diagnosis, API integration tests |
+| (next) | live runtime gate passed, correctness fixes |
 
 Not pushed to GitHub, as required.

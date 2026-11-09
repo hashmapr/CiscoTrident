@@ -85,6 +85,9 @@ class ObservationKind(enum.StrEnum):
     REACHABILITY_FAILED = "REACHABILITY_FAILED"
     #: A path was traced; the hops are what was seen, not a diagnosis.
     PATH_TRACED = "PATH_TRACED"
+    #: A reachability test ran but produced no verdict. Distinct from failure:
+    #: the simulator did not say the path was down, it said nothing at all.
+    REACHABILITY_INCONCLUSIVE = "REACHABILITY_INCONCLUSIVE"
 
 
 @dataclass(frozen=True)

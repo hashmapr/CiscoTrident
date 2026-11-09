@@ -47,7 +47,12 @@ MD5_AUTHENTICATION = 4
 
 # Argument type codes, from IPCMessageConstants in the shipped framework.
 TYPE_VOID = 0
+TYPE_INT = 4
 TYPE_STRING = 8
+#: Qt-style string. Most UI-facing methods (fileOpen, getDevice) take a QString;
+#: passing a plain String is rejected as invalid arguments.
+TYPE_QSTRING = 9
+TYPE_PAIR = 14
 
 MAX_FRAME_BYTES = 64 * 1024 * 1024
 DEFAULT_PORTS = tuple(range(39000, 39010))
@@ -112,6 +117,51 @@ def _read_frame(sock: socket.socket) -> list[str]:
     if parts and parts[-1] == b"":
         parts = parts[:-1]
     return [part.decode(errors="replace") for part in parts]
+
+
+def _decode_result(fields: list[str]) -> list[str]:
+    """Strip the result type code from an IPC response.
+
+    A response body is ``<type_code> <value>``, and for object returns it is
+    ``<type_code> <value> <cache_uuid>``. Returning the raw fields made callers
+    read the type code as the value (every device was reported as ``"9"``), so
+    the code is removed here. The cache UUID is appended by Packet Tracer for
+    object handles and is not part of the value.
+    """
+    if not fields:
+        return fields
+    head = fields[0]
+    if not head.isdigit():
+        return fields
+    code = int(head)
+    if code == TYPE_VOID:
+        return []
+    if code == TYPE_PAIR:
+        # A pair is encoded as the pair code, then two complete values. Unwrap
+        # the first level only, so ``enterCommand`` yields
+        # [command_status, output_text] rather than the leading type codes.
+        return _decode_values(fields[1:], count=2)
+    value = fields[1] if len(fields) > 1 else ""
+    # Object handles carry a trailing cache uuid in braces.
+    if len(fields) > 2 and fields[2].startswith("{") and fields[2].endswith("}"):
+        return [value, fields[2]]
+    return [value]
+
+
+def _decode_values(fields: list[str], count: int) -> list[str]:
+    """Decode ``count`` consecutive ``<type> <value>`` pairs from ``fields``."""
+    out: list[str] = []
+    index = 0
+    while index < len(fields) and len(out) < count:
+        head = fields[index]
+        if not head.isdigit():
+            out.append(head)
+            index += 1
+            continue
+        value = fields[index + 1] if index + 1 < len(fields) else ""
+        out.append(value)
+        index += 2
+    return out
 
 
 def _timestamp() -> str:
@@ -183,15 +233,30 @@ class PtmpClient:
 
     # -- operations --------------------------------------------------------
 
-    def call(self, accessors: list[str], timeout: float = 30.0) -> list[str]:
-        """Invoke an IPC accessor chain and return the raw response fields."""
+    def call(self, accessors: list, timeout: float = 30.0) -> list[str]:
+        """Invoke an IPC accessor chain and return the raw response fields.
+
+        Each step is either a bare accessor name (takes no arguments) or a
+        ``(name, [(type_code, value), ...])`` tuple. The protocol writes the
+        method name, then each argument as a type code followed by its value,
+        then a terminating ``"0"``. Writing a void terminator after every name —
+        which an earlier version did — makes every method look zero-argument,
+        so calls like ``getDeviceAt(3)`` fail with "invalid arguments".
+        """
         if self._sock is None:
             raise PtmpError("not connected")
         call_id = self._next_id
         self._next_id += 1
         fields = [IPC_CALL, str(call_id)]
-        for accessor in accessors:
-            fields.append(accessor)
+        for step in accessors:
+            if isinstance(step, tuple):
+                name, arguments = step
+            else:
+                name, arguments = step, ()
+            fields.append(name)
+            for type_code, value in arguments:
+                fields.append(str(type_code))
+                fields.append(str(value))
             fields.append(str(TYPE_VOID))
         self._sock.sendall(_frame(fields))
 
@@ -202,12 +267,16 @@ class PtmpClient:
                 try:
                     reply = _read_frame(self._sock)
                 except TimeoutError as exc:
-                    raise PtmpTimeout(f"{accessors[-1]} timed out after {timeout}s") from exc
+                    last = accessors[-1]
+                    name = last[0] if isinstance(last, tuple) else last
+                    raise PtmpTimeout(f"{name} timed out after {timeout}s") from exc
                 kind = reply[0] if reply else ""
                 if kind == IPC_RESPONSE and reply[1] == str(call_id):
-                    return reply[2:]
+                    return _decode_result(reply[2:])
                 if kind == IPC_ERROR and reply[1] == str(call_id):
-                    raise PtmpError(f"IPC error from {accessors[-1]}: {reply[2:]}")
+                    last = accessors[-1]
+                    name = last[0] if isinstance(last, tuple) else last
+                    raise PtmpError(f"IPC error from {name}: {reply[2:]}")
                 if kind == DISCONNECT:
                     raise PtmpDisconnected("server disconnected during call")
                 # Responses to other calls and events are not ours; skip them.
@@ -215,17 +284,34 @@ class PtmpClient:
             if self._sock is not None:
                 self._sock.settimeout(previous)
 
-    def enter_command(self, device_uuid: str, command: str, mode: str = "exec") -> str:
+    def enter_command(self, device_name: str, command: str, mode: str = "enable") -> str:
         """Run one CLI command on a device and return its raw text.
 
         Maps to ``CiscoDevice.enterCommand(commandStr, modeStr)`` in the shipped
-        framework. The response is a ``Pair<CommandStatus, String>``; this
-        method returns the text and lets the caller interpret the status.
+        framework. The response is a ``Pair<CommandStatus, String>``: status
+        ``0`` (``STATUS_OK``) is the only value that means the command ran, and
+        the text is returned verbatim so the caller can parse it.
+
+        ``mode`` must be an accepted mode name. Packet Tracer accepts
+        ``"enable"`` and ``"user"``; ``"exec"`` and ``"privileged"`` are rejected
+        as ``ERROR_INVALID``, which was verified against 9.0.1 rather than
+        assumed from the documentation.
         """
         fields = self.call(
-            ["ipc", "network", "getDeviceByUuid", f"enterCommand:{device_uuid}", command, mode]
+            [
+                "network",
+                ("getDevice", [(9, device_name)]),
+                ("enterCommand", [(TYPE_STRING, command), (TYPE_STRING, mode)]),
+            ],
+            timeout=60.0,
         )
-        return "\n".join(fields)
+        status = fields[0] if fields else ""
+        text = fields[1] if len(fields) > 1 else ""
+        if status not in {"0", "STATUS_OK"}:
+            raise PtmpError(
+                f"enterCommand on {device_name} returned status {status} for {command!r}"
+            )
+        return text
 
     # -- internals ---------------------------------------------------------
 

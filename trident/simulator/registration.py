@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import shutil
 import string
 import subprocess
 from dataclasses import dataclass
@@ -156,6 +157,7 @@ def prepare(
     output_dir: Path | None = None,
     app_id: str = DEFAULT_APP_ID,
     secret: str | None = None,
+    persist: bool = True,
 ) -> RegistrationResult:
     """Build the ``.pta`` and return what the operator must do next.
 
@@ -214,6 +216,13 @@ def prepare(
         detail = (completed.stderr or completed.stdout or "").strip()
         raise RegistrationError(f"meta tool did not produce {pta_path}: {detail}")
 
+    if persist:
+        credentials_path = target / "credentials.env"
+        _write_private(
+            credentials_path,
+            f"TRIDENT_PT_APP_ID={app_id}\nTRIDENT_PT_SECRET={secret}\n",
+        )
+
     return RegistrationResult(
         app_id=app_id,
         secret=secret,
@@ -241,13 +250,36 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="include the secret in the output (it grants full control of Packet Tracer)",
     )
+    parser.add_argument(
+        "--no-persist",
+        action="store_true",
+        help="do not write credentials.env; use TRIDENT_PT_APP_ID/SECRET instead",
+    )
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        help=(
+            "copy the .pta into Packet Tracer's own extensions directory, which is "
+            "the location it scans for ExApps"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
-        result = prepare(Path(args.output_dir) if args.output_dir else None, args.app_id)
+        result = prepare(
+            Path(args.output_dir) if args.output_dir else None,
+            args.app_id,
+            persist=not args.no_persist,
+        )
     except RegistrationError as exc:
         print(f"registration not prepared: {exc}")
         return 2
+
+    if args.install:
+        target = result.bundle / "Contents" / "extensions" / PTA_NAME
+        shutil.copyfile(result.pta_path, target)
+        os.chmod(target, 0o644)
+        print(f"Installed {target}")
 
     print(f"Prepared {result.pta_path}")
     print("\nRemaining steps (manual, one time):")

@@ -147,11 +147,38 @@ def simulator_version(bundle: Path) -> str:
     return "unknown"
 
 
+#: Where a registered credential pair is stored if the operator chooses to
+#: persist it. Kept outside the repo and mode 0600.
+CREDENTIALS_FILE = Path.home() / ".config" / "trident" / "credentials.env"
+
+
 def credentials_from_env() -> tuple[str, str] | None:
-    app_id = os.environ.get("TRIDENT_PT_APP_ID")
-    secret = os.environ.get("TRIDENT_PT_SECRET")
+    """Credential pair for the registered ExApp.
+
+    The environment wins so a caller can override per process. Otherwise the
+    file written by the registration helper is read, which is what makes a
+    one-time registration persist across shells.
+    """
+    app_id = os.environ.get("TRIDENT_PT_APP_ID", "").strip()
+    secret = os.environ.get("TRIDENT_PT_SECRET", "").strip()
     if app_id and secret:
         return app_id, secret
+
+    if CREDENTIALS_FILE.is_file():
+        try:
+            values: dict[str, str] = {}
+            for line in CREDENTIALS_FILE.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                values[key.strip()] = value.strip().strip('"').strip("'")
+        except OSError:
+            return None
+        file_id = values.get("TRIDENT_PT_APP_ID", "")
+        file_secret = values.get("TRIDENT_PT_SECRET", "")
+        if file_id and file_secret:
+            return file_id, file_secret
     return None
 
 
@@ -383,6 +410,32 @@ class LiveBackend(Backend):
         client = PtmpClient(*self.credentials, port=port)
         client.connect()
         self.client = client
+        self._open_lab()
+
+    def _open_lab(self) -> None:
+        """Load the working copy into Packet Tracer.
+
+        Without this the simulator is running but has no network: every device
+        query answers for an empty topology. ``fileOpen`` returns a
+        ``FileOpenReturnValue``; anything other than ``OK`` means the lab was not
+        loaded, and continuing would silently produce empty evidence.
+        """
+        if self.client is None:
+            raise BackendUnavailable("live backend is not connected")
+        try:
+            reply = self.client.call(
+                ["appWindow", ("fileOpen", [(9, str(self.working_copy))])],
+                timeout=60.0,
+            )
+        except Exception as exc:
+            raise BackendUnavailable(f"could not open the lab in Packet Tracer: {exc}") from exc
+        status = reply[0] if reply else ""
+        # FileOpenReturnValue.OK serialises as "4" on 9.0.1; older builds use "0".
+        if status not in {"0", "4", "OK", ""}:
+            raise BackendUnavailable(
+                f"Packet Tracer refused to open {self.working_copy.name}: status {status!r}"
+            )
+        self._loaded = True
 
     def _provenance(self, device: str | None, interface: str | None, operation: str) -> Provenance:
         return Provenance(
@@ -401,14 +454,16 @@ class LiveBackend(Backend):
     def devices(self) -> list[dict]:
         if self.client is None:
             raise BackendUnavailable("live backend is not connected")
-        raw = self.client.call(["ipc", "network", "getDeviceCount"])
+        raw = self.client.call(["network", "getDeviceCount"])
         try:
             count = int(raw[0]) if raw else 0
         except ValueError:
             count = 0
         out = []
         for index in range(count):
-            info = self.client.call(["ipc", "network", "getDeviceAt", str(index), "getName"])
+            info = self.client.call(
+                ["network", ("getDeviceAt", [(4, index)]), "getName"]
+            )
             name = info[0] if info else f"device{index}"
             out.append({"index": index, "name": name})
         self._device_index = {entry["name"]: str(entry["index"]) for entry in out}
@@ -461,13 +516,35 @@ class LiveBackend(Backend):
         )
 
     def ping(self, source: str, destination: str, timeout: float) -> OperationResult:
+        """Test reachability, and report only what the output actually shows.
+
+        Packet Tracer's CLI ``ping`` is interactive: the first line is a prompt,
+        the test completes only once simulation time advances, and the summary
+        line is what carries the verdict. When that summary is absent the result
+        is **inconclusive**, not a failure. Reporting a failure there would be a
+        fabricated conclusion, which is exactly what this module exists to
+        prevent.
+        """
         result = self.run_cli(source, f"ping {destination}", timeout)
         if not result.ok:
             return result
-        percent = 0
         match = re.search(r"Success rate is (\d+) percent", result.raw)
-        if match:
-            percent = int(match.group(1))
+        if match is None:
+            return OperationResult(
+                ok=True,
+                kind=ObservationKind.REACHABILITY_INCONCLUSIVE,
+                operation=f"ping {destination}",
+                device=source,
+                raw=result.raw,
+                parsed={
+                    "success_percent": None,
+                    "destination": destination,
+                    "reason": "no completion summary in the simulator output",
+                },
+                provenance=self._provenance(source, None, f"ping {destination}"),
+                observed=True,
+            )
+        percent = int(match.group(1))
         return OperationResult(
             ok=True,
             kind=(
@@ -608,7 +685,18 @@ class ScriptedBackend(Backend):
         if not result.ok:
             return result
         match = re.search(r"Success rate is (\d+) percent", result.raw)
-        percent = int(match.group(1)) if match else 0
+        if match is None:
+            return OperationResult(
+                ok=True,
+                kind=ObservationKind.REACHABILITY_INCONCLUSIVE,
+                operation=f"ping {destination}",
+                device=source,
+                raw=result.raw,
+                parsed={"success_percent": None, "destination": destination},
+                provenance=self._provenance(source, None, f"ping {destination}"),
+                observed=False,
+            )
+        percent = int(match.group(1))
         return OperationResult(
             ok=True,
             kind=(

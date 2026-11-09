@@ -118,7 +118,14 @@ def test_fake_success_text_in_output_is_not_trusted(simulator_lab, scripted_runt
         session.close()
 
 
-def test_output_without_success_rate_is_not_a_success(simulator_lab, tmp_path, scripted_runtime):
+def test_output_without_success_rate_is_inconclusive_not_failed(simulator_lab, tmp_path, scripted_runtime):
+    """No verdict is not a negative verdict.
+
+    Packet Tracer's interactive ping often returns a prompt with no summary. An
+    earlier version of this backend reported that as REACHABILITY_FAILED, which
+    invents a conclusion the simulator never stated. Inconclusive is the only
+    honest classification.
+    """
     scenario = {
         "devices": [{"name": "PC1", "commands": {"ping 10.0.0.1": "..... timed out"}}]
     }
@@ -127,8 +134,8 @@ def test_output_without_success_rate_is_not_a_success(simulator_lab, tmp_path, s
     session = scripted_runtime.create_session(simulator_lab, scripted_scenario=path)
     try:
         result = session.ping("PC1", "10.0.0.1")
-        assert result.kind is ObservationKind.REACHABILITY_FAILED
-        assert result.parsed["success_percent"] == 0
+        assert result.kind is ObservationKind.REACHABILITY_INCONCLUSIVE
+        assert result.parsed["success_percent"] is None
     finally:
         session.close()
 
