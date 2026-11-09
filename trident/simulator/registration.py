@@ -104,17 +104,19 @@ class RegistrationResult:
 
     def steps(self) -> list[str]:
         return [
-            f"Open Packet Tracer from {self.bundle}.",
-            "Choose Extensions > IPC > Configure Apps.",
-            f"Click Add and select {self.pta_path}.",
-            "Click Ok.",
             (
-                "Quit Packet Tracer normally (Cmd+Q or File > Exit) so the "
-                "registration is saved. A crash or forced quit loses it."
+                "Install the meta file into Packet Tracer's own extensions folder. "
+                "This is the location it scans, and no GUI step is needed:"
             ),
+            "    python -m trident.simulator.registration --install",
+            "Prove it works:",
+            "    python -m trident.simulator.registration --verify",
+            "Run the live tests:",
+            "    pytest tests/simulator/test_live_integration.py -v",
             (
-                "Export the credentials shown by --show-credentials, then run "
-                "`pytest tests/simulator/test_live_integration.py -v`."
+                "Optional alternative: Extensions > IPC > Configure Apps > Add, "
+                "select the .pta, then quit Packet Tracer normally. That route "
+                "persists the registration in Packet Tracer's own configuration."
             ),
         ]
 
@@ -153,11 +155,36 @@ def _write_private(path: Path, text: str) -> None:
     os.chmod(path, 0o600)
 
 
+def _read_existing_credentials(target: Path) -> tuple[str | None, str | None]:
+    """Read a previously generated app id and secret, if present.
+
+    Re-running the helper must not mint a new secret: the secret is baked into
+    the installed ``.pta``, so a fresh one silently invalidates a working
+    registration. Earlier versions regenerated unconditionally, which produced
+    exactly that failure when the helper was run twice.
+    """
+    path = target / "credentials.env"
+    if not path.is_file():
+        return None, None
+    values: dict[str, str] = {}
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    except OSError:
+        return None, None
+    return values.get("TRIDENT_PT_APP_ID"), values.get("TRIDENT_PT_SECRET")
+
+
 def prepare(
     output_dir: Path | None = None,
-    app_id: str = DEFAULT_APP_ID,
+    app_id: str | None = None,
     secret: str | None = None,
     persist: bool = True,
+    force_new: bool = False,
 ) -> RegistrationResult:
     """Build the ``.pta`` and return what the operator must do next.
 
@@ -176,14 +203,18 @@ def prepare(
     if os.access(meta_tool, os.X_OK) is False:
         raise RegistrationError(f"{meta_tool} is not executable")
 
+    target = Path(output_dir).expanduser() if output_dir else DEFAULT_OUTPUT_DIR
+    target.mkdir(parents=True, exist_ok=True)
+    os.chmod(target, 0o700)
+
+    existing_id, existing_secret = _read_existing_credentials(target)
+    if not force_new:
+        app_id = app_id or existing_id or DEFAULT_APP_ID
+        secret = secret or existing_secret
     app_id = _validate_app_id(app_id)
     secret = secret or generate_secret()
     if not re.fullmatch(r"[A-Za-z0-9]{16,128}", secret):
         raise RegistrationError("secret must be 16-128 alphanumeric characters")
-
-    target = Path(output_dir).expanduser() if output_dir else DEFAULT_OUTPUT_DIR
-    target.mkdir(parents=True, exist_ok=True)
-    os.chmod(target, 0o700)
 
     manifest_path = target / MANIFEST_NAME
     pta_path = target / PTA_NAME
@@ -232,6 +263,62 @@ def prepare(
     )
 
 
+def verify() -> tuple[bool, str]:
+    """Prove the installed registration authenticates, without any GUI step.
+
+    Starts Packet Tracer invisibly, connects, authenticates and loads a lab, then
+    shuts down. Returns ``(ok, message)``.
+    """
+    from .backends import credentials_from_env, find_packet_tracer
+    from .isolation import Workspace
+    from .ptmp import PtmpClient
+
+    bundle = find_packet_tracer()
+    if bundle is None:
+        return False, "Packet Tracer not found; set TRIDENT_PT_HOME"
+    installed = bundle / "Contents" / "extensions" / PTA_NAME
+    if not installed.is_file():
+        return False, f"no installed meta file at {installed}; run --install"
+    credentials = credentials_from_env()
+    if credentials is None:
+        return False, "no credentials; run the helper once (or set TRIDENT_PT_APP_ID/SECRET)"
+    from .backends import ProcessSupervisor
+
+    workspace = Workspace()
+    directory = workspace.new_session_dir("verify")
+    supervisor = ProcessSupervisor(bundle, 0)
+    client = None
+    try:
+        port = supervisor.start(directory)
+        client = PtmpClient(*credentials, port=port)
+        handshake = client.connect()
+        source = (
+            Path(__file__).parents[2] / "tests" / "fixtures" / "sample_lab.pkt"
+        )
+        if source.is_file():
+            reply = client.call(
+                ["appWindow", ("fileOpen", [(9, str(source))])], timeout=60.0
+            )
+            status = reply[0] if reply else ""
+            if status not in {"0", "4", "OK", ""}:
+                return False, f"authentication succeeded but fileOpen returned {status!r}"
+            count = client.call(["network", "getDeviceCount"])
+            return True, (
+                f"authenticated against Packet Tracer {handshake.server_version or 'unknown'}, "
+                f"loaded {source.name}, {count[0] if count else '?'} devices visible"
+            )
+        return True, f"authenticated against Packet Tracer {handshake.server_version or 'unknown'}"
+    except Exception as exc:  # noqa: BLE001 - returned as a diagnostic
+        from .backends import _auth_hint
+
+        return False, _auth_hint(exc) if type(exc).__name__ == "PtmpAuthRejected" else str(exc)
+    finally:
+        if client is not None:
+            client.close()
+        supervisor.stop()
+        workspace.cleanup(directory)
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
     import json
@@ -244,7 +331,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--output-dir", default=None)
-    parser.add_argument("--app-id", default=DEFAULT_APP_ID)
+    parser.add_argument("--app-id", default=None)
+    parser.add_argument(
+        "--force-new",
+        action="store_true",
+        help=(
+            "generate a new secret even if one exists. This invalidates any "
+            "previously installed .pta and requires reinstalling it."
+        ),
+    )
     parser.add_argument(
         "--show-credentials",
         action="store_true",
@@ -256,6 +351,11 @@ def main(argv: list[str] | None = None) -> int:
         help="do not write credentials.env; use TRIDENT_PT_APP_ID/SECRET instead",
     )
     parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="prove the installed registration authenticates, then exit",
+    )
+    parser.add_argument(
         "--install",
         action="store_true",
         help=(
@@ -265,11 +365,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.verify:
+        ok, message = verify()
+        print(("OK: " if ok else "FAILED: ") + message)
+        return 0 if ok else 3
+
     try:
         result = prepare(
             Path(args.output_dir) if args.output_dir else None,
             args.app_id,
             persist=not args.no_persist,
+            force_new=args.force_new,
         )
     except RegistrationError as exc:
         print(f"registration not prepared: {exc}")

@@ -154,24 +154,48 @@ def test_devices_are_named_not_indexed(tmp_path):
         session.close()
 
 
-def _packet_tracer_window_count() -> int:
-    """Number of visible Packet Tracer windows, via System Events when available."""
+def _packet_tracer_window_count(settle_seconds: float = 3.0) -> int:
+    """Number of visible Packet Tracer windows once startup has settled.
+
+    Under ``--no-gui`` the accessibility window count is transiently ``1`` for a
+    second or two while the app initialises, then drops to ``0``. An
+    instantaneous read therefore reports a window that does not exist, which is
+    what made this test flake. The measurement waits for the window set to settle
+    and reports the *final* count; a genuinely visible window would still be
+    present after settling and would still fail.
+    """
     if shutil.which("osascript") is None:
         return 0
     import subprocess
+    import time
 
     script = (
         'tell application "System Events" to tell process "PacketTracer" '
         "to get count of windows"
     )
-    try:
-        out = subprocess.run(
-            ["osascript", "-e", script], capture_output=True, text=True, timeout=10, check=False
-        )
-    except (OSError, subprocess.SubprocessError):
-        return 0
-    text = out.stdout.strip()
-    try:
-        return int(text)
-    except ValueError:
-        return 0
+
+    def sample() -> int | None:
+        try:
+            out = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        text = out.stdout.strip()
+        return int(text) if text.isdigit() else None
+
+    time.sleep(settle_seconds)
+    final: int | None = None
+    for _ in range(3):
+        value = sample()
+        if value is None:
+            return 0
+        final = value
+        if value == 0:
+            return 0
+        time.sleep(1.0)
+    return final or 0

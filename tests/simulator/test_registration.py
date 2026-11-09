@@ -56,11 +56,11 @@ def test_secret_is_generated_not_hardcoded():
     "bad_id",
     ["", "ab", "has space", "quote'", "../../etc", "<script>"],
 )
-def test_invalid_app_ids_are_rejected(bad_id):
+def test_invalid_app_ids_are_rejected(bad_id, tmp_path):
     from trident.simulator.registration import RegistrationError, prepare
 
     with pytest.raises(RegistrationError):
-        prepare(output_dir=Path("/tmp/trident-reg-test"), app_id=bad_id)
+        prepare(output_dir=tmp_path, app_id=bad_id, force_new=True)
 
 
 def test_short_secret_is_rejected(tmp_path):
@@ -92,15 +92,23 @@ def test_helper_produces_a_pta_and_leaves_no_plaintext_secret(tmp_path):
     is None,
     reason="Packet Tracer is not installed",
 )
-def test_helper_reports_the_manual_step(tmp_path):
+def test_helper_reports_the_no_gui_path_first(tmp_path):
+    """The primary instruction must be the one that needs no GUI click.
+
+    An earlier version led with Extensions > Configure Apps > Add, which is the
+    optional route. The working route is installing the .pta where Packet
+    Tracer scans for it.
+    """
     from trident.simulator.registration import prepare
 
     result = prepare(output_dir=tmp_path, app_id="dev.trident.test")
     steps = result.steps()
-    assert any("Extensions" in step for step in steps)
-    assert any("Quit" in step for step in steps), (
-        "the clean-quit requirement is what persists the registration"
-    )
+    assert any("--install" in step for step in steps)
+    assert any("--verify" in step for step in steps)
+    # The GUI route is still documented, but as the optional alternative.
+    rendered = " ".join(steps)
+    assert "Configure Apps" in rendered
+    assert "Optional" in rendered
 
 
 @pytest.mark.skipif(
@@ -138,3 +146,150 @@ def test_cli_reports_a_clean_failure_without_a_bundle(monkeypatch, capsys):
     assert registration.main(["--output-dir", "/tmp/trident-reg-cli"]) == 2
     output = capsys.readouterr().out
     assert "registration not prepared" in output
+
+
+# ---------------------------------------------------------------------------
+# Re-running must not invalidate an existing install
+# ---------------------------------------------------------------------------
+
+
+def test_rerun_reuses_the_existing_secret(tmp_path):
+    """A second run must not mint a new secret.
+
+    The secret is baked into the installed .pta. Regenerating it silently
+    invalidates a working registration, which is exactly what happened when the
+    helper was run twice in a row.
+    """
+    from trident.simulator.backends import find_packet_tracer
+    from trident.simulator.registration import prepare
+
+    if find_packet_tracer() is None:
+        pytest.skip("Packet Tracer is not installed")
+
+    first = prepare(output_dir=tmp_path, app_id="dev.trident.test")
+    second = prepare(output_dir=tmp_path, app_id="dev.trident.test")
+    assert first.secret == second.secret
+    assert first.app_id == second.app_id
+    assert second.pta_path.is_file()
+
+
+def test_force_new_changes_the_secret(tmp_path):
+    from trident.simulator.backends import find_packet_tracer
+    from trident.simulator.registration import prepare
+
+    if find_packet_tracer() is None:
+        pytest.skip("Packet Tracer is not installed")
+
+    first = prepare(output_dir=tmp_path, app_id="dev.trident.test")
+    second = prepare(output_dir=tmp_path, app_id="dev.trident.test", force_new=True)
+    assert first.secret != second.secret
+
+
+def test_existing_credentials_file_is_read(tmp_path):
+    from trident.simulator.backends import find_packet_tracer
+    from trident.simulator.registration import prepare
+
+    if find_packet_tracer() is None:
+        pytest.skip("Packet Tracer is not installed")
+
+    prepared = prepare(output_dir=tmp_path, app_id="dev.trident.persist")
+    credentials = tmp_path / "credentials.env"
+    assert credentials.is_file()
+    text = credentials.read_text()
+    assert "TRIDENT_PT_APP_ID=dev.trident.persist" in text
+    assert prepared.secret in text
+    # mode 0600: the secret grants full control of Packet Tracer.
+    assert stat.S_IMODE(os.stat(credentials).st_mode) & 0o077 == 0
+
+
+# ---------------------------------------------------------------------------
+# Credential resolution and mismatch reporting
+# ---------------------------------------------------------------------------
+
+
+def test_partial_env_override_is_completed_from_the_file(monkeypatch, tmp_path):
+    """Only one env value set must not produce an inconsistent pair."""
+    from trident.simulator import backends
+
+    credentials = tmp_path / "credentials.env"
+    credentials.write_text(
+        "TRIDENT_PT_APP_ID=dev.trident.file\nTRIDENT_PT_SECRET=fileSecret123456\n"
+    )
+    monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
+    monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.env")
+    monkeypatch.delenv("TRIDENT_PT_SECRET", raising=False)
+
+    app_id, secret = backends.credentials_from_env()
+    assert app_id == "dev.trident.env"
+    assert secret == "fileSecret123456"
+
+
+def test_full_env_override_wins(monkeypatch, tmp_path):
+    from trident.simulator import backends
+
+    credentials = tmp_path / "credentials.env"
+    credentials.write_text(
+        "TRIDENT_PT_APP_ID=dev.trident.file\nTRIDENT_PT_SECRET=fileSecret123456\n"
+    )
+    monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
+    monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.env")
+    monkeypatch.setenv("TRIDENT_PT_SECRET", "envSecret123456")
+
+    assert backends.credentials_from_env() == ("dev.trident.env", "envSecret123456")
+
+
+def test_mismatch_between_shell_and_file_is_explained(monkeypatch, tmp_path):
+    """The most likely cause of an auth rejection must be named, not implied."""
+    from trident.simulator import backends
+
+    credentials = tmp_path / "credentials.env"
+    credentials.write_text(
+        "TRIDENT_PT_APP_ID=dev.trident.ipc\nTRIDENT_PT_SECRET=installedSecret123\n"
+    )
+    monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
+    monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.ipc")
+    monkeypatch.setenv("TRIDENT_PT_SECRET", "staleSecret123456")
+
+    hint = backends.credentials_disagreement()
+    assert hint is not None
+    assert "differ from the registration installed" in hint
+    assert "unset TRIDENT_PT_APP_ID" in hint
+
+
+def test_no_mismatch_reported_when_values_agree(monkeypatch, tmp_path):
+    from trident.simulator import backends
+
+    credentials = tmp_path / "credentials.env"
+    credentials.write_text(
+        "TRIDENT_PT_APP_ID=dev.trident.ipc\nTRIDENT_PT_SECRET=secret1234567890\n"
+    )
+    monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
+    monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.ipc")
+    monkeypatch.setenv("TRIDENT_PT_SECRET", "secret1234567890")
+    assert backends.credentials_disagreement() is None
+
+
+@pytest.mark.skipif(
+    __import__("trident.simulator.backends", fromlist=["find_packet_tracer"]).find_packet_tracer()
+    is None,
+    reason="Packet Tracer is not installed",
+)
+def test_verify_reports_ok_when_the_install_is_valid(monkeypatch):
+    """--verify must actually authenticate, not just check that files exist."""
+    from trident.simulator.backends import credentials_from_env
+    from trident.simulator.registration import verify
+
+    if credentials_from_env() is None:
+        pytest.skip("no registration is installed on this machine")
+    ok, message = verify()
+    assert ok, message
+    assert "authenticated" in message
+
+
+def test_verify_fails_cleanly_without_an_installed_meta_file(monkeypatch):
+    from trident.simulator import registration
+
+    monkeypatch.setattr(registration, "PTA_NAME", "definitely-not-installed.pta")
+    ok, message = registration.verify()
+    assert ok is False
+    assert "run --install" in message or "not found" in message

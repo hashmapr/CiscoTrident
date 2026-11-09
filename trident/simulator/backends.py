@@ -98,6 +98,56 @@ def find_packet_tracer() -> Path | None:
     return max(found)
 
 
+def credentials_disagreement() -> str | None:
+    """Explain an environment/file credential mismatch, or return ``None``.
+
+    A stale exported secret is the single most likely cause of an auth
+    rejection once a registration is installed, and the raw error gives no hint
+    of it. This turns that into an actionable message.
+    """
+    env_id = os.environ.get("TRIDENT_PT_APP_ID", "").strip()
+    env_secret = os.environ.get("TRIDENT_PT_SECRET", "").strip()
+    if not (env_id and env_secret):
+        return None
+    if not CREDENTIALS_FILE.is_file():
+        return None
+    try:
+        values: dict[str, str] = {}
+        for line in CREDENTIALS_FILE.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    except OSError:
+        return None
+    file_id = values.get("TRIDENT_PT_APP_ID", "")
+    file_secret = values.get("TRIDENT_PT_SECRET", "")
+    if not (file_id and file_secret):
+        return None
+    if env_id != file_id or env_secret != file_secret:
+        return (
+            "TRIDENT_PT_APP_ID/TRIDENT_PT_SECRET in this shell differ from the "
+            f"registration installed at {CREDENTIALS_FILE}. The shell values were "
+            "probably captured before the helper was re-run, and the .pta now "
+            "carries a different secret. Run "
+            "`unset TRIDENT_PT_APP_ID TRIDENT_PT_SECRET` to use the installed "
+            "registration, or re-run the helper with --show-credentials."
+        )
+    return None
+
+
+def _auth_hint(exc: Exception) -> str:
+    hint = credentials_disagreement()
+    if hint:
+        return f"{exc}. {hint}"
+    return (
+        f"{exc}. Check that the .pta in Contents/extensions matches "
+        f"{CREDENTIALS_FILE}, or run `python -m trident.simulator.registration "
+        f"--verify`."
+    )
+
+
 def _bundle_at(path: Path) -> Path | None:
     """Return a usable Packet Tracer bundle at or directly inside ``path``."""
     if not path.is_dir():
@@ -155,9 +205,14 @@ CREDENTIALS_FILE = Path.home() / ".config" / "trident" / "credentials.env"
 def credentials_from_env() -> tuple[str, str] | None:
     """Credential pair for the registered ExApp.
 
-    The environment wins so a caller can override per process. Otherwise the
-    file written by the registration helper is read, which is what makes a
-    one-time registration persist across shells.
+    An explicit environment override wins, so a caller can point at a different
+    registration for one process.
+
+    The persisted file is otherwise used. It is read *first* when the
+    environment does not set both values, which matters because re-running the
+    registration helper used to mint a new secret: a shell holding the old
+    export would otherwise authenticate with a stale secret and fail with no
+    indication that a correct install was sitting on disk.
     """
     app_id = os.environ.get("TRIDENT_PT_APP_ID", "").strip()
     secret = os.environ.get("TRIDENT_PT_SECRET", "").strip()
@@ -178,7 +233,9 @@ def credentials_from_env() -> tuple[str, str] | None:
         file_id = values.get("TRIDENT_PT_APP_ID", "")
         file_secret = values.get("TRIDENT_PT_SECRET", "")
         if file_id and file_secret:
-            return file_id, file_secret
+            # A partial environment override (only one of the two) is filled in
+            # from the file so the pair stays consistent with what is installed.
+            return (app_id or file_id), (secret or file_secret)
     return None
 
 
@@ -195,7 +252,10 @@ class ProcessSupervisor:
     could hang is bounded by a timeout.
     """
 
-    def __init__(self, bundle: Path, ipc_port: int = 0, no_gui: bool = True) -> None:
+    def __init__(
+        self, bundle: Path, ipc_port: int = 0, no_gui: bool = True, startup_timeout: float = 90.0
+    ) -> None:
+        self.startup_timeout = startup_timeout
         self.bundle = bundle
         self.ipc_port = ipc_port
         self.no_gui = no_gui
@@ -204,7 +264,7 @@ class ProcessSupervisor:
         self.started_at: float = 0.0
         self._spawned_here = False
 
-    def start(self, workspace: Path, timeout_s: float = 45.0) -> int:
+    def start(self, workspace: Path, timeout_s: float | None = None) -> int:
         """Start Packet Tracer with no window and wait for its listener.
 
         Returns the port the listener is on. Raises :class:`BackendUnavailable`
@@ -232,7 +292,9 @@ class ProcessSupervisor:
             )
         self._spawned_here = True
         self.started_at = time.monotonic()
-        port = self._wait_for_listener(timeout_s)
+        port = self._wait_for_listener(
+            timeout_s if timeout_s is not None else self.startup_timeout
+        )
         return port
 
     def _wait_for_listener(self, timeout_s: float) -> int:
@@ -258,7 +320,9 @@ class ProcessSupervisor:
             time.sleep(0.5)
         self.stop()
         raise BackendUnavailable(
-            f"Packet Tracer did not accept connections within {timeout_s}s"
+            f"Packet Tracer did not accept connections within {timeout_s}s. "
+            "If another Packet Tracer instance is already running, quit it first: "
+            "a stale instance holds the IPC ports and the new one cannot bind."
         )
 
     def is_alive(self) -> bool:
@@ -760,7 +824,10 @@ def select_backend(
                 )
                 try:
                     backend.connect()
-                except (BackendUnavailable, PtmpAuthRejected, PtmpError) as exc:
+                except PtmpAuthRejected as exc:
+                    reasons.append(f"live backend failed: {_auth_hint(exc)}")
+                    backend.close()
+                except (BackendUnavailable, PtmpError) as exc:
                     reasons.append(f"live backend failed: {exc}")
                     backend.close()
                 else:
