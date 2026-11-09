@@ -263,13 +263,22 @@ def prepare(
     )
 
 
-def verify() -> tuple[bool, str]:
-    """Prove the installed registration authenticates, without any GUI step.
+def verify(use_environment: bool = False) -> tuple[bool, str]:
+    """Prove the *installed* registration authenticates.
 
-    Starts Packet Tracer invisibly, connects, authenticates and loads a lab, then
-    shuts down. Returns ``(ok, message)``.
+    Reads the credentials written next to the ``.pta`` rather than the
+    environment, because the question this answers is "is the install good?".
+    A stale export in the calling shell made an earlier version report a failure
+    for a perfectly working install, which is the opposite of useful.
+
+    Pass ``use_environment=True`` to test the shell's credentials instead.
     """
-    from .backends import credentials_from_env, find_packet_tracer
+    from .backends import (
+        CREDENTIALS_FILE,
+        ProcessSupervisor,
+        credentials_from_env,
+        find_packet_tracer,
+    )
     from .isolation import Workspace
     from .ptmp import PtmpClient
 
@@ -279,10 +288,17 @@ def verify() -> tuple[bool, str]:
     installed = bundle / "Contents" / "extensions" / PTA_NAME
     if not installed.is_file():
         return False, f"no installed meta file at {installed}; run --install"
-    credentials = credentials_from_env()
+
+    if use_environment:
+        credentials = credentials_from_env()
+    else:
+        stored_id, stored_secret = _read_existing_credentials(CREDENTIALS_FILE.parent)
+        credentials = (
+            (stored_id, stored_secret) if stored_id and stored_secret else None
+        )
+    cred_source = "the environment" if use_environment else str(CREDENTIALS_FILE)
     if credentials is None:
-        return False, "no credentials; run the helper once (or set TRIDENT_PT_APP_ID/SECRET)"
-    from .backends import ProcessSupervisor
+        return False, f"no credentials at {cred_source}; run the helper with --install"
 
     workspace = Workspace()
     directory = workspace.new_session_dir("verify")
@@ -292,31 +308,50 @@ def verify() -> tuple[bool, str]:
         port = supervisor.start(directory)
         client = PtmpClient(*credentials, port=port)
         handshake = client.connect()
-        source = (
-            Path(__file__).parents[2] / "tests" / "fixtures" / "sample_lab.pkt"
-        )
-        if source.is_file():
+        version = handshake.server_version or "unknown"
+
+        details = f"authenticated against Packet Tracer {version} (credentials from {cred_source})"
+        sample = Path(__file__).parents[2] / "tests" / "fixtures" / "sample_lab.pkt"
+        if sample.is_file():
             reply = client.call(
-                ["appWindow", ("fileOpen", [(9, str(source))])], timeout=60.0
+                ["appWindow", ("fileOpen", [(9, str(sample))])], timeout=60.0
             )
             status = reply[0] if reply else ""
             if status not in {"0", "4", "OK", ""}:
-                return False, f"authentication succeeded but fileOpen returned {status!r}"
+                return False, f"authenticated, but fileOpen returned {status!r}"
             count = client.call(["network", "getDeviceCount"])
-            return True, (
-                f"authenticated against Packet Tracer {handshake.server_version or 'unknown'}, "
-                f"loaded {source.name}, {count[0] if count else '?'} devices visible"
-            )
-        return True, f"authenticated against Packet Tracer {handshake.server_version or 'unknown'}"
+            details += f", loaded {sample.name}, {count[0] if count else '?'} devices visible"
+
+        if not use_environment:
+            note = _shell_mismatch_note()
+            if note:
+                details += f"\nNOTE: {note}"
+        return True, details
     except Exception as exc:  # noqa: BLE001 - returned as a diagnostic
         from .backends import _auth_hint
 
-        return False, _auth_hint(exc) if type(exc).__name__ == "PtmpAuthRejected" else str(exc)
+        if type(exc).__name__ == "PtmpAuthRejected":
+            return False, _auth_hint(exc)
+        return False, str(exc)
     finally:
         if client is not None:
             client.close()
         supervisor.stop()
         workspace.cleanup(directory)
+
+
+def _shell_mismatch_note() -> str | None:
+    """A warning, not an error, when the shell disagrees with the install."""
+    from .backends import credentials_disagreement
+
+    hint = credentials_disagreement()
+    if not hint:
+        return None
+    return (
+        "this shell still exports stale credentials. The installed registration "
+        "is used regardless, so nothing is broken; run "
+        "`unset TRIDENT_PT_APP_ID TRIDENT_PT_SECRET` to clean up the environment."
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -356,6 +391,11 @@ def main(argv: list[str] | None = None) -> int:
         help="prove the installed registration authenticates, then exit",
     )
     parser.add_argument(
+        "--verify-env",
+        action="store_true",
+        help="verify using TRIDENT_PT_APP_ID/TRIDENT_PT_SECRET from the environment",
+    )
+    parser.add_argument(
         "--install",
         action="store_true",
         help=(
@@ -365,8 +405,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.verify:
-        ok, message = verify()
+    if args.verify or args.verify_env:
+        ok, message = verify(use_environment=args.verify_env)
         print(("OK: " if ok else "FAILED: ") + message)
         return 0 if ok else 3
 

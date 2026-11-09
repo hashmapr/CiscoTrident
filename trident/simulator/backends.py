@@ -128,11 +128,11 @@ def credentials_disagreement() -> str | None:
     if env_id != file_id or env_secret != file_secret:
         return (
             "TRIDENT_PT_APP_ID/TRIDENT_PT_SECRET in this shell differ from the "
-            f"registration installed at {CREDENTIALS_FILE}. The shell values were "
-            "probably captured before the helper was re-run, and the .pta now "
-            "carries a different secret. Run "
-            "`unset TRIDENT_PT_APP_ID TRIDENT_PT_SECRET` to use the installed "
-            "registration, or re-run the helper with --show-credentials."
+            f"registration installed at {CREDENTIALS_FILE}. The installed "
+            "registration is used regardless, so this is only a warning: the "
+            "exported values are stale. Run "
+            "`unset TRIDENT_PT_APP_ID TRIDENT_PT_SECRET` to silence it, or set "
+            "TRIDENT_PT_FORCE_ENV=1 to deliberately prefer the shell."
         )
     return None
 
@@ -202,46 +202,51 @@ def simulator_version(bundle: Path) -> str:
 CREDENTIALS_FILE = Path.home() / ".config" / "trident" / "credentials.env"
 
 
-def credentials_from_env() -> tuple[str, str] | None:
-    """Credential pair for the registered ExApp.
-
-    An explicit environment override wins, so a caller can point at a different
-    registration for one process.
-
-    The persisted file is otherwise used. It is read *first* when the
-    environment does not set both values, which matters because re-running the
-    registration helper used to mint a new secret: a shell holding the old
-    export would otherwise authenticate with a stale secret and fail with no
-    indication that a correct install was sitting on disk.
-    """
-    app_id = os.environ.get("TRIDENT_PT_APP_ID", "").strip()
-    secret = os.environ.get("TRIDENT_PT_SECRET", "").strip()
-    if app_id and secret:
-        return app_id, secret
-
-    if CREDENTIALS_FILE.is_file():
-        try:
-            values: dict[str, str] = {}
-            for line in CREDENTIALS_FILE.read_text().splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                values[key.strip()] = value.strip().strip('"').strip("'")
-        except OSError:
-            return None
-        file_id = values.get("TRIDENT_PT_APP_ID", "")
-        file_secret = values.get("TRIDENT_PT_SECRET", "")
-        if file_id and file_secret:
-            # A partial environment override (only one of the two) is filled in
-            # from the file so the pair stays consistent with what is installed.
-            return (app_id or file_id), (secret or file_secret)
+def _read_credentials_file() -> tuple[str, str] | None:
+    if not CREDENTIALS_FILE.is_file():
+        return None
+    try:
+        values: dict[str, str] = {}
+        for line in CREDENTIALS_FILE.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    except OSError:
+        return None
+    file_id = values.get("TRIDENT_PT_APP_ID", "")
+    file_secret = values.get("TRIDENT_PT_SECRET", "")
+    if file_id and file_secret:
+        return file_id, file_secret
     return None
 
 
-# ---------------------------------------------------------------------------
-# Process supervision
-# ---------------------------------------------------------------------------
+def credentials_from_env() -> tuple[str, str] | None:
+    """Credential pair for the registered ExApp.
+
+    The **installed registration wins**, because that is the pair Packet Tracer
+    actually holds. The environment is used only to fill in values the file does
+    not provide, or as the entire source when no file exists.
+
+    This order was inverted in an earlier version, and it caused a working
+    install to look broken: a shell that had exported a secret before the helper
+    was re-run kept overriding the correct pair on disk, producing an
+    authentication failure with a good registration sitting right next to it.
+
+    Set ``TRIDENT_PT_FORCE_ENV=1`` to deliberately prefer the environment.
+    """
+    file_pair = _read_credentials_file()
+    env_id = os.environ.get("TRIDENT_PT_APP_ID", "").strip()
+    env_secret = os.environ.get("TRIDENT_PT_SECRET", "").strip()
+    env_pair = (env_id, env_secret) if env_id and env_secret else None
+
+    force_env = os.environ.get("TRIDENT_PT_FORCE_ENV", "").strip() not in {"", "0", "false"}
+    if force_env and env_pair:
+        return env_pair
+    if file_pair:
+        return file_pair
+    return env_pair
 
 
 class ProcessSupervisor:

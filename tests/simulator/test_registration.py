@@ -207,34 +207,51 @@ def test_existing_credentials_file_is_read(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_partial_env_override_is_completed_from_the_file(monkeypatch, tmp_path):
-    """Only one env value set must not produce an inconsistent pair."""
+def test_installed_registration_wins_over_a_stale_export(monkeypatch, tmp_path):
+    """The install must win, because it is the pair Packet Tracer holds.
+
+    An earlier version let the environment win, so a shell that had exported a
+    secret before the helper was re-run overrode a correct install and produced
+    an authentication failure for a working setup.
+    """
     from trident.simulator import backends
 
     credentials = tmp_path / "credentials.env"
     credentials.write_text(
-        "TRIDENT_PT_APP_ID=dev.trident.file\nTRIDENT_PT_SECRET=fileSecret123456\n"
+        "TRIDENT_PT_APP_ID=dev.trident.installed\nTRIDENT_PT_SECRET=installedSecret123\n"
     )
     monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
+    monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.stale")
+    monkeypatch.setenv("TRIDENT_PT_SECRET", "staleSecret123456")
+    monkeypatch.delenv("TRIDENT_PT_FORCE_ENV", raising=False)
+
+    assert backends.credentials_from_env() == (
+        "dev.trident.installed",
+        "installedSecret123",
+    )
+
+
+def test_environment_used_when_no_file_exists(monkeypatch, tmp_path):
+    from trident.simulator import backends
+
+    monkeypatch.setattr(backends, "CREDENTIALS_FILE", tmp_path / "absent.env")
     monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.env")
-    monkeypatch.delenv("TRIDENT_PT_SECRET", raising=False)
-
-    app_id, secret = backends.credentials_from_env()
-    assert app_id == "dev.trident.env"
-    assert secret == "fileSecret123456"
+    monkeypatch.setenv("TRIDENT_PT_SECRET", "envSecret123456")
+    assert backends.credentials_from_env() == ("dev.trident.env", "envSecret123456")
 
 
-def test_full_env_override_wins(monkeypatch, tmp_path):
+def test_force_env_prefers_the_shell(monkeypatch, tmp_path):
+    """A deliberate escape hatch for testing a not-yet-installed registration."""
     from trident.simulator import backends
 
     credentials = tmp_path / "credentials.env"
     credentials.write_text(
-        "TRIDENT_PT_APP_ID=dev.trident.file\nTRIDENT_PT_SECRET=fileSecret123456\n"
+        "TRIDENT_PT_APP_ID=dev.trident.installed\nTRIDENT_PT_SECRET=installedSecret123\n"
     )
     monkeypatch.setattr(backends, "CREDENTIALS_FILE", credentials)
     monkeypatch.setenv("TRIDENT_PT_APP_ID", "dev.trident.env")
     monkeypatch.setenv("TRIDENT_PT_SECRET", "envSecret123456")
-
+    monkeypatch.setenv("TRIDENT_PT_FORCE_ENV", "1")
     assert backends.credentials_from_env() == ("dev.trident.env", "envSecret123456")
 
 
