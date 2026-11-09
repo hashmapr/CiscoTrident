@@ -63,6 +63,8 @@ _SEARCH_ROOTS = (
 
 #: Launching Packet Tracer is opt-in. Set to "1" to allow the runtime to start it.
 ALLOW_LIVE_ENV = "TRIDENT_ALLOW_LIVE_SIMULATOR"
+#: Prefer the background-agent copy (no Dock icon, no window) when one exists.
+GHOST_ENV = "TRIDENT_USE_GHOST_APP"
 
 
 def live_allowed() -> bool:
@@ -74,8 +76,39 @@ def live_allowed() -> bool:
     return os.environ.get(ALLOW_LIVE_ENV, "").strip() not in {"", "0", "false", "no"}
 
 
+def ghost_preferred() -> bool:
+    """Whether the background-agent copy should be preferred over the stock app."""
+    return os.environ.get(GHOST_ENV, "").strip() not in {"", "0", "false", "no"}
+
+
+def find_ghost_app() -> Path | None:
+    """Return a usable background-agent copy, if one has been built."""
+    from .ghost import DEFAULT_GHOST_DIR, GHOST_NAME
+
+    candidate = DEFAULT_GHOST_DIR / GHOST_NAME
+    if (candidate / "Contents" / "MacOS" / "PacketTracer").is_file():
+        try:
+            import plistlib
+
+            with open(candidate / "Contents" / "Info.plist", "rb") as handle:
+                if plistlib.load(handle).get("LSUIElement") is True:
+                    return candidate
+        except (OSError, Exception):  # noqa: BLE001 - a bad plist means "not usable"
+            return None
+    return None
+
+
 def find_packet_tracer() -> Path | None:
-    """Locate a Packet Tracer ``*.app`` bundle, or return ``None``."""
+    """Locate a Packet Tracer bundle, or return ``None``.
+
+    A background-agent copy is returned first when ``TRIDENT_USE_GHOST_APP`` is
+    set, because it is the only variant that cannot show a Dock icon or steal
+    focus.
+    """
+    if ghost_preferred():
+        ghost = find_ghost_app()
+        if ghost is not None:
+            return ghost
     override = os.environ.get(_ENV_HOME)
     if override:
         candidate = Path(override).expanduser()

@@ -270,21 +270,37 @@ def detect_invalid_mask(model: NetworkModel, bundle: EvidenceBundle) -> list[Hyp
     return found
 
 
-def _proves_intended_service(model: NetworkModel, interface: InterfaceInfo) -> str | None:
-    """How strongly this interface's state proves a service is meant to run.
+def _is_svi(interface: InterfaceInfo) -> bool:
+    """True for a switch virtual interface (``Vlan10``, ``Vlan1``, ``Vlan100``).
 
-    Returns ``"address"`` (it holds an address), ``"vlan"`` (it is assigned to a
-    VLAN or is a trunk), ``"cable"`` (merely connected) or ``None``.
-
-    The distinction drives confidence, not detection: a shut interface with no
-    address, no VLAN and no cable is normal; a shut interface that holds a
-    private address is a defect on a real lab. This is what keeps the engine
-    usable on real files instead of drowning them in default-state ports.
+    An SVI is up only when a member port is up, so its administrative-down state
+    is *derived* from port state rather than a configuration choice. Reporting it
+    as a defect flags every switch in every lab, which is what happened on real
+    .pka files.
     """
-    if interface.ipv4_address or interface.ipv6_address:
-        return "address"
+    return (interface.name or "").strip().lower().startswith("vlan")
+
+
+def _proves_intended_service(model: NetworkModel, interface: InterfaceInfo) -> str | None:
+    """Why this interface is expected to be forwarding, or ``None``.
+
+    Administrative shutdown is only a defect when the interface is demonstrably
+    part of the intended service. The evidence ladder, strongest first:
+
+    * ``"vlan"``   - an access port assigned to a VLAN, or a trunk. Explicit
+      configuration intent: someone configured this port to carry traffic.
+    * ``"address"`` - a routed physical port holding an address.
+    * ``"cable"``  - merely connected. Not enough on its own: leaving an unused
+      cabled port shut is a valid configuration choice.
+
+    An SVI is never proof, because its state follows its member ports.
+    """
+    if _is_svi(interface):
+        return None
     if interface.vlan_assignments or _is_trunk(interface):
         return "vlan"
+    if interface.ipv4_address or interface.ipv6_address:
+        return "address"
     if _peer_interface(model, interface.device, interface.name) is not None:
         return "cable"
     return None
@@ -298,7 +314,8 @@ def detect_shutdown_interface(model: NetworkModel, bundle: EvidenceBundle) -> li
             continue
         proof = _proves_intended_service(model, interface)
         if proof is None:
-            # Nothing indicates this port was ever meant to be up.
+            # An SVI, or a port with no address, no VLAN and no cable: there is
+            # no evidence this interface was meant to forward.
             continue
         if proof == "cable":
             # Cabled but unaddressed and not in a VLAN: shutting it is a valid
