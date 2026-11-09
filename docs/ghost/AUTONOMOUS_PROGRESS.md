@@ -188,3 +188,52 @@ Earlier run on `sample_lab.pkt` returned 2277 bytes of `show version`
 1. Revalidating all five networks after these fixes, with per-finding evidence.
 2. TRIDENT EVOLVE registry foundation.
 3. Full regression + 260-question benchmark + 11-network holdout.
+
+---
+
+## Milestone 5 — Five-network revalidation (COMPLETE)
+
+Run after the Engine B and SHUTDOWN fixes. All source files hashed before and
+after; **all five unchanged**.
+
+| File | Size | Time | Engines A/B/C | Devices | Links | Findings |
+|---|---|---|---|---|---|---|
+| CCNA 3 Practice PTSA.pka | 0.6 MB | 10.3 s | OK/OK/OK | 22 | 20 | 0 |
+| CCNA Mega Lab (Jeremy's IT Lab)(1).pka | 1.0 MB | 17.1 s | OK/OK/OK | 31 | 41 | 0 |
+| Final_R3_BDSM.pka | 0.6 MB | 10.5 s | OK/OK/OK | 22 | 20 | 0 |
+| Modules_1-13_Image.pka | 30.0 MB | 252.9 s | OK/OK/OK | 29 | 26 | 8 |
+| R3_OKCUP_24_25_CiscoPT(1).pka | 2.5 MB | 28.1 s | OK/OK/OK | 33 | 37 | 6 |
+
+**All five networks now parse with all three engines OK**, including the 30 MB
+file that previously timed out Engine B.
+
+### Finding evidence (verified, not assumed)
+
+`R3_OKCUP_24_25_CiscoPT(1).pka`
+
+- **DUPLICATE_IP** — `35.72.15.10/30` claimed by *both*
+  `Rainbow Road Layer 3 Switch 2 Gi1/0/1` and `Warp Zone Layer 3 Switch 1
+  Gi0/22`. Confirmed violation: two devices on one /30.
+- **WRONG_GATEWAY** — `Bowser's Castle Switch 1` has gateway `38.72.11.1`, which
+  no interface holds. Its own subnet is `38.72.11.0/26`, so the address *is* in
+  the served subnet, which is the case the detector confirms rather than merely
+  suspects. Confirmed violation.
+- **SHUTDOWN_INTERFACE ×4** — `DK Jungle Router 1 Gi0/2` (`35.72.11.6/30`),
+  `Mushroom Kingdom Router 1 Gi0/2`, `Warp Zone L3 Switch 2 Gi1/0/1` and
+  `Gi1/0/2`: addressed interfaces that are administratively down. Confirmed
+  violations; an addressed routed port that is shut cannot forward.
+
+`Modules_1-13_Image.pka`
+
+- **SHUTDOWN_INTERFACE ×8** — `Firewall Gi1/1..1/3`, `Main Site Primary
+  Gi0/0,0/2`, `Main Site Router Gi0/0..0/2`. All addressed. Confirmed
+  violations of the same rule.
+
+### What zero findings means here
+
+The three clean networks report **no findings**. That is *not* a claim that they
+are fully compliant: it means no rule in the current taxonomy fired. Rules exist
+for shutdown, VLAN, trunk, gateway, duplicate/overlapping addressing, static
+routing, ACL binding and DHCP gateway. STP loops, QoS policy, EtherChannel
+misconfiguration and routing-protocol authentication are **not modelled**, so a
+clean report says nothing about them.
