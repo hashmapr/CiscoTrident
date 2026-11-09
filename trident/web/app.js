@@ -189,6 +189,27 @@ function renderMeta(data) {
         `${p.duration_ms}ms  ${p.message}`
     );
   }
+  const p3 = data.phase3 || {};
+  if (p3.available) {
+    lines.push("");
+    lines.push("Static diagnosis (Phase 3):");
+    const findings = p3.findings || [];
+    if (!findings.length) {
+      lines.push("  no defects detected in the configuration");
+    } else {
+      for (const f of findings) {
+        const where = [f.device, f.interface].filter(Boolean).join(" ");
+        lines.push(`  ${String(f.kind).padEnd(24)} ${where}  (${f.confidence})`);
+      }
+    }
+    const unresolved = p3.unresolved_questions || [];
+    if (unresolved.length) {
+      lines.push(
+        `  unresolved questions: ${unresolved.length} of which ` +
+          `${p3.escalatable || 0} are operationally testable`
+      );
+    }
+  }
   lines.push("");
   lines.push("Network model:");
   for (const [k, v] of Object.entries(data.network_summary || {})) {

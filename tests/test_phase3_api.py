@@ -163,3 +163,74 @@ def test_investigate_payload_is_json_serialisable():
         runtime_available=False,
     )
     json.dumps(payload)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 inside the real analysis response
+# ---------------------------------------------------------------------------
+# The directive requires Phase 3 to be reachable from the application, not just
+# as standalone modules. These tests post a real network file through
+# /api/analyze and assert the Phase 3 block is present in the actual response.
+
+
+def _upload(name: str, data: bytes):
+    return client.post(
+        "/api/analyze",
+        files={"file": (name, data, "application/octet-stream")},
+        data={"questions": "1. What is the hostname of the first device?", "use_ai": "false"},
+    )
+
+
+def test_analyze_response_carries_phase3_block():
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_lab.pkt"
+    response = _upload("sample_lab.pkt", fixture.read_bytes())
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert "phase3" in payload
+    assert payload["phase3"]["available"] is True
+    assert "findings" in payload["phase3"]
+    assert "unresolved_questions" in payload["phase3"]
+
+
+def test_phase3_block_reports_static_findings_shape():
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_lab.pkt"
+    payload = _upload("sample_lab.pkt", fixture.read_bytes()).json()
+    for finding in payload["phase3"]["findings"]:
+        assert set(finding) >= {"kind", "device", "interface", "confidence"}
+        assert finding["confidence"] in {"HIGH", "MEDIUM", "LOW"}
+
+
+def test_real_working_lab_has_no_false_findings():
+    """The bundled sample lab is a working network; it must be clean."""
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_lab.pkt"
+    payload = _upload("sample_lab.pkt", fixture.read_bytes()).json()
+    assert payload["phase3"]["findings"] == [], payload["phase3"]["findings"]
+
+
+def test_analysis_does_not_need_the_simulator():
+    """Static analysis must succeed with Packet Tracer unavailable."""
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_lab.pkt"
+    response = _upload("sample_lab.pkt", fixture.read_bytes())
+    assert response.status_code == 200
+    assert response.json()["phase3"]["available"] is True
+
+
+def test_analysis_preserves_the_upload(tmp_path):
+    """The uploaded bytes are hashed, not written back."""
+    import hashlib
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "sample_lab.pkt"
+    original = fixture.read_bytes()
+    before = hashlib.sha256(original).hexdigest()
+    payload = _upload("sample_lab.pkt", original).json()
+    assert payload["file_sha256"] == before
+    assert hashlib.sha256(fixture.read_bytes()).hexdigest() == before
