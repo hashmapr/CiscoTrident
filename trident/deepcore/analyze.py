@@ -463,6 +463,7 @@ class Analyzer:
             heading=heading,
         )
         section.basics = self._basics(device)
+        section.basics.extend(self._protocols_for(device))
         section.neighbors = self._neighbors(device.name)
         section.questions = self._questions(device)
         section.findings = self._findings_by_device.get(device.name, [])
@@ -517,6 +518,71 @@ class Analyzer:
                 if protocol.startswith(marker):
                     names.add(name)
         return sorted(names)
+
+    def _protocols_for(self, device: DeviceInfo) -> list[tuple[str, str]]:
+        """Protocol configuration rows for a device's basics table.
+
+        Only what the file states. A switch with no spanning-tree configuration
+        reports nothing rather than claiming the IOS default.
+        """
+        from .protocols import parse_protocols
+
+        configs = parse_protocols(device.configuration or [])
+        rows: list[tuple[str, str]] = []
+
+        if configs.stp.mode.value != "unknown":
+            rows.append(("Spanning tree mode", configs.stp.mode.value))
+        if configs.stp.priority is not None:
+            rows.append(("Spanning tree priority", str(configs.stp.priority)))
+        if configs.stp.vlan_priorities:
+            rows.append(
+                (
+                    "Per-VLAN STP priority",
+                    ", ".join(f"vlan {v}: {p}" for v, p in sorted(configs.stp.vlan_priorities.items())),
+                )
+            )
+        roots = sorted(configs.stp.root_primary_vlans)
+        if roots:
+            rows.append(("STP root primary", ", ".join(f"vlan {v}" for v in roots)))
+
+        for name, channel in sorted(configs.etherchannels.items()):
+            rows.append(
+                (
+                    f"EtherChannel {name}",
+                    (f"{channel.mode.value} ({channel.protocol}) with "
+                    f"{', '.join(channel.members)}"),
+                )
+            )
+
+        if configs.nat.configured:
+            parts = []
+            if configs.nat.inside_interfaces:
+                parts.append(f"inside {', '.join(configs.nat.inside_interfaces)}")
+            if configs.nat.outside_interfaces:
+                parts.append(f"outside {', '.join(configs.nat.outside_interfaces)}")
+            if configs.nat.static_rules:
+                parts.append(f"{len(configs.nat.static_rules)} static rule(s)")
+            if configs.nat.dynamic_rules:
+                parts.append(f"{len(configs.nat.dynamic_rules)} dynamic rule(s)")
+            rows.append(("NAT", "; ".join(parts)))
+
+        if configs.ipv6.addresses:
+            rows.append(("IPv6 addresses", ", ".join(configs.ipv6.addresses)))
+        if configs.ipv6.routes:
+            rows.append(
+                (
+                    "IPv6 routes",
+                    ", ".join(f"{p} via {n or '-'}" for p, n in configs.ipv6.routes),
+                )
+            )
+        if configs.ipv6.configured:
+            rows.append(
+                (
+                    "IPv6 forwarding",
+                    "enabled" if configs.ipv6.forwarding else "NOT enabled (no unicast-routing)",
+                )
+            )
+        return rows
 
     def _invariants(self) -> dict:
         """Evaluate the invariants that apply to any network.
