@@ -412,8 +412,12 @@ class ProcessSupervisor:
         )
         return port
 
-    #: Ports Packet Tracer binds for IPC when none is requested.
-    IPC_PORT_RANGE = range(39000, 39010)
+    #: Ports this supervisor will try, in order. Packet Tracer's own default
+    #: range is 39000-39009, but a test run creates and destroys many sessions,
+    #: and each closed port sits in TIME_WAIT for a minute. Ten ports exhaust
+    #: quickly, so a wider window is used. Packet Tracer binds whatever port it
+    #: is given with --ipc-port, so extending the range costs nothing.
+    IPC_PORT_RANGE = range(39000, 39060)
 
     def _choose_port(self) -> int:
         """Pick a port that is currently free, so we never attach to a stranger.
@@ -438,7 +442,10 @@ class ProcessSupervisor:
         while True:
             for port in self.IPC_PORT_RANGE:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    # Deliberately no SO_REUSEADDR. With it, bind() succeeds on a
+                    # port still in TIME_WAIT, so a port is chosen that Packet
+                    # Tracer cannot then serve properly and the PTMP handshake
+                    # times out. Plain bind() is a truthful "is this free" test.
                     try:
                         probe.bind(("127.0.0.1", port))
                     except OSError:

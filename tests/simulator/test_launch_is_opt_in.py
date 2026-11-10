@@ -18,9 +18,17 @@ from trident.tools import inspect_labs
 
 
 def _packet_tracer_running() -> bool:
+    """Whether a real Packet Tracer process exists.
+
+    ``pgrep -f`` matches the *calling shell's* command line too, because the
+    pattern appears in it — so a plain `pgrep -f Contents/MacOS/PacketTracer`
+    reports a false positive whenever the test runner's own command contains that
+    string. This inspects the process table and compares the executable path
+    exactly instead.
+    """
     try:
         out = subprocess.run(
-            ["pgrep", "-f", "Contents/MacOS/PacketTracer"],
+            ["ps", "-Ao", "comm="],
             capture_output=True,
             text=True,
             timeout=10,
@@ -28,6 +36,11 @@ def _packet_tracer_running() -> bool:
         )
     except (OSError, subprocess.SubprocessError):
         return False
+    for line in out.stdout.splitlines():
+        command = line.strip()
+        if command.endswith("Contents/MacOS/PacketTracer"):
+            return True
+    return False
     return bool(out.stdout.strip())
 
 
@@ -80,10 +93,28 @@ def test_static_inspection_does_not_launch_packet_tracer(monkeypatch, capfd):
     if not lab.is_file():
         pytest.skip("sample_lab.pkt fixture is not present")
 
-    assert not _packet_tracer_running(), "Packet Tracer was already running; test is inconclusive"
+    # A Packet Tracer from a previous test can still be shutting down. Wait for a
+    # settled state rather than failing on a process that is already exiting: the
+    # claim being tested is that THIS call starts nothing, not that the machine
+    # was idle beforehand.
+    if not _wait_for_quiet_packet_tracer(timeout=20.0):
+        pytest.skip("another Packet Tracer is running; this test cannot isolate its own effect")
+
     code = inspect_labs.main([str(lab)])
     assert code == 0
     assert not _packet_tracer_running(), "static inspection started Packet Tracer"
+
+
+def _wait_for_quiet_packet_tracer(timeout: float = 20.0) -> bool:
+    """True once no Packet Tracer process is running."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _packet_tracer_running():
+            return True
+        time.sleep(0.5)
+    return not _packet_tracer_running()
 
 
 def test_live_flag_is_refused_without_consent(monkeypatch, capfd):
@@ -91,6 +122,8 @@ def test_live_flag_is_refused_without_consent(monkeypatch, capfd):
     lab = __import__("pathlib").Path(__file__).parents[1] / "fixtures" / "sample_lab.pkt"
     if not lab.is_file():
         pytest.skip("sample_lab.pkt fixture is not present")
+    if not _wait_for_quiet_packet_tracer(timeout=20.0):
+        pytest.skip("another Packet Tracer is running; cannot isolate this test's effect")
 
     inspect_labs.main([str(lab), "--live"])
     captured = capfd.readouterr()
