@@ -178,8 +178,10 @@ FEATURES: tuple[Feature, ...] = (
         modelled=False,
         statically_verified=False,
         limitations=[
-            "the evidence layer can hold a show spanning-tree capture, but no "
-            "configuration is parsed into the model",
+            (
+                "the evidence layer can hold a show spanning-tree capture, but no "
+                "configuration is parsed into the model"
+            ),
             "no root election or port-state calculation",
             "a redundant topology is not checked for loops",
         ],
