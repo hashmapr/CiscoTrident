@@ -9,8 +9,6 @@ about which links forward.
 
 from __future__ import annotations
 
-import pytest
-
 from trident.deepcore.stp import (
     Bridge,
     Link,
