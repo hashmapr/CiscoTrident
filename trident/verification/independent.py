@@ -132,6 +132,14 @@ class IndependentVerifier:
                 detail="the answer carries no text to re-derive",
             )
 
+        # Route 0: a claim that names BOTH a device and an address is checked as
+        # a pair. Checking either alone is how a wrong-device claim slips
+        # through: "R2 has 10.0.1.1" passes an address-exists test even though
+        # R1 holds that address. This must run before the single-fact routes.
+        pairing = self._check_device_address_pair(answer.question_number, chosen)
+        if pairing is not None:
+            return pairing
+
         # Route 1: does the answer name an entity that actually exists?
         entity_verdict = self._check_entity(chosen)
         if entity_verdict is not None:
@@ -173,6 +181,59 @@ class IndependentVerifier:
             if joined.strip():
                 return joined.strip()
         return None
+
+    def _check_device_address_pair(
+        self, question_number: int, text: str
+    ) -> VerificationRecord | None:
+        """Check a claim that names a device and an address together.
+
+        The pair is the claim. If the address is held by a different device, the
+        answer is contradicted even though both facts exist separately — that
+        distinction is the whole reason this route exists.
+        """
+        import re
+
+        addresses = re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", text)
+        if not addresses:
+            return None
+        lowered = text.lower()
+        named = [canonical for key, canonical in self._device_names.items() if key in lowered]
+        if not named:
+            return None
+
+        device = named[0]
+        address = addresses[0]
+        holder = self._addresses.get(address)
+        if holder is None:
+            return VerificationRecord(
+                question_number=question_number,
+                verdict=Verdict.DISAGREES,
+                original_answer=text,
+                independent_answer=None,
+                method="device-address-pair",
+                detail=f"the model assigns {address} to no interface",
+            )
+        holder_device, holder_interface = holder
+        if holder_device != device:
+            return VerificationRecord(
+                question_number=question_number,
+                verdict=Verdict.DISAGREES,
+                original_answer=text,
+                independent_answer=f"{holder_device}:{holder_interface}",
+                method="device-address-pair",
+                detail=(
+                    f"the claim pairs {device} with {address}, but the model assigns "
+                    f"{address} to {holder_device}:{holder_interface}"
+                ),
+            )
+        return VerificationRecord(
+            question_number=question_number,
+            verdict=Verdict.CONFIRMED,
+            original_answer=text,
+            independent_answer=f"{holder_device}:{holder_interface}",
+            method="device-address-pair",
+            detail=f"{device} does hold {address} on {holder_interface}",
+        )
 
     def _check_entity(self, text: str):
         """If the answer names a device, confirm the device exists."""

@@ -213,10 +213,24 @@ async def analyze(
 
     snapshot_none = not model.devices
     if snapshot_none:
-        warnings.append(
-            "No devices were extracted. If this is a .pka, its snapshot blocks may be empty "
-            "or the file may not contain network configuration."
-        )
+        # Distinguish "the file could not be decoded at all" from "it decoded and
+        # genuinely holds no network". They need different user action, and
+        # without this the two look identical in the response: a corrupt file
+        # would read as a successful analysis that simply had nothing to say.
+        failed_engines = [
+            r.report.engine for r in results if r.report.state.value == "ERROR"
+        ]
+        if len(failed_engines) >= 2:
+            warnings.append(
+                "This file could not be decoded by the extraction engines "
+                f"({', '.join(sorted(failed_engines))} failed). It is probably corrupt, "
+                "truncated, or not a Packet Tracer save."
+            )
+        else:
+            warnings.append(
+                "No devices were extracted. If this is a .pka, its snapshot blocks may "
+                "be empty or the file may not contain network configuration."
+            )
 
     response = AnalysisResponse(
         file_name=ingested.file_name,
