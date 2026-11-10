@@ -8,6 +8,10 @@ assertions read the real DOM.
 from __future__ import annotations
 
 import pytest
+from browser_fixtures import lab_file, start_server, stop_server
+
+# lab_file is imported so pytest can resolve it as a fixture by name.
+__all__ = ["lab_file"]
 
 pytestmark = pytest.mark.browser
 
@@ -47,6 +51,36 @@ def _cards(page) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Test A — initial state
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def browser():
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        b = pw.chromium.launch()
+        yield b
+        b.close()
+
+
+@pytest.fixture(scope="module")
+def trident_server():
+    process, base = start_server()
+    yield base
+    stop_server(process)
+
+
+@pytest.fixture()
+def page(browser, trident_server):
+    context = browser.new_context()
+    pg = context.new_page()
+    errors: list[str] = []
+    pg.on("pageerror", lambda exc: errors.append(str(exc)))
+    pg.errors = errors  # type: ignore[attr-defined]
+    pg.goto(trident_server, wait_until="domcontentloaded")
+    pg.wait_for_selector("#analyze", timeout=15000)
+    yield pg
+    context.close()
 
 
 def test_page_loads_with_all_engines_available(page):

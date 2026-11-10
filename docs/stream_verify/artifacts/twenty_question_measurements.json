@@ -1,0 +1,138 @@
+{
+  "measurements": {
+    "total_session_seconds": 13.29,
+    "card_count": 20,
+    "first_card_ms": 13204,
+    "median_card_ms": 13258,
+    "slowest_card_ms": 13258,
+    "distinct_arrival_times": 2,
+    "status_counts": {
+      "VERIFIED": 11,
+      "VERIFIED_DERIVED": 3,
+      "NOT_AVAILABLE": 6
+    },
+    "errors": []
+  },
+  "cards": [
+    {
+      "q": "Q1",
+      "badge": "VERIFIED",
+      "answer": "R1",
+      "explain": "hostname R1 from the running configuration of R1"
+    },
+    {
+      "q": "Q2",
+      "badge": "VERIFIED",
+      "answer": "R2",
+      "explain": "hostname R2 from the running configuration of R2"
+    },
+    {
+      "q": "Q3",
+      "badge": "VERIFIED",
+      "answer": "SW1",
+      "explain": "hostname SW1 from the running configuration of SW1"
+    },
+    {
+      "q": "Q4",
+      "badge": "VERIFIED",
+      "answer": "192.168.1.1",
+      "explain": "ip address 192.168.1.1 255.255.255.0"
+    },
+    {
+      "q": "Q5",
+      "badge": "VERIFIED",
+      "answer": "192.168.2.1",
+      "explain": "ip address 192.168.2.1 255.255.255.0"
+    },
+    {
+      "q": "Q6",
+      "badge": "VERIFIED",
+      "answer": "192.168.2.2",
+      "explain": "ip address 192.168.2.2 255.255.255.0"
+    },
+    {
+      "q": "Q7",
+      "badge": "VERIFIED",
+      "answer": "192.168.3.1",
+      "explain": "ip address 192.168.3.1 255.255.255.0"
+    },
+    {
+      "q": "Q8",
+      "badge": "VERIFIED_DERIVED",
+      "answer": "SW1",
+      "explain": "R1 GigabitEthernet0/0 <-> SW1 FastEthernet0/1"
+    },
+    {
+      "q": "Q9",
+      "badge": "VERIFIED_DERIVED",
+      "answer": "R2",
+      "explain": "R1 GigabitEthernet0/1 <-> R2 GigabitEthernet0/0"
+    },
+    {
+      "q": "Q10",
+      "badge": "VERIFIED_DERIVED",
+      "answer": "R1",
+      "explain": "R2 GigabitEthernet0/0 <-> R1 GigabitEthernet0/1"
+    },
+    {
+      "q": "Q11",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    },
+    {
+      "q": "Q12",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    },
+    {
+      "q": "Q13",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    },
+    {
+      "q": "Q14",
+      "badge": "VERIFIED",
+      "answer": "255.255.255.0",
+      "explain": "GigabitEthernet0/0: ip address 192.168.1.1 255.255.255.0"
+    },
+    {
+      "q": "Q15",
+      "badge": "VERIFIED",
+      "answer": "255.255.255.0",
+      "explain": "GigabitEthernet0/1: ip address 192.168.2.1 255.255.255.0"
+    },
+    {
+      "q": "Q16",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    },
+    {
+      "q": "Q17",
+      "badge": "VERIFIED",
+      "answer": "2911",
+      "explain": "R1 model = 2911"
+    },
+    {
+      "q": "Q18",
+      "badge": "VERIFIED",
+      "answer": "2960-24TT",
+      "explain": "SW1 model = 2960-24TT"
+    },
+    {
+      "q": "Q19",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    },
+    {
+      "q": "Q20",
+      "badge": "NOT_AVAILABLE",
+      "answer": null,
+      "explain": "This question could not be mapped to a fact present in the network model. TRIDENT does not guess."
+    }
+  ]
+}
