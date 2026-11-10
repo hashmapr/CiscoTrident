@@ -1,0 +1,254 @@
+{
+  "summary": {
+    "total": 16,
+    "counts": {
+      "UNSUPPORTED": 8,
+      "PARSED": 1,
+      "MODELLED": 0,
+      "STATICALLY_VERIFIED": 5,
+      "SIMULATOR_TESTED": 2
+    },
+    "simulator_tested": [
+      "ipv4_addressing",
+      "static_routing"
+    ],
+    "statically_verified": [
+      "ipv4_addressing",
+      "subnetting",
+      "vlans",
+      "trunks",
+      "static_routing",
+      "acl",
+      "dhcp"
+    ],
+    "parsed_only": [
+      "ospf"
+    ],
+    "unsupported": [
+      "nat",
+      "stp",
+      "etherchannel",
+      "qos",
+      "routing_authentication",
+      "ipv6",
+      "port_security",
+      "device_administration"
+    ]
+  },
+  "features": [
+    {
+      "name": "ipv4_addressing",
+      "level": "SIMULATOR_TESTED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": true,
+      "limitations": [],
+      "evidence": [
+        "tests/test_phase2/test_diagnostics.py",
+        "tests/simulator/test_live_integration.py"
+      ]
+    },
+    {
+      "name": "subnetting",
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": false,
+      "limitations": [
+        "overlapping subnets are flagged, not resolved"
+      ],
+      "evidence": [
+        "tests/test_deepcore_path.py::test_longest_prefix_wins_over_a_default_route"
+      ]
+    },
+    {
+      "name": "vlans",
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": false,
+      "limitations": [
+        "VLAN database propagation across VTP domains is not modelled"
+      ],
+      "evidence": [
+        "tests/adversarial/test_shutdown_semantics.py"
+      ]
+    },
+    {
+      "name": "trunks",
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": false,
+      "limitations": [
+        "DTP negotiation state is not modelled"
+      ],
+      "evidence": [
+        "tests/test_phase2/test_diagnostics.py"
+      ]
+    },
+    {
+      "name": "static_routing",
+      "level": "SIMULATOR_TESTED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": true,
+      "limitations": [
+        "floating static routes are compared by AD but not by tracking object"
+      ],
+      "evidence": [
+        "tests/test_deepcore_path.py::test_two_hop_route_delivers",
+        "tests/simulator/test_differential_live.py"
+      ]
+    },
+    {
+      "name": "ospf",
+      "level": "PARSED",
+      "parsed": true,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "adjacency state is not modelled; a configured OSPF network does not imply a formed adjacency",
+        "no area or cost calculation"
+      ],
+      "evidence": [
+        "trident/diagnostics/__init__.py (dynamic-route awareness)"
+      ]
+    },
+    {
+      "name": "acl",
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": false,
+      "limitations": [
+        "only explicit denies bound to a specific interface are evaluated",
+        "no ordering evaluation between multiple entries beyond the first match",
+        "no evaluation of established/reflexive behaviour"
+      ],
+      "evidence": [
+        "tests/test_deepcore_path.py::test_explicit_bound_deny_is_reported"
+      ]
+    },
+    {
+      "name": "dhcp",
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
+      "simulator_tested": false,
+      "limitations": [
+        "lease allocation is not simulated; only pool misconfiguration"
+      ],
+      "evidence": [
+        "tests/test_phase2/test_diagnostics.py"
+      ]
+    },
+    {
+      "name": "nat",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "no NAT configuration is parsed into the model",
+        "path prediction does not apply translation"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "stp",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "the evidence layer can hold a show spanning-tree capture, but no configuration is parsed into the model",
+        "no root election or port-state calculation",
+        "a redundant topology is not checked for loops"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "etherchannel",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "not parsed"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "qos",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "not parsed"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "routing_authentication",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "not parsed"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "ipv6",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "the model carries an ipv6_address field that is never populated"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "port_security",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "not parsed"
+      ],
+      "evidence": []
+    },
+    {
+      "name": "device_administration",
+      "level": "UNSUPPORTED",
+      "parsed": false,
+      "modelled": false,
+      "statically_verified": false,
+      "simulator_tested": false,
+      "limitations": [
+        "not parsed"
+      ],
+      "evidence": []
+    }
+  ]
+}

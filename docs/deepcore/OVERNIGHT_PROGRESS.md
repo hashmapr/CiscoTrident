@@ -99,3 +99,44 @@ observation separately; neither overwrites the other, and a single agreement doe
 not promote anything into the static consensus.
 
 14 offline tests plus 2 live tests.
+
+---
+
+## Phase 3 — EVOLVE strategy (COMPLETE)
+
+`trident/evolve/strategy.py` turns stored lessons into planning advice. Until now
+the registry was a diary: it recorded lessons nothing consumed.
+
+- `advise(registry, tags)` returns one `Advice` per cause, with the lesson ids
+  that justify it. Only trusted lessons qualify — the registry already requires a
+  validated state, consensus-or-better evidence, and a counterexample.
+- `reorder_experiments` applies `PREFER` advice. `DEFER` and `REQUIRE_EVIDENCE` are
+  notes, not permutations, so the effect on behaviour stays small and auditable.
+- Advice is inert: it executes nothing and mutates nothing.
+
+14 tests.
+
+---
+
+## Phase 4 — protocol coverage matrix (COMPLETE)
+
+`trident/deepcore/coverage.py` plus a generated `coverage.json`.
+
+Four independent levels, each earned separately: PARSED, MODELLED,
+STATICALLY_VERIFIED, SIMULATOR_TESTED. A feature's level is its highest earned
+one, and a claimed level must name the test that establishes it.
+
+| Level | Count | Features |
+|---|---|---|
+| SIMULATOR_TESTED | 2 | ipv4_addressing, static_routing |
+| STATICALLY_VERIFIED | 5 | subnetting, vlans, trunks, acl, dhcp |
+| PARSED | 1 | ospf |
+| UNSUPPORTED | 8 | nat, stp, etherchannel, qos, routing_authentication, ipv6, port_security, device_administration |
+
+**Two overclaims were caught by the evidence test and corrected.** NAT and STP
+were marked PARSED. Neither is parsed into the model — the evidence layer can
+*hold* a `show spanning-tree` capture, which is not the same as deriving facts
+from configuration. Both are now UNSUPPORTED with the reason stated.
+
+OSPF stays PARSED and not MODELLED: a configured `network` statement does not
+imply a formed adjacency, and the matrix says so.

@@ -20,13 +20,18 @@ from .registry import (
     RootCause,
     identity_of,
 )
+from .strategy import Advice, Preference, advise, reorder_experiments
 
 __all__ = [
     "DEFAULT_REGISTRY",
+    "Advice",
     "EvidenceStrength",
     "Lesson",
+    "Preference",
     "RecordState",
     "Registry",
     "RootCause",
+    "advise",
     "identity_of",
+    "reorder_experiments",
 ]
