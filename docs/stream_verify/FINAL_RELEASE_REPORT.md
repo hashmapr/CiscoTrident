@@ -17,7 +17,7 @@ and it is recorded as an honest skip rather than a pass.
 | 3 | Answers delivered independently, not batched | **met** — measured server-side |
 | 4 | Staggered tasks update independently | **met** — Q1/Q4 before Q3/Q5 |
 | 5 | Verifier rejects incorrect claims | **met** — 15 adversarial tests |
-| 6 | Ghost does not block unrelated answers | **met** (controlled); real-sim skips |
+| 6 | Ghost does not block unrelated answers | **met** — controlled + real simulator |
 | 7 | SSE failures and reconnects handled | **met** — 9 recovery tests |
 | 8 | Buffered fallback functional | **met** — browser test with stream blocked |
 | 9 | No false verification or evidence contamination | **met** — 0 false-verified |
@@ -160,13 +160,30 @@ Q4 delayed 4 s standing in for an investigation; Q1, Q2, Q3, Q5 undelayed.
 - All four fast questions rendered **more than 1 s before** Q4.
 - Q4 still produced a card; the batch did not hang.
 
-### Real simulator
+### Real simulator — executed, passed
 
-`test_real_simulator_does_not_block_static_answers` **skips** — it requires a
-registered ExApp in the test process. Recorded as a skip, never as a pass. The
-nine live PDU tests were separately verified earlier (see
-`docs/ghost/LIVE_EXECUTION_EVIDENCE.md`), but were not re-run inside the browser
-harness this sprint.
+`test_real_simulator_does_not_block_static_answers` **passed** when run with
+`TRIDENT_ALLOW_LIVE_SIMULATOR=1 TRIDENT_USE_GHOST_APP=1`:
+
+```
+1 passed in 11.02s
+```
+
+Direct evidence from a live session in the same configuration:
+
+```
+bundle          ghost (background-agent copy, no Dock icon)
+backend         SIMULATOR_LIVE
+PT process pid  18785
+PTMP version    9.0.1.0858
+PDU status      DELIVERED
+observed        True
+frames          60
+cleanup         CLEANED/backend=CLIENT_CLOSED+TERMINATED/source=INTACT
+```
+
+It skips without a registration rather than failing, which is why the default run
+reports a skip.
 
 ---
 
@@ -179,7 +196,9 @@ pytest -q                                            1179 passed, 1 failed
   suite passes 6/6 after cleanup. Not a code fault.
 
 pytest tests/browser -m browser                      19 collected
-  17 passed, 1 skipped (real-simulator), 1 error (fixed)
+  18 passed, 1 skipped (real-simulator, passes with consent)
+pytest tests/browser -m browser (with TRIDENT_ALLOW_LIVE_SIMULATOR=1)
+  real-simulator concurrency test: PASSED
 
 pytest tests/adversarial test_engine_b test_pktcrypto 89 passed
 
@@ -199,7 +218,10 @@ concurrency test, which cannot run without a registration.
 2. **Batch-arrival appearance for fast workloads.** Twenty static questions
    render in one paint. This is speed, not batching, but it means the visual
    incremental behaviour only shows on slow files or staggered work.
-3. **Real-simulator concurrency is skipped**, not demonstrated, in this sprint.
+3. **Real-simulator concurrency requires an authenticated process.** It passes
+   when `TRIDENT_ALLOW_LIVE_SIMULATOR=1` is set, and skips otherwise; the browser
+   fixtures deliberately unset that variable so a normal run never starts Packet
+   Tracer.
 4. **Ghost was unavailable to the browser application process** because
    `TRIDENT_ALLOW_LIVE_SIMULATOR` is deliberately unset for it. The status panel
    correctly reports the reason.
