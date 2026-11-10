@@ -38,11 +38,15 @@ def _decode_container(raw: bytes) -> bytes:
     format it claims to support is not silently retried: that would hide a
     correctness regression in the thing we are trying to validate.
     """
-    from ..pktcrypto import ContainerError, decode_bytes
+    from ..pktcrypto import ContainerError
+    from ..pktcrypto.cache import SHARED
     from ..pktcrypto.container import FORMATS as OWN_FORMATS
 
     try:
-        return decode_bytes(raw).xml
+        # The shared cache means three engines decoding the same file pay for it
+        # once. Independence is preserved: each engine still parses the bytes
+        # itself, they just share the unwrapping.
+        return SHARED.decode(raw)
     except ContainerError as exc:
         message = str(exc)
         unsupported_flavour = any(

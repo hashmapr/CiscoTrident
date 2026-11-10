@@ -140,3 +140,60 @@ from configuration. Both are now UNSUPPORTED with the reason stated.
 
 OSPF stays PARSED and not MODELLED: a configured `network` statement does not
 imply a formed adjacency, and the matrix says so.
+
+---
+
+## Phase 5 — performance (MEASURED, PARTIALLY IMPROVED)
+
+### Profile, measured not assumed
+
+Practice lab, phased timings:
+
+```
+parsing     0.840 s   (93%)
+consensus   0.004 s
+resolving   0.004 s
+answer 1    0.006 s
+```
+
+Parsing dominates. Within it, per-engine wall times (they run concurrently):
+
+```
+engine_a  230 ms
+engine_b  946 ms
+engine_c  984 ms   -> 989 ms concurrent wall time
+```
+
+Decode alone is **390 ms**, and each engine that needs the document was paying
+it separately.
+
+### Change: content-addressed decode cache
+
+`trident/pktcrypto/cache.py`, shared by the engine that uses our decoder. Keyed by
+the SHA-256 of the input file, so the key is content, not path; a renamed file
+hits and a different file never does. Values are immutable bytes, so sharing them
+cannot produce cross-engine state.
+
+Sharing the decoded document does **not** weaken extraction independence.
+Independence is about how facts are derived from the document; each engine still
+parses the bytes itself.
+
+### Measured effect
+
+| Fixture | First run | Repeat run | Change |
+|---|---|---|---|
+| sample_lab.pkt (0.6 MB) | 1449 ms | 832 ms | **-43%** |
+| R3_OKCUP_24_25 (2.5 MB) | 27.68 s | 15.83 s | **-43%** |
+
+Same device counts, identical answers. The cache is process-local and in-memory
+only: no plaintext is written to disk.
+
+### What did not improve, and why
+
+Only one engine uses the shared decoder; the other two use libtwofish and a Node
+bridge, so on a *first* analysis there is nothing to share. The 30 MB decode
+measured 133.9 s in this session versus 107.6 s earlier — machine load, not a
+regression, and the variance is recorded rather than smoothed over.
+
+Further gains would need the native engines to accept a pre-decoded document, which
+would couple them to our decoder and is a larger change than this phase allows.

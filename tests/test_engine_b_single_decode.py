@@ -63,8 +63,6 @@ def test_engine_b_decodes_once(monkeypatch):
     """
     import pkt_core
 
-    import trident.parsers.pkt_core as engine_module
-    import trident.pktcrypto.container as own_container
 
     ok_adapter = EngineBAdapter(settings)
     ok, _ = ok_adapter.probe()
@@ -76,18 +74,21 @@ def test_engine_b_decodes_once(monkeypatch):
     calls = {"decode": 0, "open_lab": 0}
     real_decode = pkt_core.decode_bytes
     real_open = pkt_core.open_lab
-    real_own = own_container.decode_bytes
 
-    def counting_own(*args, **kwargs):
-        calls["decode"] += 1
-        return real_own(*args, **kwargs)
+    # Engine B now goes through the shared content-addressed cache, so the
+    # decode to count is the cache's, not decode_bytes directly. Count the
+    # cache's cold path: one miss per distinct input is exactly one decode.
+    from trident.pktcrypto.cache import SHARED
 
-    monkeypatch.setattr(engine_module, "decode_bytes", counting_own, raising=False)
-    # The adapter imports decode_bytes inside _decode_container, so patch the
-    # module attribute it resolves at call time.
-    import trident.pktcrypto as pktcrypto_pkg
+    SHARED.clear()
+    real_cache_decode = type(SHARED).decode
 
-    monkeypatch.setattr(pktcrypto_pkg, "decode_bytes", counting_own)
+    def counting_cache_decode(self, raw):
+        if self.get(raw) is None:
+            calls["decode"] += 1
+        return real_cache_decode(self, raw)
+
+    monkeypatch.setattr(type(SHARED), "decode", counting_cache_decode)
 
     def counting_decode(*args, **kwargs):
         calls["decode"] += 1
