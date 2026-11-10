@@ -9,6 +9,7 @@ The file is parsed once per analysis. All questions reuse the same model.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .config import Settings
@@ -113,7 +114,22 @@ async def analyze(
     question_text: str,
     cfg: Settings | None = None,
     use_ai: bool = True,
+    on_stage: Callable[[str], None] | None = None,
+    on_answer: Callable[[AnswerResult], None] | None = None,
 ) -> AnalysisOutcome:
+    """Analyse one upload.
+
+    ``on_stage`` and ``on_answer`` are optional progress hooks. They are called
+    as the work actually happens, which is what makes the streamed endpoint
+    genuinely incremental rather than a replay of a finished result. They are
+    plain callables rather than an async generator so the pipeline does not need
+    to know it is being streamed.
+    """
+
+    def stage(name: str) -> None:
+        if on_stage is not None:
+            on_stage(name)
+
     cfg = cfg or default_settings
 
     questions: list[ParsedQuestion] = parse_questions(
@@ -122,12 +138,14 @@ async def analyze(
         max_chars=cfg.max_question_chars,
     )
 
+    stage("parsing")
     adapters = build_adapters(cfg)
     with make_workspace() as tmp:
         workdir = __import__("pathlib").Path(tmp)
         file_path = ingested.temp_path(workdir)
         results = await _run_adapters(adapters, file_path, workdir, cfg)
 
+        stage("consensus")
         snap_warnings: list[str] = []
         agreed_snapshot, snap_ambiguous = _agree_snapshot(results, snap_warnings)
         model = Normalizer(results, snapshot_id=agreed_snapshot).build()
@@ -174,10 +192,16 @@ async def analyze(
             except AIClientError as exc:
                 ai_error = str(exc)
 
+        stage("resolving")
         builder = AnswerBuilder(model, consensus)
         results_out: list[AnswerResult] = []
         for q in questions:
-            results_out.append(builder.build(q, plans.get(q.question_number)))
+            answer = builder.build(q, plans.get(q.question_number))
+            results_out.append(answer)
+            # Emit immediately: a later question must never delay an earlier
+            # answer that is already known.
+            if on_answer is not None:
+                on_answer(answer)
 
     warnings: list[str] = list(model.warnings)
     if ai_error:

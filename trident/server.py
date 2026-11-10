@@ -86,9 +86,11 @@ async def analyze_stream_endpoint(
     Answers are emitted individually, so a caller can render the first resolved
     answer without waiting for the last. Stage events name real phases.
     """
+    import asyncio
+
     from fastapi.responses import StreamingResponse
 
-    from .streaming import STAGES, AnswerStreamer
+    from .streaming import AnswerStreamer
 
     try:
         data = await file.read(settings.max_file_bytes + 1)
@@ -101,27 +103,57 @@ async def analyze_stream_endpoint(
     if not questions or not questions.strip():
         raise HTTPException(status_code=400, detail="no questions provided")
 
-    try:
-        outcome = await analyze(ingested, questions, settings, use_ai=use_ai)
-    except QuestionParseError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    except Exception as exc:
-        logger.exception("streamed analysis failed")
-        raise HTTPException(
-            status_code=500, detail=f"analysis failed: {type(exc).__name__}"
-        ) from None
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def emit_stage(name: str) -> None:
+        # Called from the pipeline as each phase actually begins. Hop back to
+        # the event loop because the pipeline runs synchronously inside a
+        # threadpool when awaited.
+        loop.call_soon_threadsafe(queue.put_nowait, ("stage", name))
+
+    def emit_answer(answer) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, ("answer", answer))
+
+    async def run_analysis() -> None:
+        try:
+            outcome = await analyze(
+                ingested,
+                questions,
+                settings,
+                use_ai=use_ai,
+                on_stage=emit_stage,
+                on_answer=emit_answer,
+            )
+            loop.call_soon_threadsafe(queue.put_nowait, ("complete", outcome.response))
+        except QuestionParseError as exc:
+            loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+        except Exception as exc:
+            logger.exception("streamed analysis failed")
+            loop.call_soon_threadsafe(
+                queue.put_nowait, ("error", f"analysis failed: {type(exc).__name__}")
+            )
+
+    task = asyncio.create_task(run_analysis())
 
     async def frames():
-        # Stages are named here because the analysis has completed by the time
-        # the response is constructed. Emitting them with real names keeps the
-        # client's progress rendering accurate without inventing live progress.
         streamer = AnswerStreamer()
-        for name, _detail in STAGES:
-            if name in {"parsing", "consensus", "resolving"}:
-                yield streamer.stage(name).to_sse()
-        for result in outcome.response.results:
-            yield streamer.answer(result).to_sse()
-        yield streamer.complete(outcome.response).to_sse()
+        try:
+            while True:
+                kind, payload = await queue.get()
+                if kind == "stage":
+                    yield streamer.stage(payload).to_sse()
+                elif kind == "answer":
+                    yield streamer.answer(payload).to_sse()
+                elif kind == "complete":
+                    yield streamer.complete(payload).to_sse()
+                    break
+                elif kind == "error":
+                    yield streamer.error(payload).to_sse()
+                    break
+        finally:
+            if not task.done():
+                task.cancel()
 
     return StreamingResponse(frames(), media_type="text/event-stream")
 

@@ -64,6 +64,34 @@ def parse_questions(
 
     raw_lines = [ln.rstrip() for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
 
+    # Unnumbered, one-question-per-line input.
+    #
+    # The block parser below splits only on numbered lines ("1.", "2)"), so a
+    # user pasting three bare questions on three lines got ONE merged question —
+    # and therefore one answer covering all three. That is the shape people
+    # actually paste, so it is handled explicitly.
+    #
+    # The rule is deliberately narrow: apply it only when there is no numbering
+    # at all AND every non-empty line is a standalone question (ends with "?").
+    # A multi-line question with options, or any numbered list, keeps the
+    # existing block behaviour.
+    non_empty = [line.strip() for line in raw_lines if line.strip()]
+    unnumbered_list = (
+        non_empty
+        and not any(_NUM_RE.match(line) for line in non_empty)
+        and all(line.rstrip().endswith("?") for line in non_empty)
+    )
+    if unnumbered_list:
+        questions: list[ParsedQuestion] = []
+        for index, line in enumerate(non_empty):
+            stem = line[:max_chars] if len(line) > max_chars else line
+            questions.append(_classify(fallback_start + index, stem))
+        if len(questions) > max_questions:
+            raise QuestionParseError(
+                f"too many questions ({len(questions)} > {max_questions})"
+            )
+        return questions
+
     blocks: list[tuple[int | None, list[str]]] = []
     current_number: int | None = None
     current_lines: list[str] = []
