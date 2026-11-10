@@ -325,52 +325,97 @@ _KIND_LABELS = {
 }
 
 
-#: Packet Tracer model strings and the kind they represent. The parser records
-#: the model but not a device type, so classification reads the model. Anything
-#: unrecognised is reported as a generic Device rather than guessed.
+#: Packet Tracer model strings and the kind they represent.
+#:
+#: Classification follows the directive's reliability order: an explicit
+#: structural type first, then a known model mapping, then conservative
+#: inference, then Unknown. Packet Tracer files record no structural device type
+#: (the ``<TYPE>`` element carries only a model), so the model mapping is the
+#: most reliable source that actually exists in the file.
 _MODEL_KINDS: tuple[tuple[str, str], ...] = (
+    # Routers
     ("2911", "Router"),
     ("2901", "Router"),
     ("2811", "Router"),
     ("1941", "Router"),
+    ("1841", "Router"),
     ("4331", "Router"),
+    ("4321", "Router"),
+    ("isr4", "Router"),
     ("isr", "Router"),
     ("router", "Router"),
+    # Switches
     ("2960", "Switch"),
     ("2950", "Switch"),
     ("3560", "Multilayer Switch"),
     ("3650", "Multilayer Switch"),
+    ("3750", "Multilayer Switch"),
     ("switch", "Switch"),
+    # Endpoints
     ("pc-pt", "PC"),
-    ("pc", "PC"),
     ("laptop", "PC"),
     ("server-pt", "Server"),
     ("server", "Server"),
+    ("tablet", "PC"),
+    ("smartphone", "PC"),
+    # Security
     ("asa", "Firewall"),
     ("firewall", "Firewall"),
+    ("5505", "Firewall"),
+    ("5506", "Firewall"),
+    # Wireless
     ("access point", "Access Point"),
+    ("accesspoint", "Access Point"),
+    ("aironet", "Access Point"),
     ("wrt", "Wireless Router"),
+    ("wireless router", "Wireless Router"),
+    ("wlc", "Wireless Controller"),
+    # Other
     ("cloud", "Cloud"),
     ("hub-pt", "Hub"),
+    ("hub", "Hub"),
     ("power distribution", "Infrastructure"),
+    ("sniffer", "Infrastructure"),
+    ("modem", "Modem"),
+    ("dsl", "Modem"),
+    ("cable modem", "Modem"),
 )
 
 
 def _device_kind(device: DeviceInfo) -> str:
-    """Classify a device for display, without inventing a type."""
-    for source in (device.device_type or "", device.model or ""):
-        lowered = source.lower()
-        if not lowered:
-            continue
-        for key, label in _MODEL_KINDS:
-            if key in lowered:
-                return label
+    """Classify a device for display, in the directive's reliability order.
+
+    1. An explicit structural type on the model record.
+    2. A known hardware-model mapping.
+    3. Conservative inference from the model string.
+    4. Unknown.
+
+    A type is never manufactured: if nothing matches, the device is reported as
+    ``Unknown`` with its model shown, rather than filed under a plausible guess.
+    """
+    # 1. Structural type, if a future parser populates one.
+    structural = (device.device_type or "").strip().lower()
+    if structural:
         for key, label in _KIND_LABELS.items():
-            if key in lowered:
+            if key in structural:
                 return label
+
+    # 2. Known model mapping, longest key first so "2960-24TT" beats "2960".
+    model = (device.model or "").strip().lower()
+    if model:
+        for key, label in sorted(_MODEL_KINDS, key=lambda pair: -len(pair[0])):
+            if key in model:
+                return label
+        # 3. Conservative inference: a model string naming a router or switch.
+        if "router" in model:
+            return "Router"
+        if "switch" in model:
+            return "Switch"
+
+    # 4. Unknown, with the model preserved so a reader can judge for themselves.
     if device.model:
-        return f"Device ({device.model})"
-    return "Device"
+        return f"Unknown ({device.model})"
+    return "Unknown"
 
 
 class Analyzer:

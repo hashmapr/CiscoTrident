@@ -111,8 +111,9 @@ def test_headings_read_like_a_heading():
     assert " — " in section.heading
     assert section.heading.split(" — ")[0] in {
         "Router", "Switch", "Multilayer Switch", "PC", "Server", "Firewall",
-        "Access Point", "Wireless Router", "Hub", "Cloud", "Device",
-    }
+        "Access Point", "Wireless Router", "Wireless Controller", "Hub", "Cloud",
+        "Modem", "Infrastructure", "Unknown",
+    } or section.heading.startswith("Unknown (")
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +290,14 @@ def test_duplicate_hostnames_do_not_collide_sections():
     assert len(report.sections) == 2
 
 
-def test_unknown_device_family_still_gets_a_section():
+def test_unknown_device_family_is_reported_as_unknown_not_guessed():
+    """An unrecognised model must say Unknown and show it, not be filed under a
+    plausible guess. The model string is the only structural evidence a Packet
+    Tracer file carries, so an unmatched one is genuinely unknown."""
     model = NetworkModel(devices={"X1": _device("X1", model="mystery-box")}, interfaces={})
     section = analyze_network(model).sections[0]
-    assert "Device" in section.heading
+    assert section.heading.startswith("Unknown")
+    assert "mystery-box" in section.heading
 
 
 # ---------------------------------------------------------------------------
