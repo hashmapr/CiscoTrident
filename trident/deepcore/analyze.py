@@ -887,6 +887,33 @@ def analyze_network(model: NetworkModel, coverage: CoverageMatrix | None = None)
     return Analyzer(model, coverage).build()
 
 
+def stream_sections(model: NetworkModel, coverage: CoverageMatrix | None = None):
+    """Yield ``("overview", dict)``, then ``("section", dict)`` per device, then
+    ``("findings", dict)`` and ``("coverage", dict)``.
+
+    This is the shape the streaming endpoint uses. Each device is yielded as soon
+    as its own facts are assembled, so a large lab renders progressively instead of
+    showing one status line until everything is done.
+    """
+    analyzer = Analyzer(model, coverage)
+    findings: list[DeviceFinding] = [
+        finding for group in analyzer._findings_by_device.values() for finding in group
+    ]
+    yield "overview", analyzer._overview(findings)
+    for device in analyzer._ordered_devices():
+        yield "section", analyzer.section(device).as_dict()
+    yield "findings", {
+        "network_findings": [
+            f.as_dict() for f in findings if not f.device or f.device == "network"
+        ]
+    }
+    yield "coverage", {
+        "unsupported_checks": analyzer._unsupported_checks(),
+        "coverage": analyzer.coverage.summary(),
+        "warnings": list(model.warnings),
+    }
+
+
 def iter_sections(model: NetworkModel, coverage: CoverageMatrix | None = None):
     """Yield sections one at a time, for streaming.
 
@@ -908,4 +935,5 @@ __all__ = [
     "Status",
     "analyze_network",
     "iter_sections",
+    "stream_sections",
 ]

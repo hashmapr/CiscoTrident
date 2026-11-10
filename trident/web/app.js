@@ -616,6 +616,12 @@ async function runAnalyzeNetwork() {
   form.append("export", exportFormat);
 
   try {
+    // JSON goes through the streaming endpoint so device sections appear as they
+    // are built. Exports need the finished document, so they use the plain one.
+    if (exportFormat === "json") {
+      const streamed = await streamNetworkReport(form, started);
+      if (streamed) return;
+    }
     const res = await fetch("/api/network/analyze", { method: "POST", body: form });
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
@@ -647,6 +653,150 @@ async function runAnalyzeNetwork() {
   } finally {
     if (button) button.disabled = false;
   }
+}
+
+async function streamNetworkReport(form, started) {
+  let res;
+  try {
+    res = await fetch("/api/network/analyze/stream", { method: "POST", body: form });
+  } catch (_) {
+    return false;
+  }
+  if (!res.ok || !res.body) return false;
+
+  const wrap = $("network-report");
+  wrap.classList.remove("hidden");
+  const overview = $("network-overview");
+  const sections = $("device-sections");
+  const findings = $("network-findings");
+  const coverage = $("network-coverage");
+  overview.replaceChildren();
+  sections.replaceChildren();
+  findings.replaceChildren();
+  coverage.replaceChildren();
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let count = 0;
+  let complete = false;
+
+  const handle = (event) => {
+    if (event.kind === "STAGE") {
+      setStatus("Analyzing network…", "busy");
+      return;
+    }
+    if (event.kind === "OVERVIEW") {
+      renderOverview(event.payload, overview);
+      return;
+    }
+    if (event.kind === "SECTION") {
+      sections.appendChild(renderDeviceSection(event.payload));
+      count += 1;
+      setStatus(`Analyzing network… ${count} device(s)`, "busy");
+      return;
+    }
+    if (event.kind === "FINDINGS") {
+      renderNetworkFindings(event.payload.network_findings || [], findings);
+      return;
+    }
+    if (event.kind === "COVERAGE") {
+      renderCoverage(event.payload, coverage);
+      return;
+    }
+    if (event.kind === "COMPLETE") {
+      complete = true;
+      const secs = ((performance.now() - started) / 1000).toFixed(1);
+      setStatus(`Analyzed ${count} device(s) in ${secs}s.`, "");
+      return;
+    }
+    if (event.kind === "ERROR") {
+      setStatus(`Failed: ${event.detail || "analyze error"}`, "error");
+    }
+  };
+
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 2);
+        if (frame.startsWith("data: ")) {
+          try {
+            handle(JSON.parse(frame.slice(6)));
+          } catch (_) {}
+        }
+        boundary = buffer.indexOf("\n\n");
+      }
+    }
+  } catch (_) {
+    if (count === 0) return false;
+    setStatus(`Stream interrupted after ${count} device(s).`, "error");
+    return true;
+  }
+  return complete || count > 0;
+}
+
+function renderOverview(ov, target) {
+  target.replaceChildren();
+  target.appendChild(el("h2", null, "Network overview"));
+  const grid = el("div", "overview-grid");
+  const stats = [
+    ["Devices", ov.device_count ?? 0],
+    ["Physical links", ov.link_count ?? 0],
+    ["Interfaces", ov.interface_count ?? 0],
+    ["VLANs", ov.vlan_count ?? 0],
+    ["Routing protocols", (ov.routing_protocols || []).join(", ") || "none detected"],
+    ["Findings", formatSeverity(ov.findings_by_severity)],
+    ["Unsupported checks", ov.unsupported_checks ?? 0],
+  ];
+  for (const [label, value] of stats) {
+    const cell = el("div", "overview-stat");
+    cell.appendChild(el("span", "stat-label", label));
+    cell.appendChild(el("span", "stat-value", String(value)));
+    grid.appendChild(cell);
+  }
+  target.appendChild(grid);
+  const types = ov.devices_by_type || {};
+  const typeLine = Object.entries(types)
+    .map(([kind, n]) => `${n} ${kind.toLowerCase()}`)
+    .join(", ");
+  if (typeLine) target.appendChild(el("p", "muted", `By type: ${typeLine}`));
+}
+
+function renderNetworkFindings(list, target) {
+  target.replaceChildren();
+  target.appendChild(el("h2", null, "Network-wide issues"));
+  if (!list.length) {
+    target.appendChild(
+      el("p", "muted", "No network-wide problem detected by the checks that were run.")
+    );
+    return;
+  }
+  for (const finding of list) target.appendChild(renderFinding(finding));
+}
+
+function renderCoverage(payload, target) {
+  target.replaceChildren();
+  target.appendChild(el("h2", null, "What was not checked"));
+  const unsupported = payload.unsupported_checks || [];
+  if (!unsupported.length) {
+    target.appendChild(el("p", "muted", "Nothing outstanding."));
+  } else {
+    const ul = el("ul", "unsupported-list");
+    for (const item of unsupported) ul.appendChild(el("li", null, item));
+    target.appendChild(ul);
+  }
+  target.appendChild(
+    el(
+      "p",
+      "muted",
+      "A report with no findings means no check fired. It is not proof that the network is correct."
+    )
+  );
 }
 
 function renderNetworkReport(report) {

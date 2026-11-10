@@ -415,3 +415,59 @@ def test_analyze_does_not_modify_the_upload(tmp_path):
         data={"export": "json"},
     )
     assert copy.read_bytes() == original
+
+
+# ---------------------------------------------------------------------------
+# Streaming
+# ---------------------------------------------------------------------------
+
+
+def test_stream_sections_emits_overview_then_devices_then_coverage():
+    from trident.deepcore.analyze import stream_sections
+
+    model = _real_model()
+    events = list(stream_sections(model))
+    kinds = [kind for kind, _ in events]
+    assert kinds[0] == "overview"
+    assert kinds[-2:] == ["findings", "coverage"]
+    assert kinds.count("section") == len(model.devices)
+
+
+def test_stream_endpoint_emits_a_section_per_device():
+    if not FIXTURE.is_file():
+        pytest.skip("sample_lab.pkt fixture is not present")
+    response = _client().post(
+        "/api/network/analyze/stream",
+        files={"file": ("lab.pkt", FIXTURE.read_bytes(), "application/octet-stream")},
+        data={"mode": "quick"},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    events = [
+        json.loads(line[6:])
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+    kinds = [event["kind"] for event in events]
+    assert kinds[0] == "STAGE"
+    assert kinds[1] == "OVERVIEW"
+    assert kinds.count("SECTION") == 7
+    assert kinds[-1] == "COMPLETE"
+
+
+def test_streamed_sections_match_the_report_order():
+    from trident.deepcore.analyze import stream_sections
+
+    model = _real_model()
+    streamed = [p["heading"] for k, p in stream_sections(model) if k == "section"]
+    full = [s.heading for s in analyze_network(model).sections]
+    assert streamed == full
+
+
+def test_frontend_uses_the_streaming_analyze_endpoint():
+    """The capability must be reachable from the real UI, not only from the API."""
+    web = pathlib.Path(__file__).parents[1] / "trident" / "web" / "app.js"
+    source = web.read_text()
+    assert "/api/network/analyze/stream" in source
+    assert "streamNetworkReport" in source
+    assert "renderDeviceSection" in source

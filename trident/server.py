@@ -121,6 +121,55 @@ async def analyze_network_endpoint(
     return report.as_dict()
 
 
+@app.post("/api/network/analyze/stream")
+async def analyze_network_stream_endpoint(
+    file: UploadFile = File(...),
+    mode: str = Form("quick"),
+):
+    """Analyze Mode as Server-Sent Events: overview, then each device section.
+
+    A device's section is emitted as soon as its facts are assembled, so a thirty
+    device lab renders progressively instead of showing one status line until the
+    whole report exists.
+    """
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    from .deepcore.analyze import stream_sections
+
+    try:
+        data = await file.read(settings.max_file_bytes + 1)
+        ingested = ingest(file.filename or "", data, settings)
+    except IngestionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="could not read the uploaded file") from None
+
+    async def frames():
+        yield _sse({"kind": "STAGE", "stage": "analyzing"})
+        try:
+            outcome = await analyze(ingested, "analyze", settings, use_ai=False)
+        except Exception as exc:
+            logger.exception("streamed analyze mode failed")
+            yield _sse({"kind": "ERROR", "detail": f"analysis failed: {type(exc).__name__}"})
+            return
+
+        for kind, payload in stream_sections(outcome.model):
+            yield _sse({"kind": kind.upper(), "payload": payload})
+            # Yield control so the client can paint between sections.
+            await asyncio.sleep(0)
+        yield _sse({"kind": "COMPLETE"})
+
+    return StreamingResponse(frames(), media_type="text/event-stream")
+
+
+def _sse(payload: dict) -> str:
+    import json as _json
+
+    return f"data: {_json.dumps(payload)}\n\n"
+
+
 @app.post("/api/analyze/stream")
 async def analyze_stream_endpoint(
     file: UploadFile = File(...),
