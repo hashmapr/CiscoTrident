@@ -56,3 +56,46 @@ known answers.
 One test was corrected rather than the code: a "missing route" case moved R3 onto
 a subnet R2 had no interface in. As originally written R2 reached R3 as directly
 connected, so no route was needed and the engine was right to deliver.
+
+---
+
+## Phase 2 — differential verification (COMPLETE)
+
+`trident/deepcore/differential.py` compares a DeepCore prediction with a Ghost
+observation.
+
+### Verdicts
+
+| Verdict | Meaning |
+|---|---|
+| `AGREES` | Prediction and observation match |
+| `DISAGREES` | They differ; classified and preserved |
+| `INSUFFICIENT_EVIDENCE` | The experiment established neither delivery nor failure |
+| `UNTESTABLE` | The prediction was not definite to begin with |
+
+`INCONCLUSIVE`, `UNSUPPORTED` and `EXECUTION_ERROR` outcomes always yield
+`INSUFFICIENT_EVIDENCE`. They are never counted as agreement.
+
+### Real simulator result
+
+```
+PREDICTION   delivered=True  definite=True
+             R1 Gi0/1 DELIVER 192.168.2.2 directly connected
+
+OBSERVATION  DELIVERED  observed=True  frames=60
+
+VERDICT      AGREES  trusted=True
+PROVENANCE   version=9.0.1  session=2bb842461775
+CLEANUP      source=INTACT  CLIENT_CLOSED+TERMINATED
+```
+
+The prediction and the simulator independently reached the same conclusion, and
+both sides were preserved in the record with full provenance.
+
+### What is deliberately not claimed
+
+Agreement is corroboration, not proof. The record keeps the prediction and the
+observation separately; neither overwrites the other, and a single agreement does
+not promote anything into the static consensus.
+
+14 offline tests plus 2 live tests.
