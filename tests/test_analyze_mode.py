@@ -462,8 +462,10 @@ def test_stream_endpoint_emits_a_section_per_device():
         if line.startswith("data: ")
     ]
     kinds = [event["kind"] for event in events]
-    assert kinds[0] == "STAGE"
-    assert kinds[1] == "OVERVIEW"
+    # A session id comes first so a dropped connection can resume from a cursor.
+    assert kinds[0] == "SESSION"
+    assert kinds[1] == "STAGE"
+    assert kinds[2] == "OVERVIEW"
     assert kinds.count("SECTION") == 7
     assert kinds[-1] == "COMPLETE"
 
@@ -475,6 +477,17 @@ def test_streamed_sections_match_the_report_order():
     streamed = [p["heading"] for k, p in stream_sections(model) if k == "section"]
     full = [s.heading for s in analyze_network(model).sections]
     assert streamed == full
+
+
+def test_frontend_resumes_from_the_last_event_id():
+    """Reconnection must resume, not duplicate or restart."""
+    web = pathlib.Path(__file__).parents[1] / "trident" / "web" / "app.js"
+    source = web.read_text()
+    assert "/replay/" in source
+    assert "resumeNetworkReport" in source
+    assert "last_event_id" in source
+    # A replayed section must not create a second card.
+    assert "seen.has(name)" in source or "seen.add(name)" in source
 
 
 def test_frontend_uses_the_streaming_analyze_endpoint():

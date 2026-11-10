@@ -171,13 +171,24 @@ async def analyze_network_stream_endpoint(
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="could not read the uploaded file") from None
 
+    from .replay import REGISTRY
+
+    session = REGISTRY.create(input_identity=ingested.sha256)
+
     async def frames():
+        # The session id is the first event so a client that loses the stream can
+        # reconnect with Last-Event-ID and replay from where it stopped.
+        yield _sse({"kind": "SESSION", "payload": {"session_id": session.session_id}})
+        session.emit("SESSION", {"session_id": session.session_id})
         yield _sse({"kind": "STAGE", "stage": "analyzing"})
+        session.emit("STAGE", {"stage": "analyzing"})
         try:
             outcome = await analyze(ingested, "analyze", settings, use_ai=False)
         except Exception as exc:
             logger.exception("streamed analyze mode failed")
-            yield _sse({"kind": "ERROR", "detail": f"analysis failed: {type(exc).__name__}"})
+            detail = f"analysis failed: {type(exc).__name__}"
+            session.emit("ERROR", {"detail": detail})
+            yield _sse({"kind": "ERROR", "detail": detail})
             return
 
         # Deep mode runs its experiments before the first frame so the runtime
@@ -202,9 +213,11 @@ async def analyze_network_stream_endpoint(
         for kind, payload in stream_sections(outcome.model):
             if kind == "overview":
                 payload = {**payload, **deep_summary}
-            yield _sse({"kind": kind.upper(), "payload": payload})
+            event = session.emit(kind.upper(), payload)
+            yield event.to_sse()
             # Yield control so the client can paint between sections.
             await asyncio.sleep(0)
+        session.emit("COMPLETE")
         yield _sse({"kind": "COMPLETE"})
 
     return StreamingResponse(frames(), media_type="text/event-stream")
@@ -214,6 +227,40 @@ def _sse(payload: dict) -> str:
     import json as _json
 
     return f"data: {_json.dumps(payload)}\n\n"
+
+
+@app.get("/api/network/analyze/replay/{session_id}")
+async def analyze_replay_endpoint(session_id: str, last_event_id: int = 0):
+    """Replay a session's events after ``last_event_id``.
+
+    This is what makes reconnection safe: the client reconnects, asks for events
+    after the last id it saw, and receives exactly those. No duplicates, no gaps.
+
+    An unknown or expired session returns ``expired: true`` with a reason, so the
+    client restarts rather than rendering a partial report as if it were whole.
+    """
+    from .replay import REGISTRY
+
+    result = REGISTRY.replay(session_id, after=last_event_id)
+    payload = result.as_dict()
+    payload["events"] = [
+        {"seq": event.seq, "kind": event.kind, "payload": event.payload}
+        for event in result.events
+    ]
+    return payload
+
+
+@app.post("/api/network/analyze/cancel/{session_id}")
+async def analyze_cancel_endpoint(session_id: str):
+    """Cancel a session explicitly.
+
+    Separate from a disconnect on purpose: closing a socket does not destroy an
+    analysis, but pressing cancel does.
+    """
+    from .replay import REGISTRY
+
+    cancelled = REGISTRY.cancel(session_id)
+    return {"cancelled": cancelled, "session_id": session_id}
 
 
 @app.post("/api/analyze/stream")

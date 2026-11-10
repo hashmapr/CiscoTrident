@@ -680,8 +680,15 @@ async function streamNetworkReport(form, started) {
   let buffer = "";
   let count = 0;
   let complete = false;
+  let sessionId = null;
+  let lastSeq = 0;
+  let seen = new Set();
 
   const handle = (event) => {
+    if (event.kind === "SESSION") {
+      sessionId = event.payload?.session_id || null;
+      return;
+    }
     if (event.kind === "STAGE") {
       setStatus("Analyzing network…", "busy");
       return;
@@ -691,6 +698,10 @@ async function streamNetworkReport(form, started) {
       return;
     }
     if (event.kind === "SECTION") {
+      const name = event.payload?.name;
+      // A replayed event must not create a second card for the same device.
+      if (name && seen.has(name)) return;
+      if (name) seen.add(name);
       sections.appendChild(renderDeviceSection(event.payload));
       count += 1;
       setStatus(`Analyzing network… ${count} device(s)`, "busy");
@@ -724,20 +735,71 @@ async function streamNetworkReport(form, started) {
       while (boundary >= 0) {
         const frame = buffer.slice(0, boundary).trim();
         buffer = buffer.slice(boundary + 2);
-        if (frame.startsWith("data: ")) {
+        if (frame.startsWith("id: ")) {
+          const idLine = frame.slice(0, frame.indexOf("\n"));
+          const parsed = parseInt(idLine.slice(4), 10);
+          if (!Number.isNaN(parsed)) lastSeq = parsed;
+        }
+        const dataLine = frame.split("\n").find((line) => line.startsWith("data: "));
+        if (dataLine) {
           try {
-            handle(JSON.parse(frame.slice(6)));
+            handle(JSON.parse(dataLine.slice(6)));
           } catch (_) {}
         }
         boundary = buffer.indexOf("\n\n");
       }
     }
   } catch (_) {
+    // The stream broke. Try to resume from the last event actually seen rather
+    // than restarting: a finished report must not be lost to a dropped socket.
+    if (sessionId) {
+      const resumed = await resumeNetworkReport(sessionId, lastSeq, {
+        sections,
+        overview,
+        findings,
+        coverage,
+        seen,
+        onSection: () => {
+          count += 1;
+          setStatus(`Analyzing network… ${count} device(s)`, "busy");
+        },
+        handle,
+      });
+      if (resumed) {
+        const secs = ((performance.now() - started) / 1000).toFixed(1);
+        setStatus(`Analyzed ${count} device(s) in ${secs}s (resumed).`, "");
+        return true;
+      }
+    }
     if (count === 0) return false;
-    setStatus(`Stream interrupted after ${count} device(s).`, "error");
+    setStatus(`Stream interrupted after ${count} device(s). Reload to retry.`, "error");
     return true;
   }
   return complete || count > 0;
+}
+
+async function resumeNetworkReport(sessionId, lastSeq, ctx) {
+  let res;
+  try {
+    res = await fetch(
+      `/api/network/analyze/replay/${sessionId}?last_event_id=${lastSeq}`
+    );
+  } catch (_) {
+    return false;
+  }
+  if (!res.ok) return false;
+  const payload = await res.json();
+  if (payload.expired) {
+    setStatus(
+      `Session expired; ${ctx.seen.size} device(s) already shown. Reload to restart.`,
+      "error"
+    );
+    return true;
+  }
+  for (const event of payload.events || []) {
+    ctx.handle({ kind: event.kind, payload: event.payload });
+  }
+  return true;
 }
 
 function renderOverview(ov, target) {
