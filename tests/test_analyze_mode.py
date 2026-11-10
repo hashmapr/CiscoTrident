@@ -502,3 +502,44 @@ def test_frontend_uses_the_streaming_analyze_endpoint():
     assert "/api/network/analyze/stream" in source
     assert "streamNetworkReport" in source
     assert "renderDeviceSection" in source
+
+
+# ---------------------------------------------------------------------------
+# Invariants in the report
+# ---------------------------------------------------------------------------
+
+
+def test_invariants_are_evaluated_and_reported():
+    report = analyze_network(_real_model())
+    invariants = report.overview.get("invariants")
+    assert invariants is not None
+    assert "counts" in invariants
+    assert invariants["total"] >= 3
+
+
+def test_a_violated_invariant_becomes_a_device_finding():
+    """A violation must appear where a reader looks for problems."""
+    model = NetworkModel(
+        devices={"R1": _device("R1", model="2911"), "R2": _device("R2", model="2911")},
+        interfaces={
+            "R1:Gi0/0": _iface("R1", "GigabitEthernet0/0", "10.0.0.1", 24),
+            "R2:Gi0/0": _iface("R2", "GigabitEthernet0/0", "10.0.0.1", 24),
+        },
+    )
+    report = analyze_network(model)
+    findings = [f for section in report.sections for f in section.findings]
+    assert any(f.status is Status.VIOLATION for f in findings)
+    assert any("same IPv4 address" in f.description for f in findings)
+
+
+def test_a_proven_invariant_is_reported_with_its_assumptions():
+    report = analyze_network(_real_model())
+    count = report.overview["invariants"]["counts"]["PROVEN"]
+    assert isinstance(count, int)
+
+
+def test_an_invariant_failure_does_not_lose_the_report():
+    """A broken rule must not take the whole analysis down."""
+    report = analyze_network(_real_model())
+    assert report.sections
+    assert report.overview.get("invariants") is not None

@@ -442,6 +442,8 @@ class Analyzer:
         findings = [f for group in self._findings_by_device.values() for f in group]
         overview = self._overview(findings)
         network_findings = [f for f in findings if not f.device or f.device == "network"]
+        invariants = self._invariants()
+        overview["invariants"] = invariants
         return NetworkReport(
             overview=overview,
             sections=sections,
@@ -515,6 +517,37 @@ class Analyzer:
                 if protocol.startswith(marker):
                     names.add(name)
         return sorted(names)
+
+    def _invariants(self) -> dict:
+        """Evaluate the invariants that apply to any network.
+
+        A violation is lifted into the findings list so it appears where a reader
+        will look for problems, not buried in a separate section. Proven rules are
+        reported as proven, with their assumptions, rather than as silence.
+        """
+        from .invariants import evaluate, summary
+
+        try:
+            verdicts = evaluate(self.model)
+        except Exception as exc:  # noqa: BLE001 - a broken rule must not lose the report
+            return {"error": f"{type(exc).__name__}: {exc}"}
+
+        for verdict in verdicts:
+            if verdict.result.value != "VIOLATED":
+                continue
+            for example in verdict.counterexamples:
+                self._findings_by_device.setdefault(example.device, []).append(
+                    DeviceFinding(
+                        severity=Severity.HIGH,
+                        device=example.device,
+                        interface=example.interface,
+                        description=f"{verdict.rule}: {example.description}",
+                        evidence=example.evidence,
+                        why_it_matters="this breaks a stated network requirement",
+                        status=Status.VIOLATION,
+                    )
+                )
+        return summary(verdicts)
 
     def _unsupported_checks(self) -> list[str]:
         items: list[str] = []
