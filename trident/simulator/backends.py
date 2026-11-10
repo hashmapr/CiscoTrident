@@ -428,18 +428,28 @@ class ProcessSupervisor:
         connection succeeds on it, it is ours, because we reserved it.
         """
         import socket
+        import time
 
-        for port in self.IPC_PORT_RANGE:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                try:
-                    probe.bind(("127.0.0.1", port))
-                except OSError:
-                    continue
-            return port
+        # Retry briefly: a Packet Tracer from the previous test can still be
+        # releasing its port for a second or two after its process exits. Failing
+        # immediately there produces an intermittent "no backend available" that
+        # looks like a code fault and is not.
+        deadline = time.monotonic() + 15.0
+        while True:
+            for port in self.IPC_PORT_RANGE:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    try:
+                        probe.bind(("127.0.0.1", port))
+                    except OSError:
+                        continue
+                return port
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.5)
         raise BackendUnavailable(
-            "no free Packet Tracer IPC port in 39000-39009. Another Packet Tracer "
-            "instance is holding them; quit it and retry."
+            "no free Packet Tracer IPC port in 39000-39009 after 15 s. Another "
+            "Packet Tracer instance is holding them; quit it and retry."
         )
 
     def _wait_for_listener(self, timeout_s: float) -> int:

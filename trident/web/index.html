@@ -27,8 +27,25 @@
 
     <section class="actions">
       <button id="analyze">ANALYZE</button>
+      <button id="analyze-network" class="secondary">ANALYZE NETWORK</button>
+      <select id="analyze-mode" aria-label="Analyze mode">
+        <option value="quick" selected>Quick Analyze — configuration only</option>
+        <option value="deep">Deep Analyze — add runtime evidence</option>
+      </select>
+      <select id="analyze-export" aria-label="Export format">
+        <option value="json" selected>JSON</option>
+        <option value="markdown">Markdown</option>
+        <option value="text">Plain text</option>
+      </select>
       <label class="inline"><input type="checkbox" id="useai" checked /> Use AI interpretation</label>
       <span id="status" class="status"></span>
+    </section>
+
+    <section id="network-report" class="hidden">
+      <div class="card" id="network-overview" aria-live="polite"></div>
+      <div id="device-sections"></div>
+      <div class="card" id="network-findings"></div>
+      <div class="card" id="network-coverage"></div>
     </section>
 
     <section class="card" id="sim-status" aria-live="polite">

@@ -75,6 +75,52 @@ async def parsers_endpoint() -> JSONResponse:
     )
 
 
+@app.post("/api/network/analyze")
+async def analyze_network_endpoint(
+    file: UploadFile = File(...),
+    mode: str = Form("quick"),
+    export: str = Form("json"),
+):
+    """Analyze Mode: a device-by-device report with no questions required.
+
+    ``mode`` is ``quick`` (static only) or ``deep`` (allows a Ghost escalation,
+    currently reported rather than performed because the browser path never starts
+    a simulator implicitly). ``export`` is ``json``, ``markdown`` or ``text``.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    from .deepcore.analyze import analyze_network
+
+    try:
+        data = await file.read(settings.max_file_bytes + 1)
+        ingested = ingest(file.filename or "", data, settings)
+    except IngestionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="could not read the uploaded file") from None
+
+    try:
+        outcome = await analyze(ingested, "analyze", settings, use_ai=False)
+    except Exception as exc:
+        logger.exception("analyze mode failed")
+        raise HTTPException(
+            status_code=500, detail=f"analysis failed: {type(exc).__name__}"
+        ) from None
+
+    report = analyze_network(outcome.model)
+    if mode.lower() == "deep":
+        report.warnings.append(
+            "Deep Analyze was requested. Runtime experiments are not started "
+            "implicitly from the browser; run the simulator CLI for live evidence."
+        )
+
+    if export.lower() == "markdown":
+        return PlainTextResponse(report.to_markdown(), media_type="text/markdown")
+    if export.lower() == "text":
+        return PlainTextResponse(report.to_text(), media_type="text/plain")
+    return report.as_dict()
+
+
 @app.post("/api/analyze/stream")
 async def analyze_stream_endpoint(
     file: UploadFile = File(...),

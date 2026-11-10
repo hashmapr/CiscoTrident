@@ -75,12 +75,32 @@ class Diagnosis:
     ranked: tuple[Hypothesis, ...]
 
     def to_report_dicts(self) -> list[dict]:
+        """Reportable findings, with the evidence and the repair that justify them.
+
+        This used to omit ``supporting``, ``contradicting``, ``next_command`` and
+        ``repair_hint``. A report built from it could say *that* something was
+        wrong but not *why*, which is useless to the person reading it and makes
+        the finding unverifiable.
+        """
         return [
             {
                 "kind": h.kind,
                 "device": h.device,
                 "interface": h.interface,
                 "confidence": h.confidence.value,
+                "status": h.status.value,
+                "suspected_cause": h.suspected_cause,
+                "supporting": [
+                    {"source": o.source, "device": o.device, "detail": o.detail}
+                    for o in h.supporting
+                ],
+                "contradicting": [
+                    {"source": o.source, "device": o.device, "detail": o.detail}
+                    for o in h.contradicting
+                ],
+                "missing_evidence": list(h.missing_evidence),
+                "next_command": h.next_command,
+                "repair_hint": h.repair_hint,
             }
             for h in self.ranked
             if h.status in (HypothesisStatus.CONFIRMED_DEFECT, HypothesisStatus.SUSPECTED)

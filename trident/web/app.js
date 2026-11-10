@@ -587,3 +587,240 @@ async function loadSimulatorStatus() {
 }
 
 loadSimulatorStatus();
+
+// ---------------------------------------------------------------------------
+// Analyze Mode
+// ---------------------------------------------------------------------------
+// One button, no questions. Renders a device-by-device report: overview first,
+// then each device as its section is built, then network-wide findings and what
+// was not checked.
+
+async function runAnalyzeNetwork() {
+  const input = document.querySelector('input[type=file]');
+  const file = input?.files?.[0];
+  if (!file) {
+    setStatus("Choose a .pka or .pkt file first.", "error");
+    return;
+  }
+  const mode = $("analyze-mode")?.value || "quick";
+  const exportFormat = $("analyze-export")?.value || "json";
+  const button = $("analyze-network");
+
+  if (button) button.disabled = true;
+  setStatus("Analyzing network…", "busy");
+  const started = performance.now();
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mode", mode);
+  form.append("export", exportFormat);
+
+  try {
+    const res = await fetch("/api/network/analyze", { method: "POST", body: form });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        detail = err.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+
+    if (exportFormat !== "json") {
+      // An export is a file, not a rendered report.
+      const text = await res.text();
+      const secs = ((performance.now() - started) / 1000).toFixed(1);
+      renderExport(text, file.name, exportFormat);
+      setStatus(`Report exported in ${secs}s.`, "");
+      return;
+    }
+
+    const report = await res.json();
+    renderNetworkReport(report);
+    const secs = ((performance.now() - started) / 1000).toFixed(1);
+    const count = (report.sections || []).length;
+    setStatus(`Analyzed ${count} device(s) in ${secs}s.`, "");
+    // Keep the report around so the export buttons can reuse it.
+    window.__lastNetworkReport = report;
+  } catch (err) {
+    setStatus(`Failed: ${err.message}`, "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function renderNetworkReport(report) {
+  const wrap = $("network-report");
+  if (!wrap) return;
+  wrap.classList.remove("hidden");
+
+  // Overview
+  const overview = $("network-overview");
+  overview.replaceChildren();
+  overview.appendChild(el("h2", null, "Network overview"));
+  const ov = report.overview || {};
+  const grid = el("div", "overview-grid");
+  const stats = [
+    ["Devices", ov.device_count ?? 0],
+    ["Physical links", ov.link_count ?? 0],
+    ["Interfaces", ov.interface_count ?? 0],
+    ["VLANs", ov.vlan_count ?? 0],
+    ["Routing protocols", (ov.routing_protocols || []).join(", ") || "none detected"],
+    ["Findings", formatSeverity(ov.findings_by_severity)],
+    ["Unsupported checks", ov.unsupported_checks ?? 0],
+  ];
+  for (const [label, value] of stats) {
+    const cell = el("div", "overview-stat");
+    cell.appendChild(el("span", "stat-label", label));
+    cell.appendChild(el("span", "stat-value", String(value)));
+    grid.appendChild(cell);
+  }
+  overview.appendChild(grid);
+  const types = ov.devices_by_type || {};
+  const typeLine = Object.entries(types)
+    .map(([kind, n]) => `${n} ${kind.toLowerCase()}`)
+    .join(", ");
+  if (typeLine) overview.appendChild(el("p", "muted", `By type: ${typeLine}`));
+
+  // Device sections, one card each
+  const sections = $("device-sections");
+  sections.replaceChildren();
+  for (const section of report.sections || []) {
+    sections.appendChild(renderDeviceSection(section));
+  }
+
+  // Network-wide findings
+  const findings = $("network-findings");
+  findings.replaceChildren();
+  findings.appendChild(el("h2", null, "Network-wide issues"));
+  const list = report.network_findings || [];
+  if (!list.length) {
+    findings.appendChild(
+      el("p", "muted", "No network-wide problem detected by the checks that were run.")
+    );
+  } else {
+    for (const finding of list) findings.appendChild(renderFinding(finding));
+  }
+
+  // Coverage / what was not checked
+  const coverage = $("network-coverage");
+  coverage.replaceChildren();
+  coverage.appendChild(el("h2", null, "What was not checked"));
+  const unsupported = report.unsupported_checks || [];
+  if (!unsupported.length) {
+    coverage.appendChild(el("p", "muted", "Nothing outstanding."));
+  } else {
+    const ul = el("ul", "unsupported-list");
+    for (const item of unsupported) ul.appendChild(el("li", null, item));
+    coverage.appendChild(ul);
+  }
+  coverage.appendChild(
+    el(
+      "p",
+      "muted",
+      "A report with no findings means no check fired. It is not proof that the network is correct."
+    )
+  );
+}
+
+function formatSeverity(counts) {
+  if (!counts || !Object.keys(counts).length) return "none";
+  return Object.entries(counts)
+    .map(([severity, n]) => `${n} ${severity.toLowerCase()}`)
+    .join(", ");
+}
+
+function renderDeviceSection(section) {
+  const card = el("section", "card device-section");
+  card.appendChild(el("h2", null, section.heading));
+  if (section.model) card.appendChild(el("p", "muted", `Model: ${section.model}`));
+
+  if (section.basics?.length) {
+    card.appendChild(el("h3", null, "Basic Information"));
+    const table = el("table", "basics-table");
+    for (const row of section.basics) {
+      const tr = el("tr");
+      tr.appendChild(el("th", null, row.label));
+      tr.appendChild(el("td", null, row.value));
+      table.appendChild(tr);
+    }
+    card.appendChild(table);
+  }
+
+  if (section.questions?.length) {
+    const details = el("details", "questions");
+    details.appendChild(el("summary", null, `Common Cisco Questions (${section.questions.length})`));
+    for (const item of section.questions) {
+      const wrap = el("div", "question");
+      wrap.appendChild(el("div", "question-text", item.question));
+      if (item.answer === null || item.answer === undefined) {
+        wrap.appendChild(el("div", "answer unavailable", `${item.status}: ${item.limitation}`));
+      } else {
+        wrap.appendChild(el("div", "answer", item.answer));
+        wrap.appendChild(el("span", `badge status-${item.status.toLowerCase()}`, item.status));
+      }
+      details.appendChild(wrap);
+    }
+    card.appendChild(details);
+  }
+
+  card.appendChild(el("h3", null, "Potential Problems"));
+  if (!section.findings?.length) {
+    card.appendChild(el("p", "muted", "No problem detected by the checks that were run."));
+  } else {
+    for (const finding of section.findings) card.appendChild(renderFinding(finding));
+  }
+  return card;
+}
+
+function renderFinding(finding) {
+  const box = el("div", `finding severity-${String(finding.severity).toLowerCase()}`);
+  const head = el("div", "finding-head");
+  head.appendChild(el("span", `badge severity-${String(finding.severity).toLowerCase()}`, finding.severity));
+  const where = [finding.device, finding.interface].filter(Boolean).join(" ");
+  if (where) head.appendChild(el("span", "finding-where", where));
+  head.appendChild(el("span", `badge status-${String(finding.status).toLowerCase()}`, finding.status));
+  box.appendChild(head);
+  box.appendChild(el("p", "finding-desc", finding.description));
+  if (finding.why_it_matters) {
+    box.appendChild(el("p", "muted", `Why it matters: ${finding.why_it_matters}`));
+  }
+  if (finding.evidence) {
+    const details = el("details", "evidence");
+    details.appendChild(el("summary", null, "Evidence"));
+    details.appendChild(el("pre", "evidence-body", finding.evidence));
+    box.appendChild(details);
+  }
+  if (finding.next_commands?.length) {
+    box.appendChild(el("p", "muted", `Check with: ${finding.next_commands.join(", ")}`));
+  }
+  if (finding.remediation) {
+    box.appendChild(el("p", "muted", `Suggested fix: ${finding.remediation}`));
+  }
+  return box;
+}
+
+function renderExport(text, fileName, format) {
+  const wrap = $("network-report");
+  wrap.classList.remove("hidden");
+  $("network-overview").replaceChildren();
+  $("device-sections").replaceChildren();
+  $("network-findings").replaceChildren();
+
+  const coverage = $("network-coverage");
+  coverage.replaceChildren();
+  coverage.appendChild(el("h2", null, `Exported report (${format})`));
+  coverage.appendChild(el("pre", "export-body", text));
+
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = el("a", "download-link", `Download ${fileName}.${format === "markdown" ? "md" : "txt"}`);
+  link.href = url;
+  link.download = `${fileName}.${format === "markdown" ? "md" : "txt"}`;
+  coverage.appendChild(link);
+}
+
+const analyzeNetworkButton = $("analyze-network");
+if (analyzeNetworkButton) {
+  analyzeNetworkButton.addEventListener("click", runAnalyzeNetwork);
+}
