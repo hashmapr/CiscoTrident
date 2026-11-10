@@ -59,10 +59,14 @@ trident = ["web/*.html", "web/*.js", "web/*.css", "parsers/*.mjs"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Browser tests are opt-in: they start a real server and drive Chromium, which is
+# far too slow for the default loop. Run them with: pytest -m browser
+addopts = "-m 'not browser'"
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = [
   "live_simulator: needs a real Packet Tracer instance; skipped when unavailable",
+  "browser: drives a real browser; requires playwright and is excluded by default",
 ]
 
 [tool.ruff]

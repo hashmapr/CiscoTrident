@@ -84,6 +84,10 @@ class Settings:
         default_factory=lambda: _env_int("TRIDENT_MAX_DECOMPRESSION_RATIO", 200)
     )
     max_questions: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_QUESTIONS", 500))
+    #: Answers resolved concurrently. Bounded so a large paste cannot spawn one
+    #: task per question and exhaust memory; four keeps the event loop
+    #: responsive on a 16 GB machine while letting fast questions finish early.
+    max_concurrency: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_CONCURRENCY", 4))
     max_question_chars: int = field(default_factory=lambda: _env_int("TRIDENT_MAX_QUESTION_CHARS", 8_000))
 
     # --- parser execution ---
@@ -127,6 +131,7 @@ class Settings:
             "consensus_policy": self.consensus_policy,
             "max_file_bytes": self.max_file_bytes,
             "max_questions": self.max_questions,
+            "max_concurrency": self.max_concurrency,
             "parser_timeout": self.parser_timeout,
             "pt_convert_configured": bool(self.pt_convert_dir),
             "test_corpus_configured": bool(self.test_corpus_dir),

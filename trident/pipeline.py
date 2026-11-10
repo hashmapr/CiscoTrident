@@ -194,14 +194,13 @@ async def analyze(
 
         stage("resolving")
         builder = AnswerBuilder(model, consensus)
-        results_out: list[AnswerResult] = []
-        for q in questions:
-            answer = builder.build(q, plans.get(q.question_number))
-            results_out.append(answer)
-            # Emit immediately: a later question must never delay an earlier
-            # answer that is already known.
-            if on_answer is not None:
-                on_answer(answer)
+        # Each question is resolved on its own so a slow one cannot hold back a
+        # fast one. Answers are emitted the moment they are ready, which means
+        # they may arrive out of order; the response is still ordered by
+        # question number at the end.
+        results_out = await _resolve_questions(
+            builder, questions, plans, cfg, on_answer=on_answer
+        )
 
     warnings: list[str] = list(model.warnings)
     if ai_error:
@@ -235,6 +234,71 @@ async def analyze(
         phase3=phase3_summary(model, results_out),
     )
     return AnalysisOutcome(response=response, model=model, adapter_results=results)
+
+
+#: Test-only per-question delays, e.g. ``TRIDENT_TEST_ANSWER_DELAYS="3:1500,5:3000"``.
+#: Read only when ``TRIDENT_TEST_MODE=1`` is also set, so a production process
+#: cannot be slowed by a stray environment variable.
+_TEST_DELAY_ENV = "TRIDENT_TEST_ANSWER_DELAYS"
+_TEST_MODE_ENV = "TRIDENT_TEST_MODE"
+
+
+def _test_delays() -> dict[int, float]:
+    """Per-question artificial delays, in seconds. Empty outside test mode."""
+    import os
+
+    if os.environ.get(_TEST_MODE_ENV, "").strip() not in {"1", "true", "yes"}:
+        return {}
+    raw = os.environ.get(_TEST_DELAY_ENV, "").strip()
+    if not raw:
+        return {}
+    delays: dict[int, float] = {}
+    for entry in raw.split(","):
+        key, _, value = entry.partition(":")
+        try:
+            delays[int(key.strip())] = max(0.0, float(value.strip())) / 1000.0
+        except ValueError:
+            continue
+    return delays
+
+
+async def _resolve_questions(
+    builder,
+    questions,
+    plans,
+    cfg,
+    *,
+    on_answer=None,
+) -> list:
+    """Resolve questions with bounded concurrency, emitting each as it finishes.
+
+    Bounded on purpose: an unbounded gather over a 260-question paste would spawn
+    260 tasks and thrash a 16 GB machine. Four workers keeps the event loop
+    responsive while still letting a fast question finish while a slow one runs.
+    """
+    import asyncio
+
+    delays = _test_delays()
+    limit = asyncio.Semaphore(max(1, getattr(cfg, "max_concurrency", 4)))
+    results: dict[int, object] = {}
+
+    async def resolve_one(question) -> None:
+        async with limit:
+            delay = delays.get(question.question_number, 0.0)
+            if delay:
+                # Test-only. Never reached in production because _test_delays()
+                # returns an empty mapping unless TRIDENT_TEST_MODE is set.
+                await asyncio.sleep(delay)
+            answer = await asyncio.to_thread(
+                builder.build, question, plans.get(question.question_number)
+            )
+            results[question.question_number] = answer
+            if on_answer is not None:
+                on_answer(answer)
+
+    await asyncio.gather(*(resolve_one(q) for q in questions))
+    # Preserve the caller's question order regardless of completion order.
+    return [results[q.question_number] for q in questions if q.question_number in results]
 
 
 def _agree_snapshot(results: list, warnings: list[str]) -> tuple[str, bool]:

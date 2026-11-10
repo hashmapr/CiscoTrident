@@ -149,6 +149,7 @@ async function analyzeStreamed(form, started) {
   try {
     res = await fetch("/api/analyze/stream", { method: "POST", body: form });
   } catch (_) {
+    // Network-level failure: let the caller fall back to the buffered endpoint.
     return false;
   }
   if (!res.ok || !res.body) return false;
@@ -157,28 +158,46 @@ async function analyzeStreamed(form, started) {
   const decoder = new TextDecoder();
   let buffer = "";
   const collected = [];
+  let complete = false;
 
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      const frame = buffer.slice(0, boundary).trim();
-      buffer = buffer.slice(boundary + 2);
-      if (frame.startsWith("data: ")) {
-        let event;
-        try {
-          event = JSON.parse(frame.slice(6));
-        } catch (_) {
-          boundary = buffer.indexOf("\n\n");
-          continue;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary >= 0) {
+        const frame = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 2);
+        if (frame.startsWith("data: ")) {
+          let event;
+          try {
+            event = JSON.parse(frame.slice(6));
+          } catch (_) {
+            boundary = buffer.indexOf("\n\n");
+            continue;
+          }
+          if (event.kind === "COMPLETE") complete = true;
+          handleStreamEvent(event, collected, started);
         }
-        handleStreamEvent(event, collected, started);
+        boundary = buffer.indexOf("\n\n");
       }
-      boundary = buffer.indexOf("\n\n");
     }
+  } catch (_) {
+    // The stream broke mid-flight (aborted, proxy reset, connection dropped).
+    // If nothing was delivered, fall back to the buffered endpoint; if answers
+    // already rendered, keep them and report the interruption honestly rather
+    // than clearing correct results.
+    if (collected.length === 0) return false;
+    setStatus(
+      `Stream interrupted after ${collected.length} answer(s). Reload to retry.`,
+      "error"
+    );
+    return true;
   }
+
+  // A stream that ends without a COMPLETE frame did not finish cleanly.
+  if (!complete && collected.length === 0) return false;
   return true;
 }
 
@@ -215,32 +234,16 @@ function formatCounts(counts) {
 // Renders one answer into the results list without clearing what is already
 // shown, so the user sees earlier answers while later ones are still resolving.
 function appendStreamedAnswer(answer) {
+  // Use the same renderer as the buffered path. Two renderers produced two
+  // different DOM shapes for the same concept (a <div> here, an <article>
+  // there), which meant any selector that worked for one path silently matched
+  // nothing in the other. One renderer is the fix.
   const root = $("results");
   if (!root) return;
-  const card = document.createElement("article");
-  card.className = "result";
-  const head = document.createElement("header");
-  const number = document.createElement("span");
-  number.className = "qnum";
-  number.textContent = `Q${answer.question_number}`;
-  const badge = document.createElement("span");
-  badge.className = `badge status-${String(answer.status).toLowerCase()}`;
-  badge.textContent = answer.status;
-  head.append(number, badge);
-  card.appendChild(head);
-
-  const body = document.createElement("p");
-  body.className = "answer";
-  body.textContent = answer.answer || "(no answer)";
-  card.appendChild(body);
-
-  if (answer.explanation) {
-    const note = document.createElement("p");
-    note.className = "muted";
-    note.textContent = answer.explanation;
-    card.appendChild(note);
-  }
-  root.appendChild(card);
+  const meta = { snapshot_id: "—", snapshot_ambiguous: false };
+  const node = renderResult(answer, meta);
+  node.classList.add("streamed");
+  root.appendChild(node);
 }
 
 function render(data) {
