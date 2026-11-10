@@ -60,8 +60,14 @@ trident = ["web/*.html", "web/*.js", "web/*.css", "parsers/*.mjs"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Browser tests are opt-in: they start a real server and drive Chromium, which is
-# far too slow for the default loop. Run them with: pytest -m browser
-addopts = "-m 'not browser'"
+# far too slow for the default loop. Live simulator tests are opt-in too: they
+# START Cisco Packet Tracer, which must never happen as a side effect of running
+# the test suite on someone's desktop.
+#
+#   pytest                      -> nothing that opens Packet Tracer
+#   pytest -m browser           -> browser tests only
+#   pytest -m live_simulator    -> real simulator tests only
+addopts = "-m 'not browser and not live_simulator'"
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = [

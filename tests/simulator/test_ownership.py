@@ -17,6 +17,11 @@ import pytest
 from trident.simulator import SimulatorRuntime
 from trident.simulator.backends import ProcessSupervisor, find_packet_tracer
 
+# Several tests here create real sessions, which start Packet Tracer. That must
+# never happen as a side effect of the default test run on someone's desktop, so
+# the whole module is opt-in alongside the other live tests.
+pytestmark = pytest.mark.live_simulator
+
 
 def _foreign_process() -> subprocess.Popen:
     """A decoy process whose command line resembles Packet Tracer."""
