@@ -392,7 +392,13 @@ def test_analyze_endpoint_exports(fmt):
     assert "TRIDENT" in response.text
 
 
-def test_deep_mode_is_reported_as_not_implicitly_run():
+def test_deep_mode_escalates_and_reports_the_runtime_outcome():
+    """Deep Analyze now genuinely escalates; the report must say what happened.
+
+    Previously this asserted a warning that experiments were not run. They now
+    are, so the assertion is that the outcome is stated either way — never
+    implied by silence.
+    """
     if not FIXTURE.is_file():
         pytest.skip("sample_lab.pkt fixture is not present")
     payload = _client().post(
@@ -400,7 +406,14 @@ def test_deep_mode_is_reported_as_not_implicitly_run():
         files={"file": ("lab.pkt", FIXTURE.read_bytes(), "application/octet-stream")},
         data={"mode": "deep"},
     ).json()
-    assert any("Deep Analyze" in warning for warning in payload["warnings"])
+    overview = payload["overview"]
+    assert "runtime_available" in overview
+    assert "runtime_reason" in overview
+    assert overview["source_intact"] is True
+    if overview["runtime_available"]:
+        assert overview["runtime_version"]
+    else:
+        assert overview["runtime_reason"]
 
 
 def test_analyze_does_not_modify_the_upload(tmp_path):

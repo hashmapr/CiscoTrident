@@ -149,3 +149,31 @@ def test_export_produces_markdown_text(page):
     assert body.startswith("# TRIDENT Network Analysis")
     assert "## Router — R1" in body
     assert page.errors == []
+
+
+# ---------------------------------------------------------------------------
+# Deep Analyze
+# ---------------------------------------------------------------------------
+
+
+def test_deep_analyze_reports_runtime_status_honestly(page):
+    """Deep mode must state whether experiments ran, and never imply more."""
+    page.set_input_files("input[type=file]", str(page.lab))
+    page.select_option("#analyze-mode", "deep")
+    page.click("#analyze-network")
+    page.wait_for_function(
+        """() => {
+            const s = document.getElementById('status')?.textContent || '';
+            return s.startsWith('Analyzed') || s.startsWith('Failed');
+        }""",
+        timeout=180000,
+    )
+    overview = page.text_content("#network-overview")
+    # Either it ran (and says so, with the version) or it did not (and gives the
+    # reason). Both are acceptable; silence or an implied success is not.
+    ran = "Deep Analyze ran operational experiments" in overview
+    skipped = "could not run experiments" in overview
+    assert ran or skipped, overview
+    if skipped:
+        assert "Packet Tracer" in overview or "simulator" in overview
+    assert page.errors == []

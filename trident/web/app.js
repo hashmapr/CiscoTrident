@@ -765,6 +765,24 @@ function renderOverview(ov, target) {
     .map(([kind, n]) => `${n} ${kind.toLowerCase()}`)
     .join(", ");
   if (typeLine) target.appendChild(el("p", "muted", `By type: ${typeLine}`));
+
+  // Deep Analyze runtime status. Present only when that mode ran; the wording
+  // states what actually happened rather than implying more was tested.
+  if (ov.runtime_available === true) {
+    target.appendChild(
+      el(
+        "p",
+        "ok",
+        `Deep Analyze ran operational experiments in Packet Tracer ` +
+          `${ov.runtime_version || "(version unknown)"}. ` +
+          (ov.source_intact === false ? "WARNING: source file changed." : "Source file unchanged.")
+      )
+    );
+  } else if (ov.runtime_available === false) {
+    target.appendChild(
+      el("p", "muted", `Deep Analyze could not run experiments: ${ov.runtime_reason || "no simulator available"}.`)
+    );
+  }
 }
 
 function renderNetworkFindings(list, target) {

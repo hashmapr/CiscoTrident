@@ -882,6 +882,80 @@ def _commands_for(kind: str) -> list[str]:
     return list(_COMMANDS.get(kind, []))
 
 
+#: How an operational check's status is presented in the report.
+_RUNTIME_STATUS = {
+    "OBSERVED": Status.OBSERVED,
+    "INCONCLUSIVE": Status.UNRESOLVED,
+    "UNAVAILABLE": Status.NOT_CHECKED,
+    "UNSUPPORTED": Status.UNSUPPORTED,
+    "FAILED": Status.UNRESOLVED,
+    "NOT_ATTEMPTED": Status.NOT_CHECKED,
+}
+
+
+def merge_operational_checks(report: NetworkReport, deep) -> NetworkReport:
+    """Fold Deep Analyze results into a report.
+
+    An observed check becomes a fact on both devices; anything else becomes an
+    explicit "not checked" or "unresolved" entry. Nothing here can turn a runtime
+    result into a configuration fact, and an unavailable simulator produces a
+    stated gap rather than a silent absence.
+    """
+    report.overview["runtime_available"] = bool(getattr(deep, "available", False))
+    report.overview["runtime_reason"] = getattr(deep, "reason", "")
+    report.overview["runtime_version"] = getattr(deep, "simulator_version", "")
+    report.overview["source_intact"] = bool(getattr(deep, "source_intact", True))
+
+    by_name = {section.name: section for section in report.sections}
+    for check in getattr(deep, "checks", []):
+        status = _RUNTIME_STATUS.get(check.status.value, Status.UNRESOLVED)
+        if check.status.value == "OBSERVED":
+            answer = check.detail.split(":")[0] if check.detail else check.status.value
+            evidence = [
+                f"PDU {check.source} -> {check.destination}",
+                f"simulator {check.simulator_version}",
+                f"session {check.session_id}",
+            ]
+            for device in (check.source, check.destination):
+                section = by_name.get(device)
+                if section is None:
+                    continue
+                section.questions.append(
+                    QandA(
+                        question=f"Can {device} reach {check.destination if device == check.source else check.source}?",
+                        answer=answer,
+                        status=Status.OBSERVED,
+                        evidence=evidence,
+                        limitation="an observed result for this path under these conditions",
+                    )
+                )
+                section.basics.append(
+                    (
+                        "Operational connectivity",
+                        f"{answer} to {check.destination if device == check.source else check.source}",
+                    )
+                )
+        else:
+            for device in (check.source, check.destination):
+                section = by_name.get(device)
+                if section is None:
+                    continue
+                section.questions.append(
+                    QandA(
+                        question=f"Can {device} reach the other device?",
+                        answer=None,
+                        status=status,
+                        limitation=check.detail or check.status.value,
+                    )
+                )
+        if not check.observed and check.detail:
+            report.unsupported_checks.append(
+                f"runtime {check.source}->{check.destination}: {check.status.value} "
+                f"({check.detail})"
+            )
+    return report
+
+
 def analyze_network(model: NetworkModel, coverage: CoverageMatrix | None = None) -> NetworkReport:
     """Build the full device-by-device report."""
     return Analyzer(model, coverage).build()
@@ -935,5 +1009,6 @@ __all__ = [
     "Status",
     "analyze_network",
     "iter_sections",
+    "merge_operational_checks",
     "stream_sections",
 ]

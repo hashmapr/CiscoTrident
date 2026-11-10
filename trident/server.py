@@ -13,6 +13,7 @@ written outside a private temp workspace, API key never serialised.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -109,16 +110,40 @@ async def analyze_network_endpoint(
 
     report = analyze_network(outcome.model)
     if mode.lower() == "deep":
-        report.warnings.append(
-            "Deep Analyze was requested. Runtime experiments are not started "
-            "implicitly from the browser; run the simulator CLI for live evidence."
-        )
+        # Escalate to a real simulator only when one is available and the network
+        # has something worth testing. The result is folded into the report rather
+        # than asserted: if the runtime is absent, the report says which checks did
+        # not run and why.
+        from .deepcore.analyze import merge_operational_checks
+        from .deepcore.deep import run_deep
+
+        lab_copy = Path(_write_temp_copy(ingested))
+        try:
+            deep = run_deep(outcome.model, lab_copy)
+        finally:
+            lab_copy.unlink(missing_ok=True)
+        merge_operational_checks(report, deep)
 
     if export.lower() == "markdown":
         return PlainTextResponse(report.to_markdown(), media_type="text/markdown")
     if export.lower() == "text":
         return PlainTextResponse(report.to_text(), media_type="text/plain")
     return report.as_dict()
+
+
+def _write_temp_copy(ingested) -> str:
+    """Write the uploaded bytes to a temporary file for the simulator.
+
+    The simulator needs a path. The original upload is never written to; this is a
+    private copy under the system temp directory, removed by the caller.
+    """
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(
+        suffix=Path(ingested.file_name).suffix or ".pkt", delete=False
+    ) as handle:
+        handle.write(ingested.data)
+        return handle.name
 
 
 @app.post("/api/network/analyze/stream")
@@ -155,7 +180,28 @@ async def analyze_network_stream_endpoint(
             yield _sse({"kind": "ERROR", "detail": f"analysis failed: {type(exc).__name__}"})
             return
 
+        # Deep mode runs its experiments before the first frame so the runtime
+        # status is known immediately, rather than appearing after the report.
+        deep_summary: dict = {}
+        if mode.lower() == "deep":
+            from .deepcore.deep import run_deep
+
+            lab_copy = Path(_write_temp_copy(ingested))
+            try:
+                deep = await asyncio.to_thread(run_deep, outcome.model, lab_copy)
+            finally:
+                lab_copy.unlink(missing_ok=True)
+            deep_summary = {
+                "runtime_available": bool(deep.available),
+                "runtime_reason": deep.reason,
+                "runtime_version": deep.simulator_version,
+                "source_intact": bool(deep.source_intact),
+                "checks": [check.as_dict() for check in deep.checks],
+            }
+
         for kind, payload in stream_sections(outcome.model):
+            if kind == "overview":
+                payload = {**payload, **deep_summary}
             yield _sse({"kind": kind.upper(), "payload": payload})
             # Yield control so the client can paint between sections.
             await asyncio.sleep(0)
