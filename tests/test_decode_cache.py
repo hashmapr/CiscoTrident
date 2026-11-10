@@ -65,7 +65,10 @@ def test_a_different_file_never_hits():
     cache = DecodedCache()
     raw = _raw()
     cache.decode(raw)
-    with pytest.raises(Exception):  # a corrupt container must not be served
+    from trident.pktcrypto import ContainerError
+
+    # A corrupt container must raise rather than be served from the cache.
+    with pytest.raises(ContainerError):
         cache.decode(b"a completely different file" * 40)
     assert cache.stats_dict()["hits"] == 0
 

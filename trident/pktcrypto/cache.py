@@ -29,7 +29,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from ..pktcrypto import ContainerError, decode_bytes as decode_container
+from ..pktcrypto import decode_bytes as decode_container
 
 
 @dataclass
@@ -123,4 +123,4 @@ class DecodedCache:
 SHARED = DecodedCache()
 
 
-__all__ = ["CacheStats", "DecodedCache", "SHARED"]
+__all__ = ["SHARED", "CacheStats", "DecodedCache"]
