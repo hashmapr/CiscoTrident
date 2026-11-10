@@ -98,6 +98,34 @@ def find_ghost_app() -> Path | None:
     return None
 
 
+def _bundles_on_disk() -> list[Path]:
+    """All Packet Tracer bundles discoverable in the usual places."""
+    found: list[Path] = []
+    for root in _SEARCH_ROOTS:
+        if not root.is_dir():
+            continue
+        try:
+            entries = list(root.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if not entry.is_dir():
+                continue
+            bundle = _bundle_at(entry)
+            if bundle is not None:
+                found.append(bundle)
+                continue
+            try:
+                children = list(entry.iterdir())
+            except OSError:
+                continue
+            for child in children:
+                bundle = _bundle_at(child)
+                if bundle is not None:
+                    found.append(bundle)
+    return found
+
+
 def find_packet_tracer() -> Path | None:
     """Locate a Packet Tracer bundle, or return ``None``.
 
@@ -236,6 +264,29 @@ def simulator_version(bundle: Path) -> str:
     match = re.search(r"(\d+\.\d+\.\d+)", bundle.name)
     if match:
         return match.group(1)
+
+    # The ghost copy is named PTGhost.app, so its own name carries no version.
+    # Ask the source bundle it was cloned from rather than reporting "unknown",
+    # which would put an unusable value into every observation's provenance.
+    if bundle.name.startswith("PTGhost"):
+        try:
+            from .ghost import DEFAULT_GHOST_DIR, GHOST_NAME
+
+            marker = DEFAULT_GHOST_DIR / GHOST_NAME / ".trident-source"
+            if marker.is_file():
+                source = Path(marker.read_text().strip())
+                version = simulator_version(source)
+                if version != "unknown":
+                    return version
+        except (OSError, ValueError):
+            pass
+        # Fall back to any installed Packet Tracer of the same minor line.
+        for candidate in _bundles_on_disk():
+            if candidate.name != bundle.name:
+                version = simulator_version(candidate)
+                if version != "unknown":
+                    return version
+
     plist = bundle / "Contents" / "Info.plist"
     try:
         with open(plist, "rb") as handle:
@@ -320,6 +371,7 @@ class ProcessSupervisor:
         self.log_path: Path | None = None
         self.started_at: float = 0.0
         self._spawned_here = False
+        self._chosen_port = False
 
     def start(self, workspace: Path, timeout_s: float | None = None) -> int:
         """Start Packet Tracer with no window and wait for its listener.
@@ -333,6 +385,12 @@ class ProcessSupervisor:
 
         log = workspace / "packet_tracer.log"
         self.log_path = log
+        # Reserve a free port and pass it explicitly, so the listener we later
+        # find is provably the one this process opened.
+        if not self.ipc_port:
+            self.ipc_port = self._choose_port()
+            self._chosen_port = True
+
         args = [str(executable)]
         if self.no_gui:
             args.append("--no-gui")
@@ -354,12 +412,40 @@ class ProcessSupervisor:
         )
         return port
 
+    #: Ports Packet Tracer binds for IPC when none is requested.
+    IPC_PORT_RANGE = range(39000, 39010)
+
+    def _choose_port(self) -> int:
+        """Pick a port that is currently free, so we never attach to a stranger.
+
+        Accepting "any listener on 39000-39009" is how a foreign Packet Tracer
+        instance gets used by mistake: the supervisor sees a live port, returns
+        it, and the process *we* spawned silently fails to bind. The session then
+        talks to the operator's own instance — wrong lab, wrong state, and a
+        cleanup path that could touch something it does not own.
+
+        Choosing a free port up front makes the listener unambiguous: if a
+        connection succeeds on it, it is ours, because we reserved it.
+        """
+        import socket
+
+        for port in self.IPC_PORT_RANGE:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    probe.bind(("127.0.0.1", port))
+                except OSError:
+                    continue
+            return port
+        raise BackendUnavailable(
+            "no free Packet Tracer IPC port in 39000-39009. Another Packet Tracer "
+            "instance is holding them; quit it and retry."
+        )
+
     def _wait_for_listener(self, timeout_s: float) -> int:
         assert self.process is not None
         deadline = time.monotonic() + timeout_s
-        candidates = (
-            [self.ipc_port] if self.ipc_port else list(range(39000, 39010))
-        )
+        candidates = [self.ipc_port] if self.ipc_port else list(self.IPC_PORT_RANGE)
         import socket
 
         while time.monotonic() < deadline:
@@ -541,6 +627,10 @@ class LiveBackend(Backend):
         if self.autostart:
             self.supervisor = ProcessSupervisor(self.bundle, self.ipc_port)
             port = self.supervisor.start(self.workspace, timeout_s=startup_timeout)
+            # Record the port actually used, so provenance and diagnostics can
+            # report it. Without this the backend says 0 even though the session
+            # is live on a real port.
+            self.ipc_port = port
         else:
             port = self.ipc_port or 39000
         client = PtmpClient(*self.credentials, port=port)

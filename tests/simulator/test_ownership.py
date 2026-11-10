@@ -149,3 +149,66 @@ def test_no_broad_pkill_anywhere_in_the_simulator_source():
             if ("pkill" in stripped or "killall" in stripped) and "PacketTracer" in stripped:
                 offenders.append(f"{source.name}:{number}: {stripped}")
     assert not offenders, "broad process-kill by name found: " + "; ".join(offenders)
+
+
+# ---------------------------------------------------------------------------
+# IPC port ownership
+# ---------------------------------------------------------------------------
+
+
+def test_a_free_port_is_chosen_not_a_foreign_listener():
+    """The supervisor must never attach to a Packet Tracer it did not start.
+
+    Accepting any listener on 39000-39009 is how a foreign instance gets used by
+    mistake: the supervisor sees a live port, returns it, and its own process
+    silently fails to bind. The session then talks to the wrong simulator.
+    """
+    import socket
+
+    occupied: list[socket.socket] = []
+    ports = [39000, 39001]
+    try:
+        for port in ports:
+            sock = socket.socket()
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("127.0.0.1", port))
+            sock.listen(1)
+            occupied.append(sock)
+    except OSError:
+        pytest.skip("ports 39000/39001 are already in use")
+
+    try:
+        supervisor = ProcessSupervisor(Path("/tmp/unused.app"), 0)
+        chosen = supervisor._choose_port()
+        assert chosen not in ports, f"chose an occupied port: {chosen}"
+        assert chosen in ProcessSupervisor.IPC_PORT_RANGE
+    finally:
+        for sock in occupied:
+            sock.close()
+
+
+def test_no_free_port_is_reported_honestly():
+    """When every port is taken, say so instead of guessing."""
+    import socket
+
+    from trident.simulator.contracts import BackendUnavailable
+
+    occupied: list[socket.socket] = []
+    try:
+        for port in ProcessSupervisor.IPC_PORT_RANGE:
+            sock = socket.socket()
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("127.0.0.1", port))
+            sock.listen(1)
+            occupied.append(sock)
+    except OSError:
+        pytest.skip("could not occupy the whole IPC port range")
+        return
+
+    try:
+        supervisor = ProcessSupervisor(Path("/tmp/unused.app"), 0)
+        with pytest.raises(BackendUnavailable, match="no free Packet Tracer IPC port"):
+            supervisor._choose_port()
+    finally:
+        for sock in occupied:
+            sock.close()

@@ -213,6 +213,13 @@ def build(
             )
 
     cloned = _clone_or_copy(source, target)
+    # Record where the copy came from. The copy's own name (PTGhost.app) carries
+    # no version, so without this every observation's provenance would say
+    # "unknown" instead of the real Packet Tracer version.
+    try:
+        (target / ".trident-source").write_text(str(source))
+    except OSError:
+        pass
     _set_background_agent(target)
     re_signed = _ad_hoc_sign(target)
     install_extensions(source, target)
