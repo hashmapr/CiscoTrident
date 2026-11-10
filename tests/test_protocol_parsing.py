@@ -224,12 +224,21 @@ def test_no_nat_configuration_is_not_configured():
 # ---------------------------------------------------------------------------
 
 
-def test_ipv6_address_enables_forwarding():
-    configs = parse_protocols(
-        ["interface Gi0/0", " ipv6 address 2001:db8::1/64"]
-    )
-    assert configs.ipv6.forwarding is True
+def test_ipv6_address_does_not_imply_unicast_routing():
+    """An interface address is not `ipv6 unicast-routing`.
+
+    Those are separate in IOS: a device can hold IPv6 addresses and still not
+    forward between interfaces. Conflating them made a real, common fault look
+    healthy.
+    """
+    configs = parse_protocols(["interface Gi0/0", " ipv6 address 2001:db8::1/64"])
     assert configs.ipv6.interfaces["Gi0/0"].addresses == ["2001:db8::1/64"]
+    assert configs.ipv6.forwarding is False
+
+
+def test_unicast_routing_enables_forwarding():
+    configs = parse_protocols(["ipv6 unicast-routing"])
+    assert configs.ipv6.forwarding is True
 
 
 def test_link_local_is_separated_from_global():

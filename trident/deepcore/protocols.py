@@ -387,7 +387,11 @@ def _parse_interface_line(configs: ProtocolConfigs, interface: str, line: str) -
         else:
             ipv6.addresses.append(token)
         ipv6.enabled = True
-        configs.ipv6.forwarding = True
+        # An interface address enables IPv6 on that interface but is NOT the same
+        # as `ipv6 unicast-routing`, which is the global gate for forwarding
+        # between interfaces. Keeping them separate means a device with addresses
+        # and no unicast-routing is correctly reported as not forwarding, which is
+        # a real and common fault.
         return True
     if lowered.startswith("ipv6 traffic-filter "):
         parts = line.split()
