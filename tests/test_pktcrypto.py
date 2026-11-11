@@ -32,7 +32,11 @@ from trident.pktcrypto import (
 from trident.pktcrypto.eax import TagMismatch, cmac, eax_open, eax_seal
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-PRACTICE = pathlib.Path("test-labs/incoming")
+#: Authorized practice labs, resolved from the repository root rather than the
+#: process working directory. A relative path silently skipped the parity test
+#: whenever pytest was invoked from anywhere but the repo root, which made a
+#: real comparison look like an absent fixture.
+PRACTICE = pathlib.Path(__file__).parents[1] / "test-labs" / "incoming"
 
 #: Official Twofish vectors: zero key of each size, zero plaintext.
 TWOFISH_VECTORS = {

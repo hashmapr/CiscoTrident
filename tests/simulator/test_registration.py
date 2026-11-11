@@ -286,12 +286,20 @@ def test_no_mismatch_reported_when_values_agree(monkeypatch, tmp_path):
     assert backends.credentials_disagreement() is None
 
 
+@pytest.mark.live_simulator
 @pytest.mark.skipif(
     __import__("trident.simulator.backends", fromlist=["find_packet_tracer"]).find_packet_tracer()
     is None,
     reason="Packet Tracer is not installed",
 )
 def test_verify_reports_ok_when_the_install_is_valid(monkeypatch):
+    """--verify launches Packet Tracer, so this is a live test, not a unit test.
+
+    `verify()` starts the simulator and opens the sample lab to prove the
+    registration authenticates. Without the `live_simulator` mark it ran during a
+    plain `pytest`, which is exactly what the suite promises never happens, and
+    it failed with a `fileOpen` timeout when the simulator had not settled.
+    """
     """--verify must actually authenticate, not just check that files exist."""
     from trident.simulator.backends import credentials_from_env
     from trident.simulator.registration import verify

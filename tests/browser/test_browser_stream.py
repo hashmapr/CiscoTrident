@@ -91,6 +91,15 @@ def test_page_loads_with_all_engines_available(page):
     assert page.is_visible("#analyze")
     assert page.errors == [], f"JavaScript errors on load: {page.errors}"
 
+    # The engine table is filled by an async `GET /api/parsers` after the page is
+    # interactive. Reading the element immediately after `domcontentloaded` sees
+    # the empty section, so wait for the row to appear before asserting on it.
+    # This is a race in the test, not a missing feature: the endpoint returns all
+    # three engines as AVAILABLE.
+    page.wait_for_function(
+        "() => document.querySelector('#parsers')?.textContent.includes('engine_a')",
+        timeout=15000,
+    )
     engines = page.text_content("#parsers")
     assert "engine_a" in engines
     assert "engine_b" in engines

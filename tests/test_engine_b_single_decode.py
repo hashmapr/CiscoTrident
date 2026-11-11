@@ -129,15 +129,21 @@ def test_engine_b_still_extracts_devices_and_configs():
     assert result.report.interface_count > 0
 
 
+#: Resolved from the repository root, not the process working directory. With a
+#: relative path this performance test silently skipped whenever pytest ran from
+#: anywhere but the repo root, so the timing claim went untested.
+LARGE_LAB = pathlib.Path(__file__).parents[1] / "test-labs" / "incoming" / "Modules_1-13_Image.pka"
+
+
 @pytest.mark.skipif(
-    not (pathlib.Path("test-labs/incoming") / "Modules_1-13_Image.pka").is_file(),
+    not LARGE_LAB.is_file(),
     reason="the 30MB activity fixture is not present locally",
 )
 def test_large_fixture_completes_within_a_bounded_time():
     """The file that used to exceed the timeout must now finish."""
     import time
 
-    big = pathlib.Path("test-labs/incoming") / "Modules_1-13_Image.pka"
+    big = LARGE_LAB
     adapter = EngineBAdapter(settings)
     ok, _ = adapter.probe()
     if not ok:
