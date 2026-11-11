@@ -445,12 +445,24 @@ def _collect_acls(
     merged: dict[tuple, AclEntry] = {}
     for engine in sorted(parsed_by_engine):
         for _device, cfg in parsed_by_engine[engine].items():
+            # An ACE belongs to the interface that applies it. `ip access-group N
+            # in` names the ACL and the direction on a real interface; without
+            # this binding every bound deny is invisible to the reasoning layer,
+            # which compares `applied_interface` against the interface under test.
+            bindings: dict[str, tuple[str, str]] = {}
+            for iface in cfg.interfaces.values():
+                if iface.acl_in:
+                    bindings.setdefault(iface.acl_in, (iface.name, "in"))
+                if iface.acl_out:
+                    bindings.setdefault(iface.acl_out, (iface.name, "out"))
+
             for acl in cfg.acls:
                 key = (acl.acl_id, acl.action, acl.protocol, acl.source, acl.destination, acl.raw)
                 prov = _prov(engine, "ios-config", snapshot, acl.raw)
                 if key in merged:
                     merged[key].provenance.append(prov)
                     continue
+                interface, direction = bindings.get(acl.acl_id, (None, None))
                 merged[key] = AclEntry(
                     acl_id=acl.acl_id,
                     acl_type=acl.acl_type,
@@ -460,13 +472,12 @@ def _collect_acls(
                     source=acl.source,
                     destination=acl.destination,
                     port_conditions=acl.port_conditions,
+                    applied_interface=interface,
+                    direction=direction,
                     raw=acl.raw,
                     provenance=[prov],
                 )
 
-    # applied interface/direction
-    for iface in model.interfaces.values():
-        pass
     return sorted(merged.values(), key=lambda a: (a.acl_id, a.raw))
 
 

@@ -10,6 +10,7 @@ This module contains no network I/O and no AI. It is pure and unit-testable.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from dataclasses import dataclass, field
 
@@ -150,6 +151,83 @@ _NAMED_ACL_RE = re.compile(
     r"^(permit|deny)\s+(\S+)\s+(\S+)(?:\s+(\S+))?(?:\s+(.*))?$", re.IGNORECASE
 )
 _ACL_DECL_RE = re.compile(r"^ip access-list\s+(standard|extended)\s+(\S+)", re.IGNORECASE)
+
+
+def _consume_address(tokens: list[str], index: int) -> tuple[str | None, int]:
+    """Read one ACE address operand, returning ``(value, next_index)``.
+
+    IOS writes an address in three shapes:
+
+    * ``any``                       -> ``"any"``
+    * ``host 10.1.1.1``             -> ``"host 10.1.1.1"``
+    * ``10.0.0.0 0.255.255.255``    -> ``"10.0.0.0 0.255.255.255"``
+
+    The wildcard belongs to the address it qualifies. Treating it as a separate
+    operand is what previously put ``0.255.255.255`` into the destination slot and
+    pushed the real destination into the port list.
+    """
+    if index >= len(tokens):
+        return None, index
+    token = tokens[index]
+    low = token.lower()
+    if low == "any":
+        return "any", index + 1
+    if low == "host":
+        if index + 1 < len(tokens):
+            return f"host {tokens[index + 1]}", index + 2
+        return "host", index + 1
+    # A bare address followed by a wildcard-shaped token is a network + wildcard.
+    if index + 1 < len(tokens) and _looks_like_wildcard(tokens[index + 1]):
+        return f"{token} {tokens[index + 1]}", index + 2
+    return token, index + 1
+
+
+def _looks_like_wildcard(token: str) -> bool:
+    """True for a dotted-quad mask operand (wildcard or inverted mask)."""
+    parts = token.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(part) <= 255 for part in parts)
+    except ValueError:
+        return False
+
+
+def parse_ace_tokens(tokens: list[str]) -> tuple[str, str | None, str | None, str | None, list[str]]:
+    """Parse one access-control entry body into ``(action, protocol, source, destination, rest)``.
+
+    Handles the standard and extended shapes by position and by operand type, not
+    by a single regex with fixed group numbers. A standard ACL carries no
+    protocol, so ``permit 192.168.1.0 0.0.0.255`` treats the address as the
+    source.
+    """
+    if not tokens:
+        return "", None, None, None, []
+    action = tokens[0].lower()
+    if action not in {"permit", "deny"}:
+        return "", None, None, None, tokens
+
+    body = tokens[1:]
+    if not body:
+        return action, None, None, None, []
+
+    # Standard ACL: the first operand is already an address rather than a protocol.
+    if body[0].lower() in {"any", "host"} or _looks_like_wildcard(body[0]) or _is_ipv4(body[0]):
+        source, index = _consume_address(body, 0)
+        return action, None, source, None, body[index:]
+
+    protocol = body[0].lower()
+    source, index = _consume_address(body, 1)
+    destination, index = _consume_address(body, index)
+    return action, protocol, source, destination, body[index:]
+
+
+def _is_ipv4(token: str) -> bool:
+    try:
+        ipaddress.IPv4Address(token)
+        return True
+    except ValueError:
+        return False
 
 
 def parse_running_config(lines: list[str] | str) -> ParsedConfig:
@@ -325,19 +403,16 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
         if current_acl_id is not None:
             m = _NAMED_ACL_RE.match(line)
             if m:
-                action, proto = m.group(1).lower(), m.group(2).lower()
-                src = m.group(3) if m.group(3) else None
-                dst = m.group(4) if m.group(4) else None
-                extra = (m.group(5) or "").split()
+                action, protocol, source, destination, rest = parse_ace_tokens(line.split())
                 cfg.acls.append(
                     ParsedAclEntry(
                         acl_id=current_acl_id,
                         acl_type=current_acl_type or "extended",
                         action=action,
-                        protocol=proto,
-                        source=src,
-                        destination=dst,
-                        port_conditions=extra,
+                        protocol=protocol,
+                        source=source,
+                        destination=destination,
+                        port_conditions=rest,
                         raw=line,
                     )
                 )
@@ -350,15 +425,18 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
         m = _NUMBERED_ACL_RE.match(line)
         if m:
             num = int(m.group(1))
+            action, protocol, source, destination, rest = parse_ace_tokens(
+                line.split()[2:]
+            )
             cfg.acls.append(
                 ParsedAclEntry(
                     acl_id=m.group(1),
                     acl_type="standard" if 1 <= num <= 99 or 1300 <= num <= 1999 else "extended",
-                    action=m.group(2).lower(),
-                    protocol=m.group(3).lower(),
-                    source=m.group(4),
-                    destination=m.group(5),
-                    port_conditions=(m.group(6) or "").split(),
+                    action=action,
+                    protocol=protocol,
+                    source=source,
+                    destination=destination,
+                    port_conditions=rest,
                     raw=line,
                 )
             )
@@ -388,16 +466,15 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
         if line.startswith("network ") and any(
             x.startswith("routing-protocol:") for x in cfg.management
         ):
-            cfg.routes.append(
-                ParsedRoute(
-                    destination=line.split(None, 1)[1].strip(),
-                    next_hop=None,
-                    outgoing_interface=None,
-                    route_type="dynamic",
-                    protocol=cfg.management[-1].split(":", 1)[1],
-                    raw=line,
-                )
-            )
+            # A `network` statement inside `router rip`/`eigrp`/`ospf` nominates a
+            # major network for advertisement; it is not a route entry. Recording
+            # it as one invents a forwarding path to the network *address* only
+            # (`192.168.1.0` was read as `192.168.1.0/32`), which made a router
+            # with no route to 192.168.1.1 look able to reach it.
+            #
+            # The statement is retained as configuration, so callers can still see
+            # that the protocol advertises the network, but it is not a route.
+            cfg.management.append(f"advertised-network:{line.split(None, 1)[1].strip()}")
             continue
 
     return cfg
