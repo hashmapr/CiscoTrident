@@ -266,11 +266,17 @@ def test_session_never_steals_focus_or_shows_a_window(tmp_path):
         assert result.ok and result.is_live
 
         assert _packet_tracer_window_count() == 0, "a window became visible"
+        # The claim under test is that *Packet Tracer* did not take focus. It is
+        # not that the frontmost app is frozen: any unrelated application (an
+        # editor, a notification, the operator's own window manager) may raise
+        # itself during a live run, and asserting "nothing changed" turned such
+        # an event into a failure about the simulator. Asserting on the simulator
+        # keeps the test measuring what its docstring promises.
         after_front = _frontmost_app()
-        if before_front and after_front:
-            assert after_front == before_front, (
-                f"focus moved from {before_front!r} to {after_front!r}"
-            )
+        assert "PacketTracer" not in after_front, (
+            f"Packet Tracer took focus (frontmost became {after_front!r}, "
+            f"was {before_front!r})"
+        )
     finally:
         session.close()
 
