@@ -676,6 +676,22 @@ def _replied(decisions: tuple[str, ...] | list[str]) -> bool:
     return any(marker in joined for marker in _REPLY_MARKERS)
 
 
+def _dropped_for_cold_arp(decisions: tuple[str, ...] | list[str]) -> bool:
+    """True when a PDU was dropped only because ARP had not resolved yet.
+
+    Packet Tracer drops the *first* packet to an unresolved next hop while it
+    sends an ARP request. That drop is a warm-up artifact, not a forwarding
+    failure: the same experiment succeeds once the entry is populated. The
+    simulator says so directly, which is why this is detected from its own text
+    rather than guessed from a frame count.
+    """
+    text = " ".join(decisions or ())
+    return (
+        "ARP process tries to send an ARP request" in text
+        and "drops this packet" in text
+    )
+
+
 def send_with_warmup(
     executor: PduExecutor,
     source: str,
@@ -691,18 +707,39 @@ def send_with_warmup(
     difference between an inconclusive first result and a real one. It is bounded
     and only applies to that specific case: a genuine black hole fails both
     attempts and is reported as such.
+
+    The same applies to a first packet dropped for an unresolved ARP entry. That
+    drop says nothing about forwarding, so it is retried once and the retry is
+    recorded as a caveat. A drop that persists after the retry is reported as a
+    drop, because by then ARP is populated and the failure is real.
     """
     result = executor.send(source, destination, protocol, timeout_seconds)
     tries = 1
-    while (
-        tries < attempts
-        and result.status is DeliveryStatus.INCONCLUSIVE
-        and result.frames_seen
-        and result.frames_sent == 0
-    ):
+    retried_for_arp = False
+    while tries < attempts:
+        cold_endpoint = (
+            result.status is DeliveryStatus.INCONCLUSIVE
+            and result.frames_seen
+            and result.frames_sent == 0
+        )
+        cold_arp = (
+            result.status is DeliveryStatus.DROPPED
+            and _dropped_for_cold_arp(result.decisions)
+        )
+        if not (cold_endpoint or cold_arp):
+            break
+        if cold_arp:
+            retried_for_arp = True
         tries += 1
         result = executor.send(source, destination, protocol, timeout_seconds)
     if tries > 1:
+        caveat = (
+            f"retried once after a cold-ARP drop ({tries} attempts)"
+            if retried_for_arp
+            else f"retried once after a cold-endpoint warm-up ({tries} attempts)"
+        )
+        if retried_for_arp and result.status is DeliveryStatus.DELIVERED:
+            caveat += "; the first attempt was dropped only for an unresolved ARP entry"
         result = PduResult(
             status=result.status,
             source=result.source,
@@ -720,8 +757,7 @@ def send_with_warmup(
             started_at=result.started_at,
             finished_at=result.finished_at,
             error=result.error,
-            caveats=result.caveats
-            + (f"retried once after a cold-endpoint warm-up ({tries} attempts)",),
+            caveats=result.caveats + (caveat,),
         )
     return result
 
