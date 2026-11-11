@@ -268,6 +268,28 @@ class DeepCore:
         # Step 3: hand off to the default gateway.
         gateway = self.model.settings.default_gateways.get(source)
         if gateway is None:
+            # A router does not need a default gateway: it forwards from its
+            # routing table. When that table is populated by a dynamic protocol
+            # the routes do not appear in the configuration at all, so "no route
+            # in the parsed config" is not evidence that traffic is dropped. The
+            # honest answer is UNKNOWN, naming the protocol whose runtime state
+            # would have to be consulted.
+            protocols = self._dynamic_protocols(source)
+            if protocols and not self._is_host(source):
+                prediction.steps.append(
+                    PathStep(
+                        source,
+                        None,
+                        Step.UNKNOWN,
+                        "no configured route; "
+                        f"{', '.join(sorted(protocols)).upper()} learns this route at runtime",
+                    )
+                )
+                prediction.limitations.append(
+                    f"{source} runs {', '.join(sorted(protocols))}; the routes it "
+                    "installs are runtime state and are not in the configuration"
+                )
+                return prediction
             prediction.steps.append(
                 PathStep(
                     source,
@@ -306,6 +328,19 @@ class DeepCore:
         info = self.model.devices.get(device)
         kind = (info.device_type or "").lower() if info else ""
         return "host" in kind or kind in {"pc", "server", "endpoint"}
+
+    def _dynamic_protocols(self, device: str) -> set[str]:
+        """Dynamic routing protocols configured on ``device``.
+
+        Sourced from the parsed configuration marker the config parser records
+        (``routing-protocol:rip`` and friends). An empty set means no dynamic
+        protocol was configured, which is different from "has no routes".
+        """
+        protocols: set[str] = set()
+        for entry in self.model.settings.management.get(device, []):
+            if entry.startswith("routing-protocol:"):
+                protocols.add(entry.split(":", 1)[1].strip().lower())
+        return protocols
 
     def _first_routed(self, device: str) -> InterfaceInfo | None:
         routed = self.routed_interfaces(device)
@@ -452,33 +487,114 @@ class DeepCore:
 
     # -- ACL -------------------------------------------------------------
 
-    def acl_verdict(self, device: str, interface: str, address: str) -> str:
-        """Whether an ACL on this interface would deny traffic to ``address``.
+    def acl_verdict(
+        self,
+        device: str,
+        interface: str,
+        address: str,
+        source_address: str | None = None,
+    ) -> str:
+        """Whether an ACL on this interface would deny this traffic.
 
         Returns ``"permit"``, ``"deny"``, or ``"unknown"``. Only explicit denies
         bound to a real interface are evaluated; anything else is ``unknown``
         rather than assumed permitted.
+
+        An ACE has two address operands and either can be the one that matches:
+        ``deny ip 10.0.0.0 0.255.255.255 any`` denies by *source*, while
+        ``deny ip any 10.2.2.0 0.0.0.255`` denies by *destination*. Testing only
+        the destination makes every source-based ACL a blanket deny, because the
+        destination operand is ``any``. ``source_address`` is therefore evaluated
+        against the ACE's source operand; when it is not supplied a source-based
+        rule simply cannot match, and the verdict falls through to the remaining
+        rules rather than reporting a deny it did not establish.
         """
+        denied = False
+        indeterminate = False
         for acl in self.model.acls:
             if acl.applied_interface != interface:
                 continue
             if (acl.action or "").lower() != "deny":
                 continue
-            destination = (acl.destination or "").split()[0]
-            if not destination or destination in {"any", "any/any"}:
-                return "deny"
-            network = _route_network(destination)
-            if network is None:
+            source_match = _ace_operand_matches(acl.source, source_address)
+            destination_match = _ace_operand_matches(acl.destination, address)
+            # An ACE matches only when every operand it states matches. Testing
+            # the operands independently (OR) would let `deny ip 10.0.0.0
+            # 0.255.255.255 any` deny the whole internet, because its destination
+            # operand is `any`.
+            if source_match is None or destination_match is None:
+                indeterminate = True
                 continue
-            try:
-                if ipaddress.IPv4Address(address) in network:
-                    return "deny"
-            except ValueError:
-                continue
+            if source_match and destination_match:
+                denied = True
+                break
+        if denied:
+            return "deny"
+        if indeterminate:
+            # Some bound deny could not be evaluated (typically an unknown
+            # source). That is not permission; it is absence of evidence.
+            return "unknown"
         # No bound deny matched. That is "permit" only in the sense that nothing
         # in the model denies it; an ACL the parser could not bind is still a
         # limitation, so callers see the evidence that led here.
         return "permit"
+
+
+def _ace_operand_matches(operand: str | None, candidate: str | None) -> bool | None:
+    """Whether one ACE address operand matches ``candidate``.
+
+    Returns ``True`` (matches), ``False`` (does not match) or ``None`` (could not
+    be determined). ``None`` is deliberately distinct from ``False``: an operand
+    that cannot be evaluated must not let the rule count as "did not deny", which
+    would silently convert missing evidence into permission.
+
+    Operand shapes, all produced by the config parser:
+
+    * ``any``                      - matches every address
+    * ``host 10.1.1.1``            - one address
+    * ``10.0.0.0 0.255.255.255``   - a network and its wildcard mask
+    * ``10.2.2.0/24``              - a CIDR network
+    * absent                       - the ACE states no constraint here
+    """
+    text = (operand or "").strip()
+    if not text:
+        # An ACE that states no operand does not constrain that position; a
+        # standard ACL, for example, has no destination operand at all.
+        return True
+    low = text.lower()
+    if low == "any":
+        return True
+    if candidate is None:
+        # The address being tested is unknown, so this operand cannot be shown
+        # to match or not to match it.
+        return None
+    try:
+        address = ipaddress.IPv4Address(candidate)
+    except ValueError:
+        return None
+    if low.startswith("host "):
+        try:
+            return address == ipaddress.IPv4Address(text.split(None, 1)[1])
+        except ValueError:
+            return None
+    parts = text.split()
+    if len(parts) == 2:
+        try:
+            wildcard = ipaddress.IPv4Address(parts[1])
+        except ValueError:
+            return None
+        mask = int(wildcard) ^ 0xFFFFFFFF
+        try:
+            network = ipaddress.IPv4Network(
+                f"{parts[0]}/{ipaddress.IPv4Address(mask)}", strict=False
+            )
+            return address in network
+        except ValueError:
+            return None
+    network = _route_network(text)
+    if network is None:
+        return None
+    return address in network
 
 
 def _route_network(destination: str | None) -> ipaddress.IPv4Network | None:

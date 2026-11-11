@@ -141,8 +141,15 @@ def explain(
     # The ACL check needs the destination *address*, not the device name: an ACL
     # matches addresses, and passing "R2" would never match anything.
     destination_address = _destination_address(core, destination)
+    # An ACE can match on either operand. The source *address* is needed for the
+    # same reason the destination address is: `deny ip 10.0.0.0 0.255.255.255 any`
+    # denies by source, and passing only the destination makes that rule look
+    # like a blanket deny or no deny at all.
+    source_address = _destination_address(core, source)
     if destination_address is not None:
-        _add_acl_stage(explanation, model, core, source, destination_address)
+        _add_acl_stage(
+            explanation, model, core, source, destination_address, source_address
+        )
     _add_layer2_stage(explanation, model, source, destination)
     _add_nat_stage(explanation, model, source, destination)
     _add_return_path_stage(explanation, core, destination, source)
@@ -325,13 +332,16 @@ def _add_acl_stage(
     core: DeepCore,
     source: str,
     destination: str,
+    source_address: str | None = None,
 ) -> None:
-    """Check whether an ACL on the source's egress denies the destination."""
+    """Check whether an ACL on the source's egress denies this traffic."""
     source_interfaces = core.routed_interfaces(source)
     if not source_interfaces:
         return
     for interface in source_interfaces:
-        verdict = core.acl_verdict(source, interface.name, destination)
+        verdict = core.acl_verdict(
+            source, interface.name, destination, source_address=source_address
+        )
         if verdict == "deny":
             explanation.stages.append(
                 StageResult(
