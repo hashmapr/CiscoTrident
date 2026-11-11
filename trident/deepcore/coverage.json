@@ -2,10 +2,10 @@
   "summary": {
     "total": 16,
     "counts": {
-      "UNSUPPORTED": 8,
+      "UNSUPPORTED": 4,
       "PARSED": 1,
       "MODELLED": 0,
-      "STATICALLY_VERIFIED": 5,
+      "STATICALLY_VERIFIED": 9,
       "SIMULATOR_TESTED": 2
     },
     "simulator_tested": [
@@ -19,18 +19,18 @@
       "trunks",
       "static_routing",
       "acl",
-      "dhcp"
+      "dhcp",
+      "nat",
+      "stp",
+      "etherchannel",
+      "ipv6"
     ],
     "parsed_only": [
       "ospf"
     ],
     "unsupported": [
-      "nat",
-      "stp",
-      "etherchannel",
       "qos",
       "routing_authentication",
-      "ipv6",
       "port_security",
       "device_administration"
     ]
@@ -130,11 +130,15 @@
       "simulator_tested": false,
       "limitations": [
         "only explicit denies bound to a specific interface are evaluated",
+        "source and destination operands are both evaluated; an unevaluable",
+        "operand yields `unknown`, never `permit`",
         "no ordering evaluation between multiple entries beyond the first match",
-        "no evaluation of established/reflexive behaviour"
+        "no evaluation of established/reflexive behaviour",
+        "denies are not tested end to end with a real PDU through the ACL"
       ],
       "evidence": [
-        "tests/test_deepcore_path.py::test_explicit_bound_deny_is_reported"
+        "tests/test_deepcore_path.py::test_explicit_bound_deny_is_reported",
+        "tests/test_acl_real_config.py (ACEs captured from a real lab config)"
       ]
     },
     {
@@ -153,42 +157,59 @@
     },
     {
       "name": "nat",
-      "level": "UNSUPPORTED",
-      "parsed": false,
-      "modelled": false,
-      "statically_verified": false,
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
       "simulator_tested": false,
       "limitations": [
-        "no NAT configuration is parsed into the model",
-        "path prediction does not apply translation"
+        "configured translation only; no active translation table is consulted",
+        "PAT port assignments are reported as runtime-dependent, never guessed",
+        "no authorized lab carried a NAT configuration, so this is not",
+        "simulator-tested: `show ip nat statistics` was empty everywhere it ran"
       ],
-      "evidence": []
+      "evidence": [
+        "tests/test_nat.py",
+        "tests/test_protocol_parsing.py",
+        "docs/oracle/evidence/lab_survey.json"
+      ]
     },
     {
       "name": "stp",
-      "level": "UNSUPPORTED",
-      "parsed": false,
-      "modelled": false,
-      "statically_verified": false,
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
       "simulator_tested": false,
       "limitations": [
-        "the evidence layer can hold a show spanning-tree capture, but no configuration is parsed into the model",
-        "no root election or port-state calculation",
-        "a redundant topology is not checked for loops"
+        "roles between non-root bridges use local cost, not full root-path cost",
+        "no priority or root command exists in any authorized lab, so root",
+        "election is statically verified but not simulator-tested",
+        "no BPDU timing, convergence, or VLAN-specific simulator comparison"
       ],
-      "evidence": []
+      "evidence": [
+        "tests/test_stp.py",
+        "tests/test_protocol_parsing.py",
+        "scripts/oracle_differential_stp.py (live `show spanning-tree summary`)"
+      ]
     },
     {
       "name": "etherchannel",
-      "level": "UNSUPPORTED",
-      "parsed": false,
-      "modelled": false,
-      "statically_verified": false,
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
       "simulator_tested": false,
       "limitations": [
-        "not parsed"
+        "no authorized lab had a configured channel-group, so negotiation is",
+        "statically verified but not simulator-tested against a real bundle",
+        "no live verification of member compatibility or suspended members"
       ],
-      "evidence": []
+      "evidence": [
+        "tests/test_etherchannel.py",
+        "tests/test_protocol_parsing.py",
+        "scripts/oracle_differential_stp.py (live `show etherchannel summary`)"
+      ]
     },
     {
       "name": "qos",
@@ -216,15 +237,22 @@
     },
     {
       "name": "ipv6",
-      "level": "UNSUPPORTED",
-      "parsed": false,
-      "modelled": false,
-      "statically_verified": false,
+      "level": "STATICALLY_VERIFIED",
+      "parsed": true,
+      "modelled": true,
+      "statically_verified": true,
       "simulator_tested": false,
       "limitations": [
-        "the model carries an ipv6_address field that is never populated"
+        "ND cache contents are runtime state and are not modelled",
+        "a link-local next hop without an outgoing interface is `UNDECIDED`",
+        "no authorized lab ran IPv6 forwarding with a populated table, so this is",
+        "not simulator-tested"
       ],
-      "evidence": []
+      "evidence": [
+        "tests/test_ipv6.py",
+        "tests/test_protocol_parsing.py",
+        "docs/oracle/evidence/differential_megalab.json (live `show ipv6 route`)"
+      ]
     },
     {
       "name": "port_security",

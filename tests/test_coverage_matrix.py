@@ -84,18 +84,22 @@ def test_ospf_is_parsed_but_not_modelled(matrix):
     assert any("adjacency" in limitation for limitation in ospf.limitations)
 
 
-def test_nat_and_stp_are_not_overclaimed(matrix):
-    """Neither is parsed into the model; both must say so.
+def test_nat_and_stp_are_modelled_but_not_simulator_tested(matrix):
+    """Both are now parsed and modelled, and neither claims a simulator test.
 
-    An earlier version of the matrix marked these PARSED because the evidence
-    layer can hold a `show` capture. That is not the same as deriving facts from
-    configuration, and the test caught the overclaim.
+    The earlier form of this test asserted they were UNSUPPORTED, which was true
+    when nothing parsed them. Typed parsers and reasoning modules now exist, so
+    the honest claim moved to STATICALLY_VERIFIED. What must not move is the top
+    level: no authorized lab carried NAT or STP root configuration, so neither
+    may claim SIMULATOR_TESTED.
     """
     for name in ("nat", "stp"):
         feature = matrix.get(name)
         assert feature is not None
-        assert feature.parsed is False
-        assert feature.level is Level.UNSUPPORTED
+        assert feature.parsed is True, name
+        assert feature.modelled is True, name
+        assert feature.level is Level.STATICALLY_VERIFIED, name
+        assert feature.simulator_tested is False, name
         assert feature.limitations
 
 
@@ -106,10 +110,12 @@ def test_acl_states_its_evaluation_limits(matrix):
     assert any("denies" in limitation or "deny" in limitation for limitation in acl.limitations)
 
 
-def test_ipv6_is_honestly_unsupported(matrix):
+def test_ipv6_is_honestly_below_simulator_tested(matrix):
+    """IPv6 is parsed and modelled, but no lab ran it with a populated table."""
     ipv6 = matrix.get("ipv6")
     assert ipv6 is not None
-    assert ipv6.level is Level.UNSUPPORTED
+    assert ipv6.level is Level.STATICALLY_VERIFIED
+    assert ipv6.simulator_tested is False
     assert ipv6.limitations
 
 

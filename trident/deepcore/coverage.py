@@ -147,11 +147,17 @@ FEATURES: tuple[Feature, ...] = (
         parsed=True,
         modelled=True,
         statically_verified=True,
-        evidence=["tests/test_deepcore_path.py::test_explicit_bound_deny_is_reported"],
+        evidence=[
+            "tests/test_deepcore_path.py::test_explicit_bound_deny_is_reported",
+            "tests/test_acl_real_config.py (ACEs captured from a real lab config)",
+        ],
         limitations=[
             "only explicit denies bound to a specific interface are evaluated",
+            "source and destination operands are both evaluated; an unevaluable",
+            "operand yields `unknown`, never `permit`",
             "no ordering evaluation between multiple entries beyond the first match",
             "no evaluation of established/reflexive behaviour",
+            "denies are not tested end to end with a real PDU through the ACL",
         ],
     ),
     Feature(
@@ -164,34 +170,53 @@ FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         name="nat",
-        parsed=False,
-        modelled=False,
-        statically_verified=False,
+        parsed=True,
+        modelled=True,
+        statically_verified=True,
+        evidence=[
+            "tests/test_nat.py",
+            "tests/test_protocol_parsing.py",
+            "docs/oracle/evidence/lab_survey.json",
+        ],
         limitations=[
-            "no NAT configuration is parsed into the model",
-            "path prediction does not apply translation",
+            "configured translation only; no active translation table is consulted",
+            "PAT port assignments are reported as runtime-dependent, never guessed",
+            "no authorized lab carried a NAT configuration, so this is not",
+            "simulator-tested: `show ip nat statistics` was empty everywhere it ran",
         ],
     ),
     Feature(
         name="stp",
-        parsed=False,
-        modelled=False,
-        statically_verified=False,
+        parsed=True,
+        modelled=True,
+        statically_verified=True,
+        evidence=[
+            "tests/test_stp.py",
+            "tests/test_protocol_parsing.py",
+            "scripts/oracle_differential_stp.py (live `show spanning-tree summary`)",
+        ],
         limitations=[
-            (
-                "the evidence layer can hold a show spanning-tree capture, but no "
-                "configuration is parsed into the model"
-            ),
-            "no root election or port-state calculation",
-            "a redundant topology is not checked for loops",
+            "roles between non-root bridges use local cost, not full root-path cost",
+            "no priority or root command exists in any authorized lab, so root",
+            "election is statically verified but not simulator-tested",
+            "no BPDU timing, convergence, or VLAN-specific simulator comparison",
         ],
     ),
     Feature(
         name="etherchannel",
-        parsed=False,
-        modelled=False,
-        statically_verified=False,
-        limitations=["not parsed"],
+        parsed=True,
+        modelled=True,
+        statically_verified=True,
+        evidence=[
+            "tests/test_etherchannel.py",
+            "tests/test_protocol_parsing.py",
+            "scripts/oracle_differential_stp.py (live `show etherchannel summary`)",
+        ],
+        limitations=[
+            "no authorized lab had a configured channel-group, so negotiation is",
+            "statically verified but not simulator-tested against a real bundle",
+            "no live verification of member compatibility or suspended members",
+        ],
     ),
     Feature(
         name="qos",
@@ -209,10 +234,20 @@ FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         name="ipv6",
-        parsed=False,
-        modelled=False,
-        statically_verified=False,
-        limitations=["the model carries an ipv6_address field that is never populated"],
+        parsed=True,
+        modelled=True,
+        statically_verified=True,
+        evidence=[
+            "tests/test_ipv6.py",
+            "tests/test_protocol_parsing.py",
+            "docs/oracle/evidence/differential_megalab.json (live `show ipv6 route`)",
+        ],
+        limitations=[
+            "ND cache contents are runtime state and are not modelled",
+            "a link-local next hop without an outgoing interface is `UNDECIDED`",
+            "no authorized lab ran IPv6 forwarding with a populated table, so this is",
+            "not simulator-tested",
+        ],
     ),
     Feature(
         name="port_security",
