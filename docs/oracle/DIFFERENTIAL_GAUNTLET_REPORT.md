@@ -255,7 +255,7 @@ agreement" is withdrawn and must not be cited.
 ### Offline suite
 
 ```
-pytest -q                     1488 passed, 54 deselected
+pytest -q                     1488 passed, 0 skipped, 55 deselected
 ```
 
 Baseline before this sprint was 1483. The delta is new regression tests for the
@@ -264,8 +264,17 @@ defects found (ACL real-config suite).
 ### Live simulator
 
 ```
-pytest tests/simulator/ -m live_simulator     27 passed
+pytest tests/simulator/ -m live_simulator     28 passed
 ```
+
+Two live-test defects were found and fixed during this final run:
+
+* `test_session_never_steals_focus_or_shows_a_window` asserted the frontmost
+  application could not change at all. It failed with `focus moved from 'Finder'
+  to 'Code'` — an editor raising itself. It now asserts the property its
+  docstring claims: **Packet Tracer** did not take focus.
+* `test_verify_reports_ok_when_the_install_is_valid` started Packet Tracer
+  during a plain `pytest`; it now carries `@pytest.mark.live_simulator`.
 
 ### Browser (real Chromium, real server)
 
@@ -277,6 +286,13 @@ One browser failure was found and fixed: `test_page_loads_with_all_engines_avail
 read `#parsers` before the async `GET /api/parsers` had populated it. The endpoint
 returns all three engines `AVAILABLE` (verified by curl and by an explicit
 `wait_for_function`); the test was racing, so it now waits.
+
+Two further test defects were found by a run from a different working directory:
+`test_pktcrypto` and `test_engine_b_single_decode` resolved `test-labs/incoming`
+relative to the process cwd, so the crypto parity check and the 30 MB timing
+check **silently skipped** whenever pytest was invoked from anywhere but the repo
+root. Both paths are now anchored to the repository. Running the crypto parity
+test from `/tmp` now yields 35 passed, 0 skipped.
 
 ### Benchmark
 
@@ -314,7 +330,7 @@ record `source_unchanged: true`. No lab was modified.
 
 | Category | Count | Notes |
 |---|---|---|
-| Offline passed | 1488 | includes 7 new ACL regression tests |
+| Offline passed | 1488 | 0 skipped, 0 failed; includes 7 new ACL regression tests |
 | Live simulator passed | 27 | opt-in `-m live_simulator` |
 | Browser passed | 26 | opt-in `-m browser`, real Chromium |
 | Browser skipped | 1 | pre-existing skip |
@@ -344,7 +360,8 @@ Deliberately listed, not fixed in this sprint:
    `setSimulationMode timed out after 20.0s` on switch-only topologies.
 4. **Large-lab decode is still slow.** `Modules_1-13_Image.pka` (30 MB) did not
    open within 60 s. `test_pktcrypto.py::test_parity_with_pkt_core_on_practice_labs`
-   alone takes 381 s. Not profiled in this sprint.
+   alone takes 381 s. Not profiled in this sprint. Note this test was previously
+   skipping outside the repo root, so this cost was not being paid.
 5. **No live PDU test through an ACL.** The ACL fixes are statically verified
    against real ACE text, but no experiment sent traffic through ISP A's ACL 100.
    That is the natural next differential step and only needs the existing lab.

@@ -14,8 +14,8 @@ instead of a claim set.
 branch       development/deepcore
 RC tag       trident-stream-verify-rc1 -> 9d14807   (unmodified)
 simulator    Cisco Packet Tracer 9.0.1.0858, registered ExApp, external volume
-offline      pytest -q  -> 1488 passed, 54 deselected
-live         pytest tests/simulator/ -m live_simulator -> 27 passed
+offline      pytest -q  -> 1488 passed, 0 skipped, 55 deselected
+live         pytest tests/simulator/ -m live_simulator -> 28 passed
 browser      pytest tests/browser/ -m browser -> 26 passed, 1 skipped
 benchmark    260/260, 0 false-verified  (regression pack, NOT a blind evaluation)
 ruff         trident/ tests/ clean
@@ -59,8 +59,16 @@ Six defects, all found by feeding real captured configuration to the code:
 | 5 | Cold-ARP drop treated as a real forwarding failure | `trident/simulator/pdu.py` |
 | 6 | `verify()` ran inside a plain `pytest`, starting Packet Tracer | `tests/simulator/test_registration.py` |
 
-Plus one test-race fix (`tests/browser/test_browser_stream.py`) and one stale-data
-correction (`trident/deepcore/coverage.json` + its two tests).
+Plus three test defects that were hiding results:
+
+* `tests/browser/test_browser_stream.py` raced the async `/api/parsers` fetch.
+* `tests/test_pktcrypto.py` and `tests/test_engine_b_single_decode.py` resolved
+  `test-labs/incoming` relative to the cwd, so the crypto parity check and the
+  30 MB timing check **silently skipped** outside the repo root.
+* `tests/simulator/test_live_integration.py` failed if any app took focus, not
+  if *Packet Tracer* did.
+
+And one stale-data correction (`trident/deepcore/coverage.json` + its two tests).
 
 Defect 4 had a second half: a router running a dynamic protocol was reported as a
 **definite** drop for "no default gateway". It is now `UNKNOWN`, naming the
