@@ -1,0 +1,581 @@
+{
+  "generated_at": "2026-11-11T00:04:59.271001+00:00",
+  "lab": "CCNA Mega Lab (Jeremy's IT Lab)(1).pka",
+  "source_sha256": "f161187277fac30a3355f4336477979402d91b6112ddec55225ed56546ede1e3",
+  "simulator_version": "9.0.1",
+  "backend": "SIMULATOR_LIVE",
+  "results": [
+    {
+      "device": "R1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 875,
+        "sha256": "72cf60a96c9f6e98"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports NON_ROOT",
+        "predicted_root": null,
+        "observed_root": false,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {},
+        "verdict": "NOT_OBSERVED",
+        "raw_excerpt": ""
+      }
+    },
+    {
+      "device": "ISP A",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 2172,
+        "sha256": "90f521a205bb39b8"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports NON_ROOT",
+        "predicted_root": null,
+        "observed_root": false,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {},
+        "verdict": "NOT_OBSERVED",
+        "raw_excerpt": ""
+      }
+    },
+    {
+      "device": "DSW-A1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "DSW-A2",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "DSW-B1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "DSW-B2",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "CSW1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "CSW2",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1421,
+        "sha256": "086ad5ee7a889d1c"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ISP B",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1845,
+        "sha256": "6c0ee2c68be2ebdf"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports NON_ROOT",
+        "predicted_root": null,
+        "observed_root": false,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {},
+        "verdict": "NOT_OBSERVED",
+        "raw_excerpt": ""
+      }
+    },
+    {
+      "device": "ASW-A1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ASW-A2",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ASW-A3",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ASW-B1",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ASW-B2",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    },
+    {
+      "device": "ASW-B3",
+      "config_evidence": {
+        "ok": true,
+        "observed": true,
+        "chars": 1144,
+        "sha256": "0e4026fcb28b5c5e"
+      },
+      "prediction": {
+        "mode": "pvst",
+        "configured_priority": null,
+        "root_primary_vlans": [],
+        "candidate_root": false,
+        "predicted_root_status": null,
+        "basis": [
+          "no priority or root command configured; no root claim made"
+        ]
+      },
+      "stp": {
+        "verdict": "UNTESTABLE",
+        "reason": "DeepCore made no root claim (no priority or root command configured); simulator reports ROOT",
+        "predicted_root": null,
+        "observed_root": true,
+        "observed_mode": "pvst",
+        "raw_excerpt": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------"
+      },
+      "etherchannel": {
+        "configured_count": 0,
+        "observed_count": 0,
+        "configured_channels": {},
+        "observed": {
+          "groups": [],
+          "aggregators": 0
+        },
+        "verdict": "NOT_APPLICABLE",
+        "raw_excerpt": "\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n"
+      }
+    }
+  ],
+  "lifecycle": {
+    "close_note": "CLEANED/backend=CLIENT_CLOSED+TERMINATED/source=INTACT",
+    "source_unchanged": true,
+    "owned_pids_after": []
+  },
+  "summary": {
+    "stp:UNTESTABLE": 15,
+    "etherchannel:NOT_OBSERVED": 3,
+    "etherchannel:NOT_APPLICABLE": 12
+  },
+  "session_id": "431d941543aa42fe978cf4090afd62aa"
+}

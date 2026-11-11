@@ -1,0 +1,246 @@
+{
+  "generated_at": "2026-11-11T00:05:36.690089+00:00",
+  "lab": "Final_R3_BDSM.pka",
+  "source_sha256": "9714f74ee749944f5f4fc332aa8a2ccad34a4d53a5d7230baf20ae103e3c2244",
+  "simulator_version": "9.0.1",
+  "model": {
+    "devices": 22,
+    "interfaces": 254,
+    "links": 20,
+    "acls": 1
+  },
+  "experiments": [
+    {
+      "source": "CSwitch1",
+      "destination": "CSwitch3",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "CSwitch3",
+        "protocol": "icmp",
+        "delivered": null,
+        "definite": false,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "UNKNOWN",
+            "detail": "CSwitch3 has no IPv4 address in the model",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [
+          "destination has no address; a host configured at runtime cannot be predicted"
+        ],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": false,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> CSwitch3, icmp)",
+        "decisions": []
+      },
+      "agreement": "UNTESTABLE",
+      "agreement_reason": ""
+    },
+    {
+      "source": "CSwitch1",
+      "destination": "CSwitch2",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "CSwitch2",
+        "protocol": "icmp",
+        "delivered": null,
+        "definite": false,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "UNKNOWN",
+            "detail": "CSwitch2 has no IPv4 address in the model",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [
+          "destination has no address; a host configured at runtime cannot be predicted"
+        ],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": false,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> CSwitch2, icmp)",
+        "decisions": []
+      },
+      "agreement": "UNTESTABLE",
+      "agreement_reason": ""
+    },
+    {
+      "source": "CSwitch1",
+      "destination": "Router4",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "Router4",
+        "protocol": "icmp",
+        "delivered": false,
+        "definite": true,
+        "failure_point": "CSwitch1",
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "DROP",
+            "detail": "no default gateway is configured on the source",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": true,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> Router4, icmp)",
+        "decisions": []
+      },
+      "agreement": "INSUFFICIENT_EVIDENCE",
+      "agreement_reason": ""
+    },
+    {
+      "source": "CSwitch1",
+      "destination": "MLS",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "MLS",
+        "protocol": "icmp",
+        "delivered": null,
+        "definite": false,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "UNKNOWN",
+            "detail": "MLS has no IPv4 address in the model",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [
+          "destination has no address; a host configured at runtime cannot be predicted"
+        ],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": false,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> MLS, icmp)",
+        "decisions": []
+      },
+      "agreement": "UNTESTABLE",
+      "agreement_reason": ""
+    },
+    {
+      "source": "CSwitch1",
+      "destination": "L-MLS",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "L-MLS",
+        "protocol": "icmp",
+        "delivered": null,
+        "definite": false,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "UNKNOWN",
+            "detail": "L-MLS has no IPv4 address in the model",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [
+          "destination has no address; a host configured at runtime cannot be predicted"
+        ],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": false,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> L-MLS, icmp)",
+        "decisions": []
+      },
+      "agreement": "UNTESTABLE",
+      "agreement_reason": ""
+    },
+    {
+      "source": "CSwitch1",
+      "destination": "ISP-Router",
+      "predicted": {
+        "source": "CSwitch1",
+        "destination": "ISP-Router",
+        "protocol": "icmp",
+        "delivered": null,
+        "definite": false,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "CSwitch1",
+            "interface": null,
+            "action": "UNKNOWN",
+            "detail": "ISP-Router has no IPv4 address in the model",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [
+          "destination has no address; a host configured at runtime cannot be predicted"
+        ],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": false,
+      "observed": {
+        "status": "EXECUTION_ERROR",
+        "observed": false,
+        "operation": "addSimplePdu(CSwitch1 -> ISP-Router, icmp)",
+        "decisions": []
+      },
+      "agreement": "UNTESTABLE",
+      "agreement_reason": ""
+    }
+  ],
+  "lifecycle": {
+    "close_note": "CLEANED/backend=CLIENT_CLOSED+TERMINATED/source=INTACT",
+    "source_unchanged": true,
+    "owned_pids_after": []
+  },
+  "backend": "SIMULATOR_LIVE",
+  "session_id": "e4b434ccad5041dbaaf600c42522cf96",
+  "cli_devices": [
+    "CSwitch1",
+    "CSwitch3",
+    "CSwitch2",
+    "Router4",
+    "MLS",
+    "L-MLS",
+    "ISP-Router",
+    "C-Router",
+    "R-Router",
+    "RSwitch"
+  ],
+  "pairs_attempted": 6,
+  "summary": {
+    "UNTESTABLE": 5,
+    "INSUFFICIENT_EVIDENCE": 1
+  }
+}

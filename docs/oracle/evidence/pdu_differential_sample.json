@@ -1,0 +1,181 @@
+{
+  "generated_at": "2026-11-11T00:27:37.539332+00:00",
+  "lab": "sample_lab.pkt",
+  "source_sha256": "4a212faa24258ee7b316d5dc462d883049d6d9659dbc1bbdd0cfe0de67756101",
+  "simulator_version": "9.0.1",
+  "model": {
+    "devices": 7,
+    "interfaces": 37,
+    "links": 5,
+    "acls": 6
+  },
+  "experiments": [
+    {
+      "source": "SW1",
+      "destination": "R2",
+      "predicted": {
+        "source": "SW1",
+        "destination": "R2",
+        "protocol": "icmp",
+        "delivered": false,
+        "definite": true,
+        "failure_point": "SW1",
+        "steps": [
+          {
+            "device": "SW1",
+            "interface": null,
+            "action": "DROP",
+            "detail": "no default gateway is configured on the source",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": true,
+      "observed": {
+        "status": "DROPPED",
+        "observed": true,
+        "operation": "addSimplePdu(SW1 -> R2, icmp)",
+        "decisions": [
+          "The Ping process starts the next ping request.",
+          "The Ping process creates an ICMP Echo Request message and sends it to the lower process.",
+          "The source IP address is not specified. The device sets it to the port's IP address."
+        ]
+      },
+      "agreement": "AGREES",
+      "agreement_reason": "The Ping process starts the next ping request.; The Ping process creates an ICMP Echo Request message and sends it to the lower process."
+    },
+    {
+      "source": "SW1",
+      "destination": "R1",
+      "predicted": {
+        "source": "SW1",
+        "destination": "R1",
+        "protocol": "icmp",
+        "delivered": true,
+        "definite": true,
+        "failure_point": null,
+        "steps": [
+          {
+            "device": "SW1",
+            "interface": "Vlan1",
+            "action": "DELIVER",
+            "detail": "192.168.1.1 is directly connected on Vlan1's subnet",
+            "evidence": "Vlan1 192.168.1.2/24"
+          }
+        ],
+        "dependencies": [
+          "L2 forwarding between the two ports"
+        ],
+        "limitations": [],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": true,
+      "observed": {
+        "status": "DROPPED",
+        "observed": true,
+        "operation": "addSimplePdu(SW1 -> R1, icmp)",
+        "decisions": [
+          "The Ping process starts the next ping request.",
+          "The Ping process creates an ICMP Echo Request message and sends it to the lower process.",
+          "The source IP address is not specified. The device sets it to the port's IP address."
+        ]
+      },
+      "agreement": "DISAGREES",
+      "agreement_reason": "The Ping process starts the next ping request.; The Ping process creates an ICMP Echo Request message and sends it to the lower process."
+    },
+    {
+      "source": "R2",
+      "destination": "SW1",
+      "predicted": {
+        "source": "R2",
+        "destination": "SW1",
+        "protocol": "icmp",
+        "delivered": false,
+        "definite": true,
+        "failure_point": "R2",
+        "steps": [
+          {
+            "device": "R2",
+            "interface": null,
+            "action": "DROP",
+            "detail": "no default gateway is configured on the source",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": true,
+      "observed": {
+        "status": "DROPPED",
+        "observed": true,
+        "operation": "addSimplePdu(R2 -> SW1, icmp)",
+        "decisions": [
+          "The Ping process starts the next ping request.",
+          "The Ping process creates an ICMP Echo Request message and sends it to the lower process.",
+          "The device encapsulates the data into an IP packet."
+        ]
+      },
+      "agreement": "AGREES",
+      "agreement_reason": "The Ping process starts the next ping request.; The Ping process creates an ICMP Echo Request message and sends it to the lower process."
+    },
+    {
+      "source": "R2",
+      "destination": "R1",
+      "predicted": {
+        "source": "R2",
+        "destination": "R1",
+        "protocol": "icmp",
+        "delivered": false,
+        "definite": true,
+        "failure_point": "R2",
+        "steps": [
+          {
+            "device": "R2",
+            "interface": null,
+            "action": "DROP",
+            "detail": "no default gateway is configured on the source",
+            "evidence": ""
+          }
+        ],
+        "dependencies": [],
+        "limitations": [],
+        "evidence_kind": "SIMULATED_PREDICTION"
+      },
+      "prediction_definite": true,
+      "observed": {
+        "status": "DELIVERED",
+        "observed": true,
+        "operation": "addSimplePdu(R2 -> R1, icmp)",
+        "decisions": [
+          "The Ping process starts the next ping request.",
+          "The Ping process creates an ICMP Echo Request message and sends it to the lower process.",
+          "The device encapsulates the data into an IP packet."
+        ]
+      },
+      "agreement": "DISAGREES",
+      "agreement_reason": "The Ping process starts the next ping request.; The Ping process creates an ICMP Echo Request message and sends it to the lower process."
+    }
+  ],
+  "lifecycle": {
+    "close_note": "CLEANED/backend=CLIENT_CLOSED+TERMINATED/source=INTACT",
+    "source_unchanged": true,
+    "owned_pids_after": []
+  },
+  "backend": "SIMULATOR_LIVE",
+  "session_id": "bf5689c0fc924c8f9daadddee1ecbaa6",
+  "cli_devices": [
+    "SW1",
+    "R2",
+    "R1"
+  ],
+  "pairs_attempted": 4,
+  "summary": {
+    "AGREES": 2,
+    "DISAGREES": 2
+  }
+}

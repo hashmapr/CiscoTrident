@@ -1,0 +1,1058 @@
+[
+  {
+    "lab": "CCNA 3 Practice PTSA.pka",
+    "exists": true,
+    "size_bytes": 615550,
+    "devices": [],
+    "cli_capable": [],
+    "findings": {},
+    "error": "BackendUnavailable: live backend failed: Packet Tracer did not accept connections within 45.0s. If another Packet Tracer instance is already running, quit it first: a stale instance holds the IPC ports and the new one cannot bind."
+  },
+  {
+    "lab": "CCNA Mega Lab (Jeremy's IT Lab)(1).pka",
+    "exists": true,
+    "size_bytes": 1003258,
+    "devices": [
+      "R1",
+      "Power Distribution Device0",
+      "ISP A",
+      "DSW-A1",
+      "DSW-A2",
+      "DSW-B1",
+      "Power Distribution Device1",
+      "DSW-B2",
+      "CSW1",
+      "CSW2",
+      "LWAP1",
+      "LWAP2",
+      "Laptop1",
+      "Laptop2",
+      "Phone3",
+      "Phone1",
+      "PC1",
+      "Phone2",
+      "PC2",
+      "PC3",
+      "SRV1",
+      "ISP B",
+      "Power Distribution Device2",
+      "Power Distribution Device3",
+      "ASW-A1",
+      "ASW-A2",
+      "ASW-A3",
+      "ASW-B1",
+      "ASW-B2",
+      "ASW-B3",
+      "WLC1"
+    ],
+    "cli_capable": [
+      "R1",
+      "ISP A",
+      "DSW-A1",
+      "DSW-A2",
+      "DSW-B1",
+      "DSW-B2",
+      "CSW1",
+      "CSW2"
+    ],
+    "findings": {
+      "config": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 875,
+          "lines": 94,
+          "head": "Building configuration...\n\nCurrent configuration : 812 bytes\n!\nversion 15.1\nno service timestamps log datetime msec"
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 2172,
+          "lines": 145,
+          "head": "Building configuration...\n\nCurrent configuration : 2108 bytes\n!\nversion 15.1\nno service timestamps log datetime msec"
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1421,
+          "lines": 122,
+          "head": "Building configuration...\n\nCurrent configuration : 1357 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        }
+      },
+      "acl": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 183,
+          "lines": 5,
+          "head": "Extended IP access list 100\n    10 deny ip 10.0.0.0 0.255.255.255 any\n    20 deny ip 172.16.0.0 0.15.255.255 any\n    30 deny ip 192.168.0.0 0.0.255.255 any\n    40 permit ip any any\n"
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        }
+      },
+      "nat": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        }
+      },
+      "ipv6": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 495,
+          "lines": 10,
+          "head": "IPv6 Routing Table - 1 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        }
+      },
+      "stp": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        }
+      },
+      "eth": {
+        "R1": {
+          "error": "PtmpError"
+        },
+        "ISP A": {
+          "error": "PtmpError"
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        }
+      },
+      "l3": {
+        "R1": {
+          "ok": true,
+          "observed": true,
+          "chars": 550,
+          "lines": 7,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet0/0     unassigned      YES unset  administratively down down \nGigabitEthernet0/1     unassigned      YES unset  administratively down down \nGigabitEthernet0/2     unassigned      YES unset  administratively down down \nGigabitEthernet0/0/0   unassigned      YES unset  administratively down down \nGigabitEthernet0/1/0   unassigned      YES unset  administratively down down "
+        },
+        "ISP A": {
+          "ok": true,
+          "observed": true,
+          "chars": 852,
+          "lines": 11,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet0/0     unassigned      YES unset  administratively down down \nGigabitEthernet0/1     unassigned      YES unset  administratively down down \nGigabitEthernet0/2     unassigned      YES unset  administratively down down \nGigabitEthernet0/0/0   203.0.113.1     YES manual down                  down \nGigabitEthernet0/1/0   192.0.2.1       YES manual up                    up "
+        },
+        "DSW-A1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2330,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  up                    up \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  up                    up \nGigabitEthernet1/0/5   unassigned      YES unset  up                    up "
+        },
+        "DSW-A2": {
+          "ok": true,
+          "observed": true,
+          "chars": 2330,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  up                    up \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  up                    up \nGigabitEthernet1/0/5   unassigned      YES unset  up                    up "
+        },
+        "DSW-B1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2330,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  up                    up \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  up                    up \nGigabitEthernet1/0/5   unassigned      YES unset  up                    up "
+        },
+        "DSW-B2": {
+          "ok": true,
+          "observed": true,
+          "chars": 2330,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  up                    up \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  up                    up \nGigabitEthernet1/0/5   unassigned      YES unset  up                    up "
+        },
+        "CSW1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2332,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  down                  down \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  down                  down \nGigabitEthernet1/0/5   unassigned      YES unset  down                  down "
+        },
+        "CSW2": {
+          "ok": true,
+          "observed": true,
+          "chars": 2332,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   unassigned      YES unset  down                  down \nGigabitEthernet1/0/2   unassigned      YES unset  up                    up \nGigabitEthernet1/0/3   unassigned      YES unset  up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  down                  down \nGigabitEthernet1/0/5   unassigned      YES unset  down                  down "
+        }
+      }
+    },
+    "error": null
+  },
+  {
+    "lab": "Final_R3_BDSM.pka",
+    "exists": true,
+    "size_bytes": 648421,
+    "devices": [
+      "PC1",
+      "PC2",
+      "PC3",
+      "PC4",
+      "CSwitch1",
+      "Power Distribution Device0",
+      "CSwitch3",
+      "CSwitch2",
+      "L-10",
+      "L-20",
+      "L-30",
+      "Router4",
+      "Power Distribution Device1",
+      "Syslog",
+      "NTP",
+      "MLS",
+      "L-MLS",
+      "ISP-Router",
+      "C-Router",
+      "R-Router",
+      "R-TACACS+",
+      "RSwitch"
+    ],
+    "cli_capable": [
+      "CSwitch1",
+      "CSwitch3",
+      "CSwitch2",
+      "Router4"
+    ],
+    "findings": {
+      "config": {
+        "CSwitch1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1203,
+          "lines": 92,
+          "head": "Building configuration...\n\nCurrent configuration : 1139 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "CSwitch3": {
+          "ok": true,
+          "observed": true,
+          "chars": 1166,
+          "lines": 89,
+          "head": "Building configuration...\n\nCurrent configuration : 1102 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "CSwitch2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1182,
+          "lines": 91,
+          "head": "Building configuration...\n\nCurrent configuration : 1118 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 1911,
+          "lines": 160,
+          "head": "Building configuration...\n\nCurrent configuration : 1847 bytes\n!\nversion 12.4\nno service timestamps log datetime msec"
+        }
+      },
+      "acl": {
+        "CSwitch1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSwitch3": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "CSwitch2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        }
+      },
+      "nat": {
+        "CSwitch1": {
+          "error": "PtmpError"
+        },
+        "CSwitch3": {
+          "error": "PtmpError"
+        },
+        "CSwitch2": {
+          "error": "PtmpError"
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        }
+      },
+      "ipv6": {
+        "CSwitch1": {
+          "error": "PtmpError"
+        },
+        "CSwitch3": {
+          "error": "PtmpError"
+        },
+        "CSwitch2": {
+          "error": "PtmpError"
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        }
+      },
+      "stp": {
+        "CSwitch1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "CSwitch3": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "CSwitch2": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        }
+      },
+      "eth": {
+        "CSwitch1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "CSwitch3": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "CSwitch2": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "Router4": {
+          "error": "PtmpError"
+        }
+      },
+      "l3": {
+        "CSwitch1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2180,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual up                    up \nFastEthernet0/2        unassigned      YES manual up                    up \nFastEthernet0/3        unassigned      YES manual up                    up \nFastEthernet0/4        unassigned      YES manual up                    up \nFastEthernet0/5        unassigned      YES manual down                  down "
+        },
+        "CSwitch3": {
+          "ok": true,
+          "observed": true,
+          "chars": 2180,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual up                    up \nFastEthernet0/2        unassigned      YES manual up                    up \nFastEthernet0/3        unassigned      YES manual up                    up \nFastEthernet0/4        unassigned      YES manual up                    up \nFastEthernet0/5        unassigned      YES manual down                  down "
+        },
+        "CSwitch2": {
+          "ok": true,
+          "observed": true,
+          "chars": 2182,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual up                    up \nFastEthernet0/2        unassigned      YES manual up                    up \nFastEthernet0/3        unassigned      YES manual up                    up \nFastEthernet0/4        unassigned      YES manual down                  down \nFastEthernet0/5        unassigned      YES manual down                  down "
+        },
+        "Router4": {
+          "ok": true,
+          "observed": true,
+          "chars": 1876,
+          "lines": 24,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/0        unassigned      YES unset  administratively down down \nFastEthernet0/1        unassigned      YES unset  administratively down down \nSerial0/0/0            192.168.33.2    YES manual up                    down \nSerial0/0/1            unassigned      YES unset  administratively down down \nSerial0/1/0            unassigned      YES unset  administratively down down "
+        }
+      }
+    },
+    "error": null
+  },
+  {
+    "lab": "Modules_1-13_Image.pka",
+    "exists": true,
+    "size_bytes": 30037896,
+    "devices": [],
+    "cli_capable": [],
+    "findings": {},
+    "error": "BackendUnavailable: live backend failed: could not open the lab in Packet Tracer: fileOpen timed out after 60.0s"
+  },
+  {
+    "lab": "R3_OKCUP_24_25_CiscoPT(1).pka",
+    "exists": true,
+    "size_bytes": 2464750,
+    "devices": [
+      "Bowser's Castle Router 1",
+      "Island's First Watchtower",
+      "Bowser's Castle Switch 1",
+      "DK Jungle Router 1",
+      "DK Jungle Switch 1",
+      "Warp Zone Layer 3 Switch 1",
+      "Bowser's Castle PC 1",
+      "DK Jungle PC 1",
+      "Toad Town Switch 1",
+      "Toad Town Switch 2",
+      "Toad Town PC1",
+      "Toad Town PC2",
+      "Toad Town PC3",
+      "Toad Town Server 1",
+      "Mushroom Kingdom Router 1",
+      "Mushroom Kingdom Switch 1",
+      "Mushroom Kingdom Server 1",
+      "Internet (Server) 1",
+      "Internet (Router) 1",
+      "Internet (Layer 2 Switch) 1",
+      "Warp Zone Layer 3 Switch 2",
+      "Rainbow Road Layer 3 Switch 1",
+      "Rainbow Road Layer 3 Switch 2",
+      "DK Jungle PC 2",
+      "Power Distribution Device0",
+      "Peach's Castle Router 1",
+      "Yoshi's Island  Router 1",
+      "Power Distribution Device1",
+      "Peach's Castle Switch 1",
+      "Yoshi's Island Switch 1",
+      "Peach's Castle PC 1",
+      "Peach's Castle PC 2",
+      "Yoshi's Island Server 1"
+    ],
+    "cli_capable": [
+      "Bowser's Castle Router 1",
+      "Bowser's Castle Switch 1",
+      "DK Jungle Router 1",
+      "DK Jungle Switch 1",
+      "Warp Zone Layer 3 Switch 1",
+      "Toad Town Switch 1",
+      "Toad Town Switch 2"
+    ],
+    "findings": {
+      "config": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1369,
+          "lines": 108,
+          "head": "Building configuration...\n\nCurrent configuration : 1305 bytes\n!\nversion 15.1\nno service timestamps log datetime msec"
+        },
+        "Bowser's Castle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1192,
+          "lines": 89,
+          "head": "Building configuration...\n\nCurrent configuration : 1128 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1621,
+          "lines": 117,
+          "head": "Building configuration...\n\nCurrent configuration : 1557 bytes\n!\nversion 15.1\nno service timestamps log datetime msec"
+        },
+        "DK Jungle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1279,
+          "lines": 93,
+          "head": "Building configuration...\n\nCurrent configuration : 1215 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2636,
+          "lines": 188,
+          "head": "Building configuration...\n\nCurrent configuration : 2572 bytes\n!\nversion 16.3.2\nno service timestamps log datetime msec"
+        },
+        "Toad Town Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1655,
+          "lines": 120,
+          "head": "Building configuration...\n\nCurrent configuration : 1591 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        },
+        "Toad Town Switch 2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1655,
+          "lines": 120,
+          "head": "Building configuration...\n\nCurrent configuration : 1591 bytes\n!\nversion 15.0\nno service timestamps log datetime msec"
+        }
+      },
+      "acl": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 227,
+          "lines": 7,
+          "head": "Extended IP access list sl_def_acl\n    10 deny tcp any any eq telnet\n    20 deny tcp any any eq www\n    30 deny tcp any any eq 22\n    40 permit tcp any any eq 22\nStandard IP access list 10"
+        },
+        "Bowser's Castle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 164,
+          "lines": 5,
+          "head": "Extended IP access list sl_def_acl\n    10 deny tcp any any eq telnet\n    20 deny tcp any any eq www\n    30 deny tcp any any eq 22\n    40 permit tcp any any eq 22\n"
+        },
+        "DK Jungle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Toad Town Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Toad Town Switch 2": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        }
+      },
+      "nat": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Bowser's Castle Switch 1": {
+          "error": "PtmpError"
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "DK Jungle Switch 1": {
+          "error": "PtmpError"
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 1,
+          "lines": 0,
+          "head": ""
+        },
+        "Toad Town Switch 1": {
+          "error": "PtmpError"
+        },
+        "Toad Town Switch 2": {
+          "error": "PtmpError"
+        }
+      },
+      "ipv6": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "Bowser's Castle Switch 1": {
+          "error": "PtmpError"
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "DK Jungle Switch 1": {
+          "error": "PtmpError"
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 452,
+          "lines": 8,
+          "head": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2"
+        },
+        "Toad Town Switch 1": {
+          "error": "PtmpError"
+        },
+        "Toad Town Switch 2": {
+          "error": "PtmpError"
+        }
+      },
+      "stp": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "Bowser's Castle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "DK Jungle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 783,
+          "lines": 16,
+          "head": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 703,
+          "lines": 15,
+          "head": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "Toad Town Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 945,
+          "lines": 18,
+          "head": "Switch is in pvst mode\nRoot bridge for: default VLAN0100 VLAN0200\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        },
+        "Toad Town Switch 2": {
+          "ok": true,
+          "observed": true,
+          "chars": 945,
+          "lines": 18,
+          "head": "Switch is in pvst mode\nRoot bridge for: default VLAN0100 VLAN0200\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled"
+        }
+      },
+      "eth": {
+        "Bowser's Castle Router 1": {
+          "error": "PtmpError"
+        },
+        "Bowser's Castle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "DK Jungle Router 1": {
+          "error": "PtmpError"
+        },
+        "DK Jungle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "Toad Town Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        },
+        "Toad Town Switch 2": {
+          "ok": true,
+          "observed": true,
+          "chars": 503,
+          "lines": 12,
+          "head": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling"
+        }
+      },
+      "l3": {
+        "Bowser's Castle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 390,
+          "lines": 5,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet0/0     8.249.35.2      YES NVRAM  up                    up \nGigabitEthernet0/1     unassigned      YES manual administratively down down \nGigabitEthernet0/2     5.20.207.6      YES manual up                    up \nVlan1                  unassigned      YES unset  administratively down down\n"
+        },
+        "Bowser's Castle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2184,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual up                    up \nFastEthernet0/2        unassigned      YES manual down                  down \nFastEthernet0/3        unassigned      YES manual down                  down \nFastEthernet0/4        unassigned      YES manual down                  down \nFastEthernet0/5        unassigned      YES manual down                  down "
+        },
+        "DK Jungle Router 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 540,
+          "lines": 7,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet0/0     191.139.147.2   YES manual up                    up \nGigabitEthernet0/1     unassigned      YES manual up                    up \nGigabitEthernet0/1.1   172.16.214.1    YES manual up                    up \nGigabitEthernet0/1.2   10.222.83.1     YES manual up                    up \nGigabitEthernet0/2     122.16.128.6    YES manual up                    up "
+        },
+        "DK Jungle Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2182,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual up                    up \nFastEthernet0/2        unassigned      YES manual administratively down down \nFastEthernet0/3        unassigned      YES manual down                  down \nFastEthernet0/4        unassigned      YES manual down                  down \nFastEthernet0/5        unassigned      YES manual down                  down "
+        },
+        "Warp Zone Layer 3 Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2328,
+          "lines": 30,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nGigabitEthernet1/0/1   157.186.124.2   YES manual up                    up \nGigabitEthernet1/0/2   8.249.35.1      YES manual up                    up \nGigabitEthernet1/0/3   191.139.147.1   YES manual up                    up \nGigabitEthernet1/0/4   unassigned      YES unset  administratively down down \nGigabitEthernet1/0/5   unassigned      YES unset  administratively down down "
+        },
+        "Toad Town Switch 1": {
+          "ok": true,
+          "observed": true,
+          "chars": 2180,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual administratively down down \nFastEthernet0/2        unassigned      YES manual up                    up \nFastEthernet0/3        unassigned      YES manual up                    up \nFastEthernet0/4        unassigned      YES manual administratively down down \nFastEthernet0/5        unassigned      YES manual administratively down down "
+        },
+        "Toad Town Switch 2": {
+          "ok": true,
+          "observed": true,
+          "chars": 2180,
+          "lines": 28,
+          "head": "Interface              IP-Address      OK? Method Status                Protocol \nFastEthernet0/1        unassigned      YES manual administratively down down \nFastEthernet0/2        unassigned      YES manual up                    up \nFastEthernet0/3        unassigned      YES manual up                    up \nFastEthernet0/4        unassigned      YES manual administratively down down \nFastEthernet0/5        unassigned      YES manual administratively down down "
+        }
+      }
+    },
+    "error": null
+  }
+]

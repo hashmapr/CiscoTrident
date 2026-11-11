@@ -1,0 +1,686 @@
+{
+  "generated_at": "2026-11-10T23:53:31.127921+00:00",
+  "lab": "Final_R3_BDSM.pka",
+  "lab_path": "/Users/tanayshah/CiscoTrident/test-labs/incoming/Final_R3_BDSM.pka",
+  "source_sha256": "9714f74ee749944f5f4fc332aa8a2ccad34a4d53a5d7230baf20ae103e3c2244",
+  "simulator_version": "9.0.1",
+  "backend": "SIMULATOR_LIVE",
+  "session_id": "925c6e9dc34d4ff7afc55533a404340f",
+  "devices_probed": [
+    "CSwitch1",
+    "CSwitch3",
+    "CSwitch2",
+    "Router4",
+    "MLS"
+  ],
+  "observations": [
+    {
+      "protocol": "STP",
+      "device": "CSwitch1",
+      "command": "show spanning-tree summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------\nVLAN0001                     0         4        0          0          4\n\n---------------------- -------- --------- -------- ---------- ----------\n1 vlans                      0         4        0          0          4\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "CSwitch1",
+      "command": "show spanning-tree",
+      "ok": true,
+      "observed": true,
+      "raw": "VLAN0001\n  Spanning tree enabled protocol ieee\n  Root ID    Priority    32769\n             Address     000B.BE4C.B350\n             This bridge is the root\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n\n  Bridge ID  Priority    32769  (priority 32768 sys-id-ext 1)\n             Address     000B.BE4C.B350\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n             Aging Time  20\n\nInterface        Role Sts Cost      Prio.Nbr Type\n---------------- ---- --- --------- -------- --------------------------------\nFa0/4            Desg LIS 19        128.4    P2p\nFa0/3            Desg LIS 19        128.3    P2p\nFa0/2            Desg LIS 19        128.2    P2p\nFa0/1            Desg LIS 19        128.1    P2p\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "EtherChannel",
+      "device": "CSwitch1",
+      "command": "show etherchannel summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling\n        w - waiting to be aggregated\n        d - default port\n\n\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n\n",
+      "error": null,
+      "operation": "show etherchannel summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch1",
+      "command": "show ip nat translations",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch1 returned status 2 for 'show ip nat translations'",
+      "operation": "show ip nat translations",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch1",
+      "command": "show ip nat statistics",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch1 returned status 2 for 'show ip nat statistics'",
+      "operation": "show ip nat statistics",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch1",
+      "command": "show ipv6 interface brief",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch1 returned status 2 for 'show ipv6 interface brief'",
+      "operation": "show ipv6 interface brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch1",
+      "command": "show ipv6 route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch1 returned status 2 for 'show ipv6 route'",
+      "operation": "show ipv6 route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ACL",
+      "device": "CSwitch1",
+      "command": "show access-lists",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show access-lists",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch1",
+      "command": "show vlan brief",
+      "ok": true,
+      "observed": true,
+      "raw": "\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/5, Fa0/6, Fa0/7, Fa0/8\n                                                Fa0/9, Fa0/10, Fa0/11, Fa0/12\n                                                Fa0/13, Fa0/14, Fa0/15, Fa0/16\n                                                Fa0/17, Fa0/18, Fa0/19, Fa0/20\n                                                Fa0/21, Fa0/22, Fa0/23, Fa0/24\n                                                Gig0/1, Gig0/2\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    \n\n",
+      "error": null,
+      "operation": "show vlan brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch1",
+      "command": "show interfaces status",
+      "ok": true,
+      "observed": true,
+      "raw": "Port      Name               Status       Vlan       Duplex  Speed Type\nFa0/1                        connected    1          a-full  a-100 10/100BaseTX\nFa0/2                        connected    1          a-full  a-100 10/100BaseTX\nFa0/3                        connected    1          a-full  a-100 10/100BaseTX\nFa0/4                        connected    1          a-full  a-100 10/100BaseTX\nFa0/5                        notconnect   1          auto    auto  10/100BaseTX\nFa0/6                        notconnect   1          auto    auto  10/100BaseTX\nFa0/7                        notconnect   1          auto    auto  10/100BaseTX\nFa0/8                        notconnect   1          auto    auto  10/100BaseTX\nFa0/9                        notconnect   1          auto    auto  10/100BaseTX\nFa0/10                       notconnect   1          auto    auto  10/100BaseTX\nFa0/11                       notconnect   1          auto    auto  10/100BaseTX\nFa0/12                       notconnect   1          auto    auto  10/100BaseTX\nFa0/13                       notconnect   1          auto    auto  10/100BaseTX\nFa0/14                       notconnect   1          auto    auto  10/100BaseTX\nFa0/15                       notconnect   1          auto    auto  10/100BaseTX\nFa0/16                       notconnect   1          auto    auto  10/100BaseTX\nFa0/17                       notconnect   1          auto    auto  10/100BaseTX\nFa0/18                       notconnect   1          auto    auto  10/100BaseTX\nFa0/19                       notconnect   1          auto    auto  10/100BaseTX\nFa0/20                       notconnect   1          auto    auto  10/100BaseTX\nFa0/21                       notconnect   1          auto    auto  10/100BaseTX\nFa0/22                       notconnect   1          auto    auto  10/100BaseTX\nFa0/23                       notconnect   1          auto    auto  10/100BaseTX\nFa0/24                       notconnect   1          auto    auto  10/100BaseTX\nGig0/1                       notconnect   1          auto    auto  10/100/1000BaseTX\nGig0/2                       notconnect   1          auto    auto  10/100/1000BaseTX\n\n\n",
+      "error": null,
+      "operation": "show interfaces status",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ROUTE",
+      "device": "CSwitch1",
+      "command": "show ip route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch1 returned status 2 for 'show ip route'",
+      "operation": "show ip route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "CSwitch3",
+      "command": "show spanning-tree summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------\nVLAN0001                     0         4        0          0          4\n\n---------------------- -------- --------- -------- ---------- ----------\n1 vlans                      0         4        0          0          4\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "CSwitch3",
+      "command": "show spanning-tree",
+      "ok": true,
+      "observed": true,
+      "raw": "VLAN0001\n  Spanning tree enabled protocol ieee\n  Root ID    Priority    32769\n             Address     0001.C96B.0517\n             This bridge is the root\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n\n  Bridge ID  Priority    32769  (priority 32768 sys-id-ext 1)\n             Address     0001.C96B.0517\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n             Aging Time  20\n\nInterface        Role Sts Cost      Prio.Nbr Type\n---------------- ---- --- --------- -------- --------------------------------\nFa0/3            Desg LIS 19        128.3    P2p\nFa0/4            Desg LIS 19        128.4    P2p\nFa0/1            Desg LIS 19        128.1    P2p\nFa0/2            Desg LIS 19        128.2    P2p\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "EtherChannel",
+      "device": "CSwitch3",
+      "command": "show etherchannel summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling\n        w - waiting to be aggregated\n        d - default port\n\n\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n\n",
+      "error": null,
+      "operation": "show etherchannel summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch3",
+      "command": "show ip nat translations",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch3 returned status 2 for 'show ip nat translations'",
+      "operation": "show ip nat translations",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch3",
+      "command": "show ip nat statistics",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch3 returned status 2 for 'show ip nat statistics'",
+      "operation": "show ip nat statistics",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch3",
+      "command": "show ipv6 interface brief",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch3 returned status 2 for 'show ipv6 interface brief'",
+      "operation": "show ipv6 interface brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch3",
+      "command": "show ipv6 route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch3 returned status 2 for 'show ipv6 route'",
+      "operation": "show ipv6 route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ACL",
+      "device": "CSwitch3",
+      "command": "show access-lists",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show access-lists",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch3",
+      "command": "show vlan brief",
+      "ok": true,
+      "observed": true,
+      "raw": "\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/5, Fa0/6, Fa0/7, Fa0/8\n                                                Fa0/9, Fa0/10, Fa0/11, Fa0/12\n                                                Fa0/13, Fa0/14, Fa0/15, Fa0/16\n                                                Fa0/17, Fa0/18, Fa0/19, Fa0/20\n                                                Fa0/21, Fa0/22, Fa0/23, Fa0/24\n                                                Gig0/1, Gig0/2\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    \n\n",
+      "error": null,
+      "operation": "show vlan brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch3",
+      "command": "show interfaces status",
+      "ok": true,
+      "observed": true,
+      "raw": "Port      Name               Status       Vlan       Duplex  Speed Type\nFa0/1                        connected    1          a-full  a-100 10/100BaseTX\nFa0/2                        connected    1          a-full  a-100 10/100BaseTX\nFa0/3                        connected    1          a-full  a-100 10/100BaseTX\nFa0/4                        connected    1          a-full  a-100 10/100BaseTX\nFa0/5                        notconnect   1          auto    auto  10/100BaseTX\nFa0/6                        notconnect   1          auto    auto  10/100BaseTX\nFa0/7                        notconnect   1          auto    auto  10/100BaseTX\nFa0/8                        notconnect   1          auto    auto  10/100BaseTX\nFa0/9                        notconnect   1          auto    auto  10/100BaseTX\nFa0/10                       notconnect   1          auto    auto  10/100BaseTX\nFa0/11                       notconnect   1          auto    auto  10/100BaseTX\nFa0/12                       notconnect   1          auto    auto  10/100BaseTX\nFa0/13                       notconnect   1          auto    auto  10/100BaseTX\nFa0/14                       notconnect   1          auto    auto  10/100BaseTX\nFa0/15                       notconnect   1          auto    auto  10/100BaseTX\nFa0/16                       notconnect   1          auto    auto  10/100BaseTX\nFa0/17                       notconnect   1          auto    auto  10/100BaseTX\nFa0/18                       notconnect   1          auto    auto  10/100BaseTX\nFa0/19                       notconnect   1          auto    auto  10/100BaseTX\nFa0/20                       notconnect   1          auto    auto  10/100BaseTX\nFa0/21                       notconnect   1          auto    auto  10/100BaseTX\nFa0/22                       notconnect   1          auto    auto  10/100BaseTX\nFa0/23                       notconnect   1          auto    auto  10/100BaseTX\nFa0/24                       notconnect   1          auto    auto  10/100BaseTX\nGig0/1                       notconnect   1          auto    auto  10/100/1000BaseTX\nGig0/2                       notconnect   1          auto    auto  10/100/1000BaseTX\n\n\n",
+      "error": null,
+      "operation": "show interfaces status",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ROUTE",
+      "device": "CSwitch3",
+      "command": "show ip route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch3 returned status 2 for 'show ip route'",
+      "operation": "show ip route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "CSwitch2",
+      "command": "show spanning-tree summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------\nVLAN0001                     0         3        0          0          3\n\n---------------------- -------- --------- -------- ---------- ----------\n1 vlans                      0         3        0          0          3\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "CSwitch2",
+      "command": "show spanning-tree",
+      "ok": true,
+      "observed": true,
+      "raw": "VLAN0001\n  Spanning tree enabled protocol ieee\n  Root ID    Priority    32769\n             Address     000B.BED6.EE08\n             This bridge is the root\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n\n  Bridge ID  Priority    32769  (priority 32768 sys-id-ext 1)\n             Address     000B.BED6.EE08\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n             Aging Time  20\n\nInterface        Role Sts Cost      Prio.Nbr Type\n---------------- ---- --- --------- -------- --------------------------------\nFa0/1            Desg LIS 19        128.1    P2p\nFa0/2            Desg LIS 19        128.2    P2p\nFa0/3            Desg LIS 19        128.3    P2p\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "EtherChannel",
+      "device": "CSwitch2",
+      "command": "show etherchannel summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling\n        w - waiting to be aggregated\n        d - default port\n\n\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n\n",
+      "error": null,
+      "operation": "show etherchannel summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch2",
+      "command": "show ip nat translations",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch2 returned status 2 for 'show ip nat translations'",
+      "operation": "show ip nat translations",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "CSwitch2",
+      "command": "show ip nat statistics",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch2 returned status 2 for 'show ip nat statistics'",
+      "operation": "show ip nat statistics",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch2",
+      "command": "show ipv6 interface brief",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch2 returned status 2 for 'show ipv6 interface brief'",
+      "operation": "show ipv6 interface brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "CSwitch2",
+      "command": "show ipv6 route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch2 returned status 2 for 'show ipv6 route'",
+      "operation": "show ipv6 route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ACL",
+      "device": "CSwitch2",
+      "command": "show access-lists",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show access-lists",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch2",
+      "command": "show vlan brief",
+      "ok": true,
+      "observed": true,
+      "raw": "\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/5, Fa0/6, Fa0/7, Fa0/8\n                                                Fa0/9, Fa0/10, Fa0/11, Fa0/12\n                                                Fa0/13, Fa0/14, Fa0/15, Fa0/16\n                                                Fa0/17, Fa0/18, Fa0/19, Fa0/20\n                                                Fa0/21, Fa0/22, Fa0/23, Fa0/24\n                                                Gig0/1, Gig0/2\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    \n\n",
+      "error": null,
+      "operation": "show vlan brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "CSwitch2",
+      "command": "show interfaces status",
+      "ok": true,
+      "observed": true,
+      "raw": "Port      Name               Status       Vlan       Duplex  Speed Type\nFa0/1                        connected    1          a-full  a-100 10/100BaseTX\nFa0/2                        connected    1          a-full  a-100 10/100BaseTX\nFa0/3                        connected    1          a-full  a-100 10/100BaseTX\nFa0/4                        notconnect   1          auto    auto  10/100BaseTX\nFa0/5                        notconnect   1          auto    auto  10/100BaseTX\nFa0/6                        notconnect   1          auto    auto  10/100BaseTX\nFa0/7                        notconnect   1          auto    auto  10/100BaseTX\nFa0/8                        notconnect   1          auto    auto  10/100BaseTX\nFa0/9                        notconnect   1          auto    auto  10/100BaseTX\nFa0/10                       notconnect   1          auto    auto  10/100BaseTX\nFa0/11                       notconnect   1          auto    auto  10/100BaseTX\nFa0/12                       notconnect   1          auto    auto  10/100BaseTX\nFa0/13                       notconnect   1          auto    auto  10/100BaseTX\nFa0/14                       notconnect   1          auto    auto  10/100BaseTX\nFa0/15                       notconnect   1          auto    auto  10/100BaseTX\nFa0/16                       notconnect   1          auto    auto  10/100BaseTX\nFa0/17                       notconnect   1          auto    auto  10/100BaseTX\nFa0/18                       notconnect   1          auto    auto  10/100BaseTX\nFa0/19                       notconnect   1          auto    auto  10/100BaseTX\nFa0/20                       notconnect   1          auto    auto  10/100BaseTX\nFa0/21                       notconnect   1          auto    auto  10/100BaseTX\nFa0/22                       notconnect   1          auto    auto  10/100BaseTX\nFa0/23                       notconnect   1          auto    auto  10/100BaseTX\nFa0/24                       notconnect   1          auto    auto  10/100BaseTX\nGig0/1                       notconnect   1          auto    auto  10/100/1000BaseTX\nGig0/2                       notconnect   1          auto    auto  10/100/1000BaseTX\n\n\n",
+      "error": null,
+      "operation": "show interfaces status",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ROUTE",
+      "device": "CSwitch2",
+      "command": "show ip route",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on CSwitch2 returned status 2 for 'show ip route'",
+      "operation": "show ip route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "Router4",
+      "command": "show spanning-tree summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Switch is in pvst mode\nRoot bridge for:\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------\n\n---------------------- -------- --------- -------- ---------- ----------\n1 vlans                      0         0        0          0          0\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "Router4",
+      "command": "show spanning-tree",
+      "ok": true,
+      "observed": true,
+      "raw": "\nNo spanning tree instance exists.\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "EtherChannel",
+      "device": "Router4",
+      "command": "show etherchannel summary",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on Router4 returned status 2 for 'show etherchannel summary'",
+      "operation": "show etherchannel summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "Router4",
+      "command": "show ip nat translations",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show ip nat translations",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "Router4",
+      "command": "show ip nat statistics",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show ip nat statistics",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "Router4",
+      "command": "show ipv6 interface brief",
+      "ok": true,
+      "observed": true,
+      "raw": "FastEthernet0/0            [administratively down/down]\n    unassigned\nFastEthernet0/1            [administratively down/down]\n    unassigned\nSerial0/0/0                [up/down]\n    unassigned\nSerial0/0/1                [administratively down/down]\n    unassigned\nSerial0/1/0                [administratively down/down]\n    unassigned\nSerial0/1/1                [administratively down/down]\n    unassigned\nFastEthernet1/0            [administratively down/down]\nFastEthernet1/1            [administratively down/down]\nFastEthernet1/2            [administratively down/down]\nFastEthernet1/3            [administratively down/down]\nFastEthernet1/4            [administratively down/down]\nFastEthernet1/5            [administratively down/down]\nFastEthernet1/6            [administratively down/down]\nFastEthernet1/7            [administratively down/down]\nFastEthernet1/8            [administratively down/down]\nFastEthernet1/9            [administratively down/down]\nFastEthernet1/10           [administratively down/down]\nFastEthernet1/11           [administratively down/down]\nFastEthernet1/12           [administratively down/down]\nFastEthernet1/13           [administratively down/down]\nFastEthernet1/14           [administratively down/down]\nFastEthernet1/15           [administratively down/down]\nVlan1                      [administratively down/down]\n    unassigned\n\n",
+      "error": null,
+      "operation": "show ipv6 interface brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "Router4",
+      "command": "show ipv6 route",
+      "ok": true,
+      "observed": true,
+      "raw": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2\n       ON1 - OSPF NSSA ext 1, ON2 - OSPF NSSA ext 2\n       D - EIGRP, EX - EIGRP external\n\n",
+      "error": null,
+      "operation": "show ipv6 route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ACL",
+      "device": "Router4",
+      "command": "show access-lists",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show access-lists",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "Router4",
+      "command": "show vlan brief",
+      "ok": true,
+      "observed": true,
+      "raw": "\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa1/0, Fa1/1, Fa1/2, Fa1/3\n                                                Fa1/4, Fa1/5, Fa1/6, Fa1/7\n                                                Fa1/8, Fa1/9, Fa1/10, Fa1/11\n                                                Fa1/12, Fa1/13, Fa1/14, Fa1/15\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    \n\n",
+      "error": null,
+      "operation": "show vlan brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "Router4",
+      "command": "show interfaces status",
+      "ok": false,
+      "observed": false,
+      "raw": "",
+      "error": "PtmpError: enterCommand on Router4 returned status 2 for 'show interfaces status'",
+      "operation": "show interfaces status",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ROUTE",
+      "device": "Router4",
+      "command": "show ip route",
+      "ok": true,
+      "observed": true,
+      "raw": "Codes: C - connected, S - static, I - IGRP, R - RIP, M - mobile, B - BGP\n       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area\n       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2\n       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP\n       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area\n       * - candidate default, U - per-user static route, o - ODR\n       P - periodic downloaded static route\n\nGateway of last resort is not set\n\n\n\n",
+      "error": null,
+      "operation": "show ip route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "MLS",
+      "command": "show spanning-tree summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Switch is in pvst mode\nRoot bridge for: default\nExtended system ID           is enabled\nPortfast Default             is disabled\nPortFast BPDU Guard Default  is disabled\nPortfast BPDU Filter Default is disabled\nLoopguard Default            is disabled\nEtherChannel misconfig guard is disabled\nUplinkFast                   is disabled\nBackboneFast                 is disabled\nConfigured Pathcost method used is short\n\nName                   Blocking Listening Learning Forwarding STP Active\n---------------------- -------- --------- -------- ---------- ----------\nVLAN0001                     0         4        0          0          4\n\n---------------------- -------- --------- -------- ---------- ----------\n1 vlans                      0         4        0          0          4\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "STP",
+      "device": "MLS",
+      "command": "show spanning-tree",
+      "ok": true,
+      "observed": true,
+      "raw": "VLAN0001\n  Spanning tree enabled protocol ieee\n  Root ID    Priority    32769\n             Address     0001.633A.837D\n             This bridge is the root\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n\n  Bridge ID  Priority    32769  (priority 32768 sys-id-ext 1)\n             Address     0001.633A.837D\n             Hello Time  2 sec  Max Age 20 sec  Forward Delay 15 sec\n             Aging Time  20\n\nInterface        Role Sts Cost      Prio.Nbr Type\n---------------- ---- --- --------- -------- --------------------------------\nFa0/4            Desg LIS 19        128.4    P2p\nFa0/3            Desg LIS 19        128.3    P2p\nFa0/2            Desg LIS 19        128.2    P2p\nFa0/1            Desg LIS 19        128.1    P2p\n\n\n",
+      "error": null,
+      "operation": "show spanning-tree",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "EtherChannel",
+      "device": "MLS",
+      "command": "show etherchannel summary",
+      "ok": true,
+      "observed": true,
+      "raw": "Flags:  D - down        P - in port-channel\n        I - stand-alone s - suspended\n        H - Hot-standby (LACP only)\n        R - Layer3      S - Layer2\n        U - in use      f - failed to allocate aggregator\n        u - unsuitable for bundling\n        w - waiting to be aggregated\n        d - default port\n\n\nNumber of channel-groups in use: 0\nNumber of aggregators:           0\n\nGroup  Port-channel  Protocol    Ports\n------+-------------+-----------+----------------------------------------------\n\n\n",
+      "error": null,
+      "operation": "show etherchannel summary",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "MLS",
+      "command": "show ip nat translations",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show ip nat translations",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "NAT",
+      "device": "MLS",
+      "command": "show ip nat statistics",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show ip nat statistics",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "MLS",
+      "command": "show ipv6 interface brief",
+      "ok": true,
+      "observed": true,
+      "raw": "FastEthernet0/1            [up/up]\n    unassigned\nFastEthernet0/2            [up/up]\n    unassigned\nFastEthernet0/3            [up/up]\n    unassigned\nFastEthernet0/4            [up/up]\n    unassigned\nFastEthernet0/5            [down/down]\n    unassigned\nFastEthernet0/6            [down/down]\n    unassigned\nFastEthernet0/7            [down/down]\n    unassigned\nFastEthernet0/8            [down/down]\n    unassigned\nFastEthernet0/9            [down/down]\n    unassigned\nFastEthernet0/10           [down/down]\n    unassigned\nFastEthernet0/11           [down/down]\n    unassigned\nFastEthernet0/12           [down/down]\n    unassigned\nFastEthernet0/13           [down/down]\n    unassigned\nFastEthernet0/14           [down/down]\n    unassigned\nFastEthernet0/15           [down/down]\n    unassigned\nFastEthernet0/16           [down/down]\n    unassigned\nFastEthernet0/17           [down/down]\n    unassigned\nFastEthernet0/18           [down/down]\n    unassigned\nFastEthernet0/19           [down/down]\n    unassigned\nFastEthernet0/20           [down/down]\n    unassigned\nFastEthernet0/21           [down/down]\n    unassigned\nFastEthernet0/22           [down/down]\n    unassigned\nFastEthernet0/23           [down/down]\n    unassigned\nFastEthernet0/24           [down/down]\n    unassigned\nGigabitEthernet0/1         [down/down]\n    unassigned\nGigabitEthernet0/2         [down/down]\n    unassigned\nVlan1                      [administratively down/down]\n    unassigned\n\n",
+      "error": null,
+      "operation": "show ipv6 interface brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "IPv6",
+      "device": "MLS",
+      "command": "show ipv6 route",
+      "ok": true,
+      "observed": true,
+      "raw": "IPv6 Routing Table - 0 entries\nCodes: C - Connected, L - Local, S - Static, R - RIP, B - BGP\n       U - Per-user Static route, M - MIPv6\n       I1 - ISIS L1, I2 - ISIS L2, IA - ISIS interarea, IS - ISIS summary\n       ND - ND Default, NDp - ND Prefix, DCE - Destination, NDr - Redirect\n       O - OSPF intra, OI - OSPF inter, OE1 - OSPF ext 1, OE2 - OSPF ext 2\n       ON1 - OSPF NSSA ext 1, ON2 - OSPF NSSA ext 2\n       D - EIGRP, EX - EIGRP external\n\n",
+      "error": null,
+      "operation": "show ipv6 route",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ACL",
+      "device": "MLS",
+      "command": "show access-lists",
+      "ok": true,
+      "observed": true,
+      "raw": "\n",
+      "error": null,
+      "operation": "show access-lists",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "MLS",
+      "command": "show vlan brief",
+      "ok": true,
+      "observed": true,
+      "raw": "\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/5, Fa0/6, Fa0/7, Fa0/8\n                                                Fa0/9, Fa0/10, Fa0/11, Fa0/12\n                                                Fa0/13, Fa0/14, Fa0/15, Fa0/16\n                                                Fa0/17, Fa0/18, Fa0/19, Fa0/20\n                                                Fa0/21, Fa0/22, Fa0/23, Fa0/24\n                                                Gig0/1, Gig0/2\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    \n\n",
+      "error": null,
+      "operation": "show vlan brief",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "L2",
+      "device": "MLS",
+      "command": "show interfaces status",
+      "ok": true,
+      "observed": true,
+      "raw": "Port      Name               Status       Vlan       Duplex  Speed Type\nFa0/1                        connected    1          a-full  a-100 10/100BaseTX\nFa0/2                        connected    1          a-full  a-100 10/100BaseTX\nFa0/3                        connected    1          a-full  a-100 10/100BaseTX\nFa0/4                        connected    1          a-full  a-100 10/100BaseTX\nFa0/5                        notconnect   1          auto    auto  10/100BaseTX\nFa0/6                        notconnect   1          auto    auto  10/100BaseTX\nFa0/7                        notconnect   1          auto    auto  10/100BaseTX\nFa0/8                        notconnect   1          auto    auto  10/100BaseTX\nFa0/9                        notconnect   1          auto    auto  10/100BaseTX\nFa0/10                       notconnect   1          auto    auto  10/100BaseTX\nFa0/11                       notconnect   1          auto    auto  10/100BaseTX\nFa0/12                       notconnect   1          auto    auto  10/100BaseTX\nFa0/13                       notconnect   1          auto    auto  10/100BaseTX\nFa0/14                       notconnect   1          auto    auto  10/100BaseTX\nFa0/15                       notconnect   1          auto    auto  10/100BaseTX\nFa0/16                       notconnect   1          auto    auto  10/100BaseTX\nFa0/17                       notconnect   1          auto    auto  10/100BaseTX\nFa0/18                       notconnect   1          auto    auto  10/100BaseTX\nFa0/19                       notconnect   1          auto    auto  10/100BaseTX\nFa0/20                       notconnect   1          auto    auto  10/100BaseTX\nFa0/21                       notconnect   1          auto    auto  10/100BaseTX\nFa0/22                       notconnect   1          auto    auto  10/100BaseTX\nFa0/23                       notconnect   1          auto    auto  10/100BaseTX\nFa0/24                       notconnect   1          auto    auto  10/100BaseTX\nGig0/1                       notconnect   1          auto    auto  10/100/1000BaseTX\nGig0/2                       notconnect   1          auto    auto  10/100/1000BaseTX\n\n\n",
+      "error": null,
+      "operation": "show interfaces status",
+      "backend": "SIMULATOR_LIVE"
+    },
+    {
+      "protocol": "ROUTE",
+      "device": "MLS",
+      "command": "show ip route",
+      "ok": true,
+      "observed": true,
+      "raw": "Default gateway is not set\n\nHost               Gateway           Last Use    Total Uses  Interface\nICMP redirect cache is empty\n\n\n",
+      "error": null,
+      "operation": "show ip route",
+      "backend": "SIMULATOR_LIVE"
+    }
+  ],
+  "lifecycle": {
+    "close_note": "CLEANED/backend=CLIENT_CLOSED+TERMINATED/source=INTACT",
+    "source_sha_after": "9714f74ee749944f5f4fc332aa8a2ccad34a4d53a5d7230baf20ae103e3c2244",
+    "source_unchanged": true,
+    "owned_pids_after": []
+  },
+  "errors": [],
+  "capabilities": [
+    "ACL_VIEW",
+    "INTERFACE_STATUS",
+    "PING",
+    "ROUTING_TABLE",
+    "RUN_CLI",
+    "SEND_PDU",
+    "TRACEROUTE",
+    "VLAN_TABLE"
+  ],
+  "devices_skipped": [
+    {
+      "device": "PC1",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "PC2",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "PC3",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "PC4",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "Power Distribution Device0",
+      "reason": "PtmpError: IPC error from enterCommand: ['Device', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "L-10",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "L-20",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "L-30",
+      "reason": "PtmpError: IPC error from enterCommand: ['Pc', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "Power Distribution Device1",
+      "reason": "PtmpError: IPC error from enterCommand: ['Device', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "Syslog",
+      "reason": "PtmpError: IPC error from enterCommand: ['Server', 'IPC call \"enterCommand\" not found']"
+    },
+    {
+      "device": "NTP",
+      "reason": "PtmpError: IPC error from enterCommand: ['Server', 'IPC call \"enterCommand\" not found']"
+    }
+  ]
+}
