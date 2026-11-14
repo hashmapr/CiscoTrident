@@ -7,7 +7,7 @@ import sys
 
 def main() -> int:
     try:
-        from .server import run
+        from .cli import main as cli_main
     except ImportError as exc:  # pragma: no cover
         print(
             "TRIDENT dependencies are missing. Install them with:\n"
@@ -16,8 +16,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    run()
-    return 0
+    return cli_main()
 
 
 if __name__ == "__main__":
