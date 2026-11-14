@@ -1235,6 +1235,10 @@ def detect_weak_management(
             continue
         ssh = any(line.startswith("transport input") and "ssh" in line for line in lines)
         login_local = any(line.strip() == "login local" for line in lines)
+        # Plain `login` is a valid vty authentication method (it uses the line
+        # password). Treating its absence of `login local` as a defect reported
+        # three healthy, working devices as broken.
+        any_login = login_local or any(line.strip() == "login" for line in lines)
         local_user = any(line.startswith("username ") for line in lines)
         enable_secret = any(
             line.startswith(("enable secret", "enable password")) for line in lines
@@ -1256,9 +1260,10 @@ def detect_weak_management(
                     "Create a local username for SSH authentication.",
                 )
             )
-        elif ssh and not login_local:
+        elif ssh and not any_login:
             detail = (
-                f"{device} enables SSH but its vty lines use no local login method"
+                f"{device} enables SSH but its vty lines define no authentication "
+                f"method at all"
             )
             found.append(
                 _hypothesis(
@@ -1303,9 +1308,21 @@ def detect_trunk_vlan_gap(
     for interface in _interfaces(model):
         by_device[interface.device].append(interface)
 
+    # A trunk that omits an *undefined* VLAN is not the defect: the port in that
+    # VLAN is, and detect_wrong_vlan already reports it. Firing here too turns
+    # one fault into two findings on two different objects.
+    declared = {vlan.vlan_id for vlan in model.vlans}
+
     for device, interfaces in by_device.items():
         trunks = [i for i in interfaces if _is_trunk(i)]
         if not trunks:
+            continue
+        # Only a SINGLE uplink must carry every local VLAN. On a switch with two
+        # or more trunks a VLAN may legitimately travel only one way, so the
+        # absence of a VLAN from one trunk is not evidence of a fault. The
+        # earlier version fired on every trunk and reported a defect on a
+        # healthy switch that simply had a VLAN-20-only link to its neighbour.
+        if len(trunks) > 1:
             continue
         access_vlans: dict[int, list[str]] = defaultdict(list)
         for interface in interfaces:
@@ -1320,6 +1337,9 @@ def detect_trunk_vlan_gap(
                 continue
             for vlan, ports in sorted(access_vlans.items()):
                 if vlan in allowed:
+                    continue
+                if declared and vlan not in declared:
+                    # Undefined VLAN: the access port is the fault, not the trunk.
                     continue
                 detail = (
                     f"{device}:{trunk.name} does not permit VLAN {vlan}, but "
