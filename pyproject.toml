@@ -38,21 +38,14 @@ dev = ["pytest>=7.4", "pytest-asyncio>=0.23"]
 [project.scripts]
 trident = "trident.__main__:main"
 
-[tool.setuptools]
-packages = [
-  "trident",
-  "trident.parsers",
-  "trident.normalization",
-  "trident.verification",
-  "trident.reasoning",
-  "trident.tools",
-  "trident.requirements",
-  "trident.compliance",
-  "trident.remediation",
-  "trident.knowledge",
-  "trident.security",
-  "trident.diff",
-]
+[tool.setuptools.packages.find]
+# Discovery rather than a hand-maintained list. The previous explicit list had
+# drifted: ten packages (deepcore, simulator, faultlab, diagnostics, evidence,
+# evolve, investigation, pktcrypto, tracker, wireless) were absent from every
+# wheel, so an installed TRIDENT could not import its own simulator or practice
+# engine while the source checkout worked fine. tests/test_packaging.py now
+# fails if discovery ever drops a real package again.
+include = ["trident*"]
 
 [tool.setuptools.package-data]
 trident = ["web/*.html", "web/*.js", "web/*.css", "parsers/*.mjs"]
