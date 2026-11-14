@@ -352,6 +352,23 @@ def credentials_from_env() -> tuple[str, str] | None:
     return env_pair
 
 
+def _connection_refused(host: str, port: int) -> bool:
+    """True when nothing is listening on ``host:port``.
+
+    A refused connection is the only positive proof that a port is free at this
+    instant; a timeout means something dropped the SYN and tells us nothing.
+    """
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=0.4):
+            return False
+    except ConnectionRefusedError:
+        return True
+    except OSError:
+        return False
+
+
 class ProcessSupervisor:
     """Owns one Packet Tracer process.
 
@@ -391,6 +408,15 @@ class ProcessSupervisor:
             self.ipc_port = self._choose_port()
             self._chosen_port = True
 
+        # The reservation `_choose_port` made is released the moment it returns,
+        # so a racing process can bind the port between that check and our Popen.
+        # Packet Tracer would then fail to bind its own port and `_wait_for_listener`
+        # would attach to the stranger — the exact "wrong lab, wrong state" failure
+        # the reservation exists to prevent. Record that the port was refused
+        # *before* spawn, then require it to be refused again right after: only
+        # once we see it go refused -> listening can we call the listener ours.
+        was_refused = _connection_refused("127.0.0.1", self.ipc_port)
+
         args = [str(executable)]
         if self.no_gui:
             args.append("--no-gui")
@@ -407,6 +433,14 @@ class ProcessSupervisor:
             )
         self._spawned_here = True
         self.started_at = time.monotonic()
+        if not was_refused:
+            # Something was already listening when we picked: attaching now would
+            # be unprovable, so fail instead of guessing.
+            self.stop()
+            raise BackendUnavailable(
+                f"port {self.ipc_port} was already in use before Packet Tracer started; "
+                "another instance is racing for the IPC range"
+            )
         port = self._wait_for_listener(
             timeout_s if timeout_s is not None else self.startup_timeout
         )

@@ -343,3 +343,36 @@ def test_connect_cancellation_also_tears_down(monkeypatch) -> None:
         backend.connect()
 
     assert stopped == ["TERMINATED"]
+
+
+def test_start_refuses_a_port_that_was_taken_before_spawn(monkeypatch, tmp_path) -> None:
+    """A port occupied at spawn time must fail, not attach to the stranger.
+
+    ``_choose_port`` releases its reservation before ``Popen``, so a racing
+    process can bind in between. Attaching there would give the session a real
+    but *foreign* Packet Tracer: wrong lab, wrong state, and a cleanup path that
+    must not touch it. The supervisor now proves the port was refused before
+    spawn and fails loudly instead.
+    """
+    import socket
+
+    from trident.simulator import backends
+
+    # A real listener, so the port is provably occupied.
+    holder = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    holder.bind(("127.0.0.1", 0))
+    holder.listen(1)
+    taken = holder.getsockname()[1]
+    try:
+        # A fake executable that would "start": the guard must trip before spawn.
+        exe = tmp_path / "Fake.app" / "Contents" / "MacOS"
+        exe.mkdir(parents=True)
+        (exe / "PacketTracer").write_text("#!/bin/sh\nsleep 30\n")
+        (exe / "PacketTracer").chmod(0o755)
+
+        supervisor = backends.ProcessSupervisor(tmp_path / "Fake.app", ipc_port=taken)
+        with pytest.raises(backends.BackendUnavailable, match="already in use"):
+            supervisor.start(tmp_path, timeout_s=1.0)
+        assert supervisor.process is None or supervisor.process.poll() is not None
+    finally:
+        holder.close()

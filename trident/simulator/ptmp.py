@@ -57,6 +57,11 @@ TYPE_QSTRING = 9
 TYPE_PAIR = 14
 
 MAX_FRAME_BYTES = 64 * 1024 * 1024
+#: Ports scanned when attaching to an already-running Packet Tracer without
+#: ``--ipc-port``. This is the *attach* window, not the launch window: Packet
+#: Tracer's own default is 39000-39009. The supervisor that launches a process
+#: reserves a port from its wider range and passes it explicitly, so a launched
+#: session never depends on discovery at all.
 DEFAULT_PORTS = tuple(range(39000, 39010))
 
 
