@@ -85,6 +85,10 @@ class ParsedConfig:
     default_gateway: str | None = None
     dns_servers: list[str] = field(default_factory=list)
     dhcp_pools: list[str] = field(default_factory=list)
+    #: Per-pool settings, keyed by pool name, in declaration order.
+    dhcp_pool_details: dict[str, dict] = field(default_factory=dict)
+    #: Addresses reserved via ``ip dhcp excluded-address``.
+    dhcp_excluded: list[str] = field(default_factory=list)
     management: list[str] = field(default_factory=list)
     ntp_servers: list[str] = field(default_factory=list)
     line_count: int = 0
@@ -222,6 +226,11 @@ def parse_ace_tokens(tokens: list[str]) -> tuple[str, str | None, str | None, st
     return action, protocol, source, destination, body[index:]
 
 
+#: Commands that appear inside an ``ip dhcp pool`` block. Used to recognise a
+#: pool body without relying on indentation, which Packet Tracer's XML strips.
+_DHCP_BODY_KEYWORDS = frozenset({"network", "default-router", "dns-server", "lease", "domain-name"})
+
+
 def _is_ipv4(token: str) -> bool:
     try:
         ipaddress.IPv4Address(token)
@@ -240,6 +249,7 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
     current_vlan: ParsedVlan | None = None
     current_acl_id: str | None = None
     current_acl_type: str | None = None
+    current_dhcp_pool: str | None = None
 
     for raw_line in lines:
         line = raw_line.strip()
@@ -252,6 +262,19 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
             current_vlan = None
             current_acl_id = None
             current_acl_type = None
+            continue
+
+        # ---- line blocks (line vty / line con / line aux) ----------------------
+        # These are config blocks, but not interface blocks. They must still
+        # *close* an open interface block: without this, `line vty 0 4` left
+        # `current` pointing at the last interface, and every later top-level
+        # command (`ip route`, `ip default-gateway`, ...) was swallowed as an
+        # interface sub-command. That is why R1 parsed with zero routes despite
+        # having a perfectly well-formed `ip route` line.
+        if line.startswith(("line vty", "line con", "line aux")):
+            current = None
+            current_vlan = None
+            current_acl_id = None
             continue
 
         # ---- interface blocks -------------------------------------------------
@@ -312,9 +335,45 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
                 cfg.ntp_servers.append(parts[2])
             continue
 
-        if line.startswith("ip dhcp pool "):
-            cfg.dhcp_pools.append(line.split(None, 3)[3].strip())
+        if line.startswith("ip dhcp excluded-address "):
+            parts = line.split()
+            # `ip dhcp excluded-address A.B.C.D [E.F.G.H]` reserves either one
+            # address or an inclusive range; both ends are recorded so a
+            # gateway inside the range is recognised as reserved.
+            cfg.dhcp_excluded.extend(parts[3:5])
             continue
+
+        # ---- DHCP pool body --------------------------------------------------
+        # A pool's `network`, `default-router` and `dns-server` live in its body,
+        # not on the `ip dhcp pool NAME` header line. Only the name used to be
+        # captured, so no detector could tell a correct pool from a broken one.
+        # A pool body carries no reliable indentation once the config has been
+        # round-tripped through Packet Tracer's <LINE> elements, which strip it.
+        # Recognise the four body keywords instead: they are unambiguous inside
+        # a pool and cannot be confused with a top-level command.
+        if current_dhcp_pool is not None and line.split(" ", 1)[0] in _DHCP_BODY_KEYWORDS:
+            body = line
+            details = cfg.dhcp_pool_details.setdefault(current_dhcp_pool, {})
+            if body.startswith("network "):
+                parts = body.split()
+                if len(parts) >= 3:
+                    details["network"] = parts[1]
+                    details["mask"] = parts[2]
+            elif body.startswith("default-router "):
+                details["default_router"] = body.split(None, 1)[1].strip()
+            elif body.startswith("dns-server "):
+                details["dns_servers"] = body.split()[1:]
+            elif body.startswith("lease "):
+                details["lease"] = body.split(None, 1)[1].strip()
+            continue
+
+        if line.startswith("ip dhcp pool "):
+            pool_name = line.split(None, 3)[3].strip()
+            cfg.dhcp_pools.append(pool_name)
+            cfg.dhcp_pool_details.setdefault(pool_name, {})
+            current_dhcp_pool = pool_name
+            continue
+        current_dhcp_pool = None
 
         if line.startswith(("username ", "enable secret ", "enable password ", "aaa ", "ip ssh ")):
             cfg.management.append(line)

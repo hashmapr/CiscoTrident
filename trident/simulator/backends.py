@@ -43,6 +43,7 @@ from .ptmp import (
     PtmpClient,
     PtmpDisconnected,
     PtmpError,
+    PtmpTimeout,
 )
 
 #: Packet Tracer bundle locations checked, newest first. The environment
@@ -817,8 +818,8 @@ class LiveBackend(Backend):
                 f"{command!r} is not a read-only diagnostic; mutations are disabled"
             )
         try:
-            text = self.client.enter_command(device, command)
-        except PtmpDisconnected as exc:
+            text = self.client.enter_command(device, command, timeout=timeout)
+        except (PtmpDisconnected, PtmpTimeout, PtmpError) as exc:
             return OperationResult(
                 ok=False,
                 kind=ObservationKind.CLI_OUTPUT,

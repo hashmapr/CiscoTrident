@@ -325,7 +325,9 @@ class PtmpClient:
     #: traffic and low enough that a mistaken subscription cannot hang a session.
     MAX_SKIPPED_FRAMES = 5000
 
-    def enter_command(self, device_name: str, command: str, mode: str = "enable") -> str:
+    def enter_command(
+        self, device_name: str, command: str, mode: str = "enable", timeout: float = 60.0
+    ) -> str:
         """Run one CLI command on a device and return its raw text.
 
         Maps to ``CiscoDevice.enterCommand(commandStr, modeStr)`` in the shipped
@@ -337,6 +339,11 @@ class PtmpClient:
         ``"enable"`` and ``"user"``; ``"exec"`` and ``"privileged"`` are rejected
         as ``ERROR_INVALID``, which was verified against 9.0.1 rather than
         assumed from the documentation.
+
+        ``timeout`` is honoured rather than fixed at 60 s. It used to be
+        hard-coded here while ``LiveBackend.run_cli`` accepted and then silently
+        dropped a caller-supplied timeout, so a 5 s budget still blocked for a
+        minute and every layer above believed it had bounded the call.
         """
         fields = self.call(
             [
@@ -344,7 +351,7 @@ class PtmpClient:
                 ("getDevice", [(9, device_name)]),
                 ("enterCommand", [(TYPE_STRING, command), (TYPE_STRING, mode)]),
             ],
-            timeout=60.0,
+            timeout=timeout,
         )
         status = fields[0] if fields else ""
         text = fields[1] if len(fields) > 1 else ""

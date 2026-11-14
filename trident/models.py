@@ -113,6 +113,12 @@ class InterfaceInfo(BaseModel):
     speed: str | None = None
     access_mode: str | None = None
     vlan_assignments: list[str] = Field(default_factory=list)
+    #: Native VLAN on a trunk. ``None`` means "not stated", which is different
+    #: from VLAN 1 (the IOS default): a trunk that omits the command is on 1,
+    #: but only an explicit command lets us compare two ends honestly.
+    native_vlan: int | None = None
+    #: VLANs explicitly permitted by ``switchport trunk allowed vlan``.
+    trunk_allowed: list[str] = Field(default_factory=list)
     description: str | None = None
     provenance: list[Provenance] = Field(default_factory=list)
 
@@ -181,6 +187,10 @@ class SettingsInfo(BaseModel):
     default_gateways: dict[str, str] = Field(default_factory=dict)
     dns_servers: dict[str, list[str]] = Field(default_factory=dict)
     dhcp_configured: list[str] = Field(default_factory=list)
+    #: Per-device DHCP pool settings, keyed device -> pool name -> settings.
+    dhcp_details: dict[str, dict[str, dict]] = Field(default_factory=dict)
+    #: Per-device excluded addresses from ``ip dhcp excluded-address``.
+    dhcp_excluded: dict[str, list[str]] = Field(default_factory=dict)
     software_versions: dict[str, str] = Field(default_factory=dict)
     management: dict[str, list[str]] = Field(default_factory=dict)
     arp_entries: list[str] = Field(default_factory=list)

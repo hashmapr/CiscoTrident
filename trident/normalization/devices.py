@@ -134,7 +134,7 @@ class Normalizer:
         for res in self.results:
             for device, host in res.end_hosts.items():
                 device_obs[device].add(res.engine_id)
-                for field_name in ("ip", "gateway", "dns", "mac"):
+                for field_name in ("ip", "subnet", "gateway", "dns", "mac"):
                     if field_name in host:
                         val = host[field_name]
                         if isinstance(val, list):
@@ -172,6 +172,29 @@ class Normalizer:
                         iface_map[canon] = iface
                     _merge_interface(iface, piface, engine_id, self.snapshot_id)
 
+            # End hosts (PC/Server) have no IOS running-config, so the loop
+            # above creates no interface for them. Their NIC is described only
+            # by engine-specific end-host facts (endhost_ip/endhost_subnet).
+            # Without an InterfaceInfo, _endpoint_address() returns None for
+            # every access port, and the VLAN/trunk/gateway detectors — which
+            # correlate a switch port with the host on the other end — can
+            # never run. That is why a 15-fault lab produced 2 findings.
+            endhost_facts = _endhost_facts(self.results, name)
+            if endhost_facts and not iface_map:
+                nic_canon = "FastEthernet0"
+                nic = InterfaceInfo(
+                    device=name,
+                    name=nic_canon,
+                    canonical_name=nic_canon,
+                    provenance=[
+                        _prov(e, "endhost-xml", self.snapshot_id)
+                        for e in sorted(endhost_facts["_engines"])
+                    ],
+                )
+                nic.ipv4_address = endhost_facts.get("ip")
+                nic.subnet_mask = endhost_facts.get("subnet")
+                nic.prefix_length = _prefix_from_mask(endhost_facts.get("subnet"))
+                iface_map[nic_canon] = nic
             cfg_for_meta = best_cfg.get(name)
             dev = DeviceInfo(
                 id=name,
@@ -291,6 +314,47 @@ class Normalizer:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _endhost_facts(results, device: str) -> dict:
+    """Merged end-host NIC facts for one device, plus which engines saw them.
+
+    ``end_hosts`` is engine-specific (engines A and B populate it from the
+    device XML). Facts are merged with the first non-empty value winning, in
+    deterministic engine order, so two engines cannot produce a value that
+    depends on dict ordering.
+    """
+    merged: dict = {"_engines": set()}
+    for res in sorted(results, key=lambda r: r.engine_id):
+        host = (res.end_hosts or {}).get(device)
+        if not host:
+            continue
+        merged["_engines"].add(res.engine_id)
+        for key in ("ip", "subnet", "gateway", "mac"):
+            value = host.get(key)
+            if value and not merged.get(key):
+                merged[key] = value if isinstance(value, str) else str(value)
+    return merged if merged["_engines"] else {}
+
+
+def _prefix_from_mask(mask: str | None) -> int | None:
+    """Convert a dotted-quad mask to a prefix length, or None if unusable.
+
+    Rejects non-contiguous masks rather than guessing: ``255.0.255.0`` is not a
+    mask, and treating it as /16 would silently mis-correlate subnets.
+    """
+    if not mask:
+        return None
+    try:
+        octets = [int(part) for part in str(mask).split(".")]
+    except (TypeError, ValueError):
+        return None
+    if len(octets) != 4 or any(o < 0 or o > 255 for o in octets):
+        return None
+    bits = "".join(f"{o:08b}" for o in octets)
+    if "01" in bits:  # a zero followed by a one is a hole in the mask
+        return None
+    return bits.count("1")
+
+
 def _merge_interface(iface: InterfaceInfo, piface, engine: str, snapshot: str) -> None:
     prov = _prov(engine, "ios-config", snapshot)
     if prov not in iface.provenance:
@@ -315,6 +379,15 @@ def _merge_interface(iface: InterfaceInfo, piface, engine: str, snapshot: str) -
         iface.access_mode = piface.switchport_mode
     elif piface.access_vlan and not iface.access_mode:
         iface.access_mode = "access"
+    # Native VLAN. Parsed into ParsedInterface since the beginning but never
+    # merged, so every trunk in the model reported native_vlan=None and a native
+    # VLAN mismatch -- one of the most common real trunk faults -- could not be
+    # detected at all.
+    if piface.native_vlan and iface.native_vlan is None:
+        try:
+            iface.native_vlan = int(str(piface.native_vlan).strip())
+        except (TypeError, ValueError):
+            pass
     if piface.access_vlan and piface.access_vlan not in iface.vlan_assignments:
         iface.vlan_assignments.append(piface.access_vlan)
     for vlan in piface.trunk_allowed:
@@ -486,6 +559,18 @@ def _collect_settings(
     results: list[AdapterResult],
 ) -> SettingsInfo:
     info = SettingsInfo()
+    # DHCP pool contents and exclusions. Collected here rather than in the
+    # detectors because they are facts about the configuration, and because a
+    # detector that re-parsed raw config would be a second, divergent parser.
+    for engine in sorted(parsed_by_engine):
+        for device, cfg in sorted(parsed_by_engine[engine].items()):
+            if cfg.dhcp_pool_details and device not in info.dhcp_details:
+                info.dhcp_details[device] = {
+                    name: dict(details)
+                    for name, details in cfg.dhcp_pool_details.items()
+                }
+            if cfg.dhcp_excluded and device not in info.dhcp_excluded:
+                info.dhcp_excluded[device] = list(cfg.dhcp_excluded)
     for engine in sorted(parsed_by_engine):
         for device, cfg in sorted(parsed_by_engine[engine].items()):
             if cfg.default_gateway and device not in info.default_gateways:

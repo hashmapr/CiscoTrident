@@ -52,6 +52,11 @@ ROUTING_LOOP = "ROUTING_LOOP"
 DHCP_MISCONFIGURATION = "DHCP_MISCONFIGURATION"
 DUPLICATE_IP = "DUPLICATE_IP"
 OVERLAPPING_SUBNET = "OVERLAPPING_SUBNET"
+UNREACHABLE_NEXT_HOP = "UNREACHABLE_NEXT_HOP"
+DHCP_POOL_NETWORK = "DHCP_POOL_NETWORK"
+DHCP_POOL_DNS = "DHCP_POOL_DNS"
+UNRESERVED_GATEWAY = "UNRESERVED_GATEWAY"
+WEAK_MANAGEMENT = "WEAK_MANAGEMENT"
 
 _MODEL = "MODEL"
 _RUNTIME = "RUNTIME_STATE"
@@ -664,6 +669,37 @@ def detect_trunk_mismatch(model: NetworkModel, _bundle: EvidenceBundle) -> list[
         if pair in seen:
             continue
         seen.add(pair)
+        # Native VLAN mismatch: the two ends disagree on which VLAN receives
+        # untagged frames. Reported on the end whose value differs from its
+        # peer's, with the peer named, so the student can see both sides.
+        if (
+            interface.native_vlan is not None
+            and peer_iface.native_vlan is not None
+            and interface.native_vlan != peer_iface.native_vlan
+        ):
+            detail = (
+                f"native VLAN mismatch: {interface.device}:{interface.name} uses "
+                f"{interface.native_vlan}, {peer[0]}:{peer[1]} uses "
+                f"{peer_iface.native_vlan}"
+            )
+            found.append(
+                _hypothesis(
+                    TRUNK_MISMATCH,
+                    interface.device,
+                    interface.name,
+                    detail,
+                    (
+                        Observation(
+                            source=_MODEL,
+                            device=interface.device,
+                            detail=detail,
+                        ),
+                    ),
+                    "show interfaces trunk",
+                    "Set both ends of this trunk to the same native VLAN.",
+                )
+            )
+
         local = _vlan_ids(interface.vlan_assignments)
         remote = _vlan_ids(peer_iface.vlan_assignments)
         if not local or not remote or local == remote:
@@ -943,8 +979,324 @@ def detect_dhcp_misconfiguration(model: NetworkModel, _bundle: EvidenceBundle) -
     return found
 
 
+def detect_unreachable_next_hop(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """A static route whose next hop is not on any connected subnet.
+
+    This is a different defect from a *missing* route (which the detector below
+    handles): the route exists and is syntactically fine, but its next hop
+    cannot be reached, so IOS either rejects it or installs a black hole. The
+    original lab contained exactly this — a default route via 10.0.0.6 on a
+    /30 where only .1 and .2 exist — and nothing detected it.
+    """
+    found: list[Hypothesis] = []
+    for route in model.routes:
+        if not route.next_hop:
+            continue
+        try:
+            next_hop = ipaddress.IPv4Address(route.next_hop)
+        except ValueError:
+            # A route via an interface name has no next hop to check.
+            continue
+        connected = _device_networks(model, route.device)
+        if not connected:
+            # No addressing at all: this device's routing cannot be judged, and
+            # saying so is better than calling every route broken.
+            continue
+        if any(next_hop in net for net in connected):
+            continue
+        detail = (
+            f"{route.device} has route {route.destination} via {route.next_hop}, "
+            f"but {route.next_hop} is not inside any subnet on this device "
+            f"({', '.join(str(n) for n in connected)})"
+        )
+        found.append(
+            _hypothesis(
+                UNREACHABLE_NEXT_HOP,
+                route.device,
+                None,
+                detail,
+                (Observation(source=_MODEL, device=route.device, detail=detail),),
+                "show ip route",
+                f"Point the route at a next hop inside a connected subnet, "
+                f"or add addressing that makes {route.next_hop} reachable.",
+            )
+        )
+    return found
+
+
+def _pool_network(info: dict) -> ipaddress.IPv4Network | None:
+    """A pool's subnet from its ``network`` + ``mask`` pair.
+
+    ``network`` alone is an address; treating it as a network yields /32 and
+    every containment test then fails. The mask is a separate field precisely
+    because IOS writes them separately.
+    """
+    network = info.get("network")
+    if not network:
+        return None
+    mask = info.get("mask")
+    try:
+        if mask:
+            return ipaddress.IPv4Network(f"{network}/{mask}", strict=False)
+        return ipaddress.IPv4Network(network, strict=False)
+    except ValueError:
+        return None
+
+
+def detect_dhcp_pool_problems(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """A DHCP pool that cannot serve the clients it is meant to serve.
+
+    Two checks with real evidence behind them:
+
+    * **pool subnet** — the pool's declared network must match a subnet that
+      actually exists on the device, otherwise no client is ever served;
+    * **missing DNS** — a pool that omits ``dns-server`` while another pool on
+      the same device sets one is an inconsistency, not a style choice.
+    """
+    found: list[Hypothesis] = []
+    for device, pools in (model.settings.dhcp_details or {}).items():
+        connected = _device_networks(model, device)
+        known = {str(n) for n in connected}
+        for name, info in pools.items():
+            network = info.get("network")
+            if not network:
+                continue
+            pool_net = _pool_network(info)
+            if pool_net is None:
+                continue
+            if known and not any(
+                pool_net.subnet_of(n) or n.subnet_of(pool_net) for n in connected
+            ):
+                detail = (
+                    f"DHCP pool {name} on {device} serves {pool_net}, which is not "
+                    f"any subnet configured on this device "
+                    f"({', '.join(sorted(known))})"
+                )
+                found.append(
+                    _hypothesis(
+                        DHCP_POOL_NETWORK,
+                        device,
+                        None,
+                        detail,
+                        (Observation(source=_MODEL, device=device, detail=detail),),
+                        "show ip dhcp pool",
+                        f"Correct the network statement in pool {name}.",
+                    )
+                )
+        # A pool with no dns-server while a sibling pool has one is a fault.
+        with_dns = {
+            name for name, info in pools.items() if info.get("dns_servers")
+        }
+        if len(with_dns) >= 1 and len(pools) > 1:
+            for name in pools:
+                if name in with_dns:
+                    continue
+                detail = (
+                    f"DHCP pool {name} on {device} sets no dns-server, while "
+                    f"pool(s) {', '.join(sorted(with_dns))} do"
+                )
+                found.append(
+                    _hypothesis(
+                        DHCP_POOL_DNS,
+                        device,
+                        None,
+                        detail,
+                        (Observation(source=_MODEL, device=device, detail=detail),),
+                        "show ip dhcp pool",
+                        f"Add the campus dns-server to pool {name}.",
+                    )
+                )
+    return found
+
+
+def detect_unreserved_gateway(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """A DHCP pool that does not exclude the router's own address.
+
+    Handing the gateway address to a client duplicates it. Reported only when a
+    pool's default-router is inside the pool subnet and no excluded-address
+    covers it, which is the condition that actually causes a conflict.
+    """
+    found: list[Hypothesis] = []
+    for device, pools in (model.settings.dhcp_details or {}).items():
+        excluded = {
+            str(ip)
+            for ip in (model.settings.dhcp_excluded or {}).get(device, [])
+        }
+        for name, info in pools.items():
+            gateway = info.get("default_router")
+            network = info.get("network")
+            if not gateway or not network:
+                continue
+            pool_net = _pool_network(info)
+            if pool_net is None:
+                continue
+            try:
+                gw = ipaddress.IPv4Address(gateway)
+            except ValueError:
+                continue
+            if gw not in pool_net or gateway in excluded:
+                continue
+            detail = (
+                f"DHCP pool {name} on {device} can lease {gateway} "
+                f"(its own default-router) because no excluded-address covers it"
+            )
+            found.append(
+                _hypothesis(
+                    UNRESERVED_GATEWAY,
+                    device,
+                    None,
+                    detail,
+                    (Observation(source=_MODEL, device=device, detail=detail),),
+                    "show ip dhcp pool",
+                    f"Exclude {gateway} from pool {name}.",
+                )
+            )
+    return found
+
+
+def detect_weak_management(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """Management access configured in a way that cannot work or is unprotected.
+
+    Two checks, both evidence-based and both real faults in practice:
+
+    * **SSH without an authentication source** — ``transport input ssh`` plus
+      ``login local`` requires a local user; without one, remote login cannot
+      succeed. This is a functional defect, not a hardening opinion.
+    * **Missing enable secret** — privileged EXEC reachable with no encrypted
+      password.
+
+    Only devices that are *configured* for management are judged. A device with
+    no vty configuration at all is out of scope rather than assumed broken.
+    """
+    found: list[Hypothesis] = []
+    for device in sorted(model.devices):
+        lines = [line.strip() for line in (model.devices[device].configuration or [])]
+        if not lines:
+            continue
+        has_vty = any(line.startswith(("line vty", "line con")) for line in lines)
+        if not has_vty:
+            continue
+        ssh = any(line.startswith("transport input") and "ssh" in line for line in lines)
+        login_local = any(line.strip() == "login local" for line in lines)
+        local_user = any(line.startswith("username ") for line in lines)
+        enable_secret = any(
+            line.startswith(("enable secret", "enable password")) for line in lines
+        )
+
+        if ssh and login_local and not local_user:
+            detail = (
+                f"{device} enables SSH with `login local` but defines no local "
+                f"username, so no remote login can authenticate"
+            )
+            found.append(
+                _hypothesis(
+                    WEAK_MANAGEMENT,
+                    device,
+                    None,
+                    detail,
+                    (Observation(source=_MODEL, device=device, detail=detail),),
+                    "show running-config | include username",
+                    "Create a local username for SSH authentication.",
+                )
+            )
+        elif ssh and not login_local:
+            detail = (
+                f"{device} enables SSH but its vty lines use no local login method"
+            )
+            found.append(
+                _hypothesis(
+                    WEAK_MANAGEMENT,
+                    device,
+                    None,
+                    detail,
+                    (Observation(source=_MODEL, device=device, detail=detail),),
+                    "show running-config | section line vty",
+                    "Add `login local` to the vty lines.",
+                )
+            )
+
+        if not enable_secret:
+            detail = f"{device} has no enable secret or enable password"
+            found.append(
+                _hypothesis(
+                    WEAK_MANAGEMENT,
+                    device,
+                    None,
+                    detail,
+                    (Observation(source=_MODEL, device=device, detail=detail),),
+                    "show running-config | include enable",
+                    "Set an encrypted enable secret.",
+                )
+            )
+    return found
+
+
+def detect_trunk_vlan_gap(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """A trunk that does not permit a VLAN its own switch has active ports in.
+
+    Evidence is local to one switch: an access port is assigned VLAN N, and the
+    trunk that has to carry that traffic explicitly excludes N. This does not
+    need the far end, which is what made the old peer-comparison detector miss
+    the case where both trunks were misconfigured identically.
+    """
+    found: list[Hypothesis] = []
+    by_device: dict[str, list[InterfaceInfo]] = defaultdict(list)
+    for interface in _interfaces(model):
+        by_device[interface.device].append(interface)
+
+    for device, interfaces in by_device.items():
+        trunks = [i for i in interfaces if _is_trunk(i)]
+        if not trunks:
+            continue
+        access_vlans: dict[int, list[str]] = defaultdict(list)
+        for interface in interfaces:
+            if _is_trunk(interface):
+                continue
+            for vlan in _vlan_ids(interface.vlan_assignments):
+                access_vlans[vlan].append(interface.name)
+        for trunk in trunks:
+            allowed = _vlan_ids(trunk.vlan_assignments)
+            if not allowed:
+                # No explicit allowed list means "all VLANs" to IOS.
+                continue
+            for vlan, ports in sorted(access_vlans.items()):
+                if vlan in allowed:
+                    continue
+                detail = (
+                    f"{device}:{trunk.name} does not permit VLAN {vlan}, but "
+                    f"{', '.join(sorted(ports)[:3])} on this switch are in it"
+                )
+                found.append(
+                    _hypothesis(
+                        TRUNK_MISMATCH,
+                        device,
+                        trunk.name,
+                        detail,
+                        (Observation(source=_MODEL, device=device, detail=detail),),
+                        "show interfaces trunk",
+                        f"Add VLAN {vlan} to the trunk's allowed list.",
+                    )
+                )
+    return found
+
+
 _DETECTORS = (
     detect_invalid_mask,
+    detect_unreachable_next_hop,
+    detect_dhcp_pool_problems,
+    detect_unreserved_gateway,
+    detect_weak_management,
+    detect_trunk_vlan_gap,
     detect_shutdown_interface,
     detect_wrong_gateway,
     detect_duplicate_ip,
