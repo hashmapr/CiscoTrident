@@ -455,8 +455,9 @@ class ProcessSupervisor:
                 break
             time.sleep(0.5)
         raise BackendUnavailable(
-            "no free Packet Tracer IPC port in 39000-39009 after 15 s. Another "
-            "Packet Tracer instance is holding them; quit it and retry."
+            f"no free Packet Tracer IPC port in "
+            f"{self.IPC_PORT_RANGE.start}-{self.IPC_PORT_RANGE.stop - 1} after 15 s. "
+            "Another Packet Tracer instance is holding them; quit it and retry."
         )
 
     def _wait_for_listener(self, timeout_s: float) -> int:
@@ -641,19 +642,36 @@ class LiveBackend(Backend):
         return self._pdu_executor
 
     def connect(self, startup_timeout: float = 45.0) -> None:
-        if self.autostart:
-            self.supervisor = ProcessSupervisor(self.bundle, self.ipc_port)
-            port = self.supervisor.start(self.workspace, timeout_s=startup_timeout)
-            # Record the port actually used, so provenance and diagnostics can
-            # report it. Without this the backend says 0 even though the session
-            # is live on a real port.
-            self.ipc_port = port
-        else:
-            port = self.ipc_port or 39000
-        client = PtmpClient(*self.credentials, port=port)
-        client.connect()
-        self.client = client
-        self._open_lab()
+        """Start (or attach to) Packet Tracer and load the lab.
+
+        Every failure path tears down what was already started. The previous
+        version leaked the process whenever the *client* failed after the
+        supervisor had come up: a wrong secret or a busy IPC port raised out of
+        ``client.connect()``, leaving an invisible Packet Tracer running with
+        the workspace directory already deleted, and the next attempt then found
+        its port held. ``select_backend`` catches the exception and calls
+        ``close()``, so the teardown has to be correct here.
+        """
+        try:
+            if self.autostart:
+                self.supervisor = ProcessSupervisor(self.bundle, self.ipc_port)
+                port = self.supervisor.start(self.workspace, timeout_s=startup_timeout)
+                # Record the port actually used, so provenance and diagnostics can
+                # report it. Without this the backend says 0 even though the session
+                # is live on a real port.
+                self.ipc_port = port
+            else:
+                port = self.ipc_port or 39000
+            client = PtmpClient(*self.credentials, port=port)
+            client.connect()
+            self.client = client
+            self._open_lab()
+        except BaseException:
+            # Covers Ptmp errors, BackendUnavailable from _open_lab, and
+            # cancellation (KeyboardInterrupt / asyncio cancellation surfacing as
+            # BaseException) so a cancelled connect never abandons a process.
+            self.close()
+            raise
 
     def _open_lab(self) -> None:
         """Load the working copy into Packet Tracer.
