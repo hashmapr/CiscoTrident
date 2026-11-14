@@ -151,7 +151,13 @@ class EngineAAdapter(ParserAdapter):
         result.links = walk["links"]
         result.end_hosts = walk["end_hosts"]
         result.raw["models"] = walk.get("models", {})
+        result.raw["dropped_links"] = walk.get("dropped_links", 0)
         result.report.notes = list(selection.notes)
+        if walk.get("dropped_links"):
+            result.report.notes.append(
+                f"{walk['dropped_links']} <LINK> stanza(s) could not be resolved to "
+                "devices in the selected snapshot and were omitted"
+            )
         result.report.device_count = len(result.devices)
         result.report.link_count = len(result.links)
         result.report.interface_count = sum(
@@ -265,6 +271,7 @@ def _walk_xml(xml_text: str) -> dict:
             end_hosts[name] = host
 
     links: list[tuple[str, str, str, str, str | None]] = []
+    dropped_links = 0
     for block in _LINK_BLOCK_RE.findall(xml_text):
         fields = {}
         for key in ("FROM", "PORT", "TO"):
@@ -277,6 +284,9 @@ def _walk_xml(xml_text: str) -> dict:
         frm = ref_to_name.get(fields["FROM"])
         to = ref_to_name.get(fields["TO"])
         if not frm or not to or len(ports) < 2:
+            # Do not invent an edge, but do not pretend the file had none:
+            # _extract turns this count into an explicit report note.
+            dropped_links += 1
             continue
         links.append(
             (
@@ -294,6 +304,7 @@ def _walk_xml(xml_text: str) -> dict:
         "links": links,
         "end_hosts": end_hosts,
         "models": models,
+        "dropped_links": dropped_links,
     }
 
 

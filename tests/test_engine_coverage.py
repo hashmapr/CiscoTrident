@@ -17,6 +17,7 @@ import pathlib
 import tempfile
 
 import pytest
+from conftest import engine_available
 
 from trident.config import Settings
 from trident.normalization.configs import parse_running_config
@@ -28,6 +29,15 @@ CCNA2 = CORPUS / "CCNA 2 Practice PTSA P2.xml"
 
 pytestmark = pytest.mark.skipif(
     not CCNA2.exists(), reason=f"benchmark corpus not present: {CCNA2}"
+)
+
+# Engine C is an external Node.js dependency (pt-convert checkout). When it is
+# not installed, the C tests skip rather than fail: an absent environment is not
+# a parser defect. Engine A/B assertions still run and still fail on regressions.
+ENGINE_C_READY = engine_available("engine_c")
+requires_engine_c = pytest.mark.skipif(
+    not ENGINE_C_READY,
+    reason="engine C (pt-convert) is not installed in this environment",
 )
 
 
@@ -77,6 +87,7 @@ def test_engine_b_does_not_run_the_container_cli_on_xml():
 
 # --- Engine C -------------------------------------------------------------
 
+@requires_engine_c
 def test_engine_c_parses_decoded_xml():
     """Engine C's bridge must accept XML and still run its own simplifier."""
     result = _run(EngineCAdapter, CCNA2)
@@ -85,11 +96,13 @@ def test_engine_c_parses_decoded_xml():
     assert result.extraction_family == "pt-convert"
 
 
+@requires_engine_c
 def test_engine_c_supplies_device_configs_for_xml():
     result = _run(EngineCAdapter, CCNA2)
     assert len(result.configs) >= 9, f"got {len(result.configs)} configs"
 
 
+@requires_engine_c
 def test_engine_c_configs_parse_into_observations():
     result = _run(EngineCAdapter, CCNA2)
     assert "Central" in result.configs, sorted(result.configs)
@@ -100,6 +113,7 @@ def test_engine_c_configs_parse_into_observations():
 
 # --- the point of all of this: three independent families -----------------
 
+@requires_engine_c
 def test_all_three_families_supply_the_same_address_independently():
     """Each engine's OWN parse must produce the same address for one interface.
 
