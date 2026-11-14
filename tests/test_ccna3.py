@@ -26,6 +26,7 @@ from trident.labgen.ccna3 import (
     LAB_NAMES,
     build_network_model,
     clean_control,
+    end_host_gateway_support,
     end_hosts_for,
     lab,
     labs,
@@ -464,6 +465,44 @@ def test_the_clean_control_can_be_generated_too(name: str, tmp_path) -> None:
 
     result = generate(clean_control(name), tmp_path / f"{name}-clean.pkt", apply_faults=False)
     assert result.encode_ok, result.notes
+
+
+#: Packet Tracer reads a PC's gateway from ``<ENGINE><GATEWAY>``; ``pkt_core``
+#: 0.2.2 (pinned in this venv) writes only ``<PORT><PORT_GATEWAY>``. That is a
+#: dependency defect shared by every labgen lab, not something a lab spec can
+#: fix, so it is recorded as a strict xfail: it reports as xfailed while the
+#: dependency is unfixed and starts passing (with the marker inert) once it is.
+_ENDHOST_GW_OK, _ENDHOST_GW_REASON = end_host_gateway_support()
+
+
+@_NEEDS_PKT
+@pytest.mark.xfail(not _ENDHOST_GW_OK, reason=_ENDHOST_GW_REASON, strict=True)
+@pytest.mark.parametrize("name", LAB_NAMES)
+def test_pc_gateways_are_written_where_packet_tracer_reads_them(name: str, tmp_path) -> None:
+    import re
+
+    from pkt_core.codec.container import decode
+
+    from trident.labgen import generate
+
+    spec = lab(name)
+    result = generate(spec, tmp_path / f"{name}-gw.pkt", apply_faults=True)
+    text = decode(str(result.path)).xml.decode("utf-8", "replace")
+
+    expected = {device.name: device.pc_ip[2] for device in spec.devices if device.pc_ip}
+    seen: dict[str, str] = {}
+    for chunk in re.findall(r"<DEVICE>.*?</DEVICE>", text, re.DOTALL):
+        name_match = re.search(r"<NAME[^>]*>(.*?)</NAME>", chunk, re.DOTALL)
+        gateway = re.search(r"<ENGINE>.*?<GATEWAY>(.*?)</GATEWAY>", chunk, re.DOTALL)
+        if name_match and gateway and name_match.group(1).strip() in expected:
+            seen.setdefault(name_match.group(1).strip(), gateway.group(1).strip())
+
+    assert seen, "no end-host <ENGINE><GATEWAY> elements found in the generated file"
+    for device, gateway in expected.items():
+        assert seen.get(device) == gateway, (
+            f"{name}: {device} carries gateway {seen.get(device)!r} in <ENGINE><GATEWAY>, "
+            f"expected {gateway!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

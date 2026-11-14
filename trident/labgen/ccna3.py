@@ -1180,6 +1180,58 @@ def end_hosts_for(spec: TopologySpec) -> dict[str, dict[str, str]]:
     return hosts
 
 
+def end_host_gateway_support() -> tuple[bool, str]:
+    """Whether the installed ``pkt_core`` writes an end-host gateway PT will read.
+
+    Packet Tracer reads a PC's default gateway from ``<ENGINE><GATEWAY>``, not
+    from ``<PORT><PORT_GATEWAY>``. ``pkt_core`` 0.2.2 — the version pinned in
+    this venv — writes only the port element, so every PC it builds keeps the
+    donor template's ``1.1.1.2`` and cannot route off-link in the simulator. The
+    newer ``pkt_core`` copy on this machine writes both.
+
+    This is not a property of a lab spec: the same builder builds every lab in
+    ``trident.labgen``, so the defect is shared. The probe exists so the
+    limitation is measured rather than assumed, and so a test can fail loudly
+    when the dependency is fixed.
+
+    Returns ``(supported, note)`` and never raises.
+    """
+    try:
+        from pkt_core.builder import Lab
+    except Exception as exc:  # noqa: BLE001 - any import failure means "cannot check"
+        return False, f"pkt_core unavailable: {type(exc).__name__}: {exc}"
+
+    probe_address = "192.168.250.10"
+    probe_gateway = "192.168.250.1"
+    try:
+        lab = Lab()
+        lab.prune_seed_devices()
+        lab.add_device(
+            "PC-PT",
+            "PROBE-PC",
+            0,
+            0,
+            pc_ip=(probe_address, "255.255.255.0", probe_gateway),
+        )
+        # ``Lab.base`` is the tree ``save()`` serialises, so reading it is the
+        # same evidence as reading the written file without touching the disk.
+        written: str | None = None
+        for device in lab.base.iter("DEVICE"):
+            if device.findtext("ENGINE/NAME") == "PROBE-PC":
+                written = device.findtext("ENGINE/GATEWAY")
+                break
+    except Exception as exc:  # noqa: BLE001 - a probe must not raise
+        return False, f"could not probe pkt_core: {type(exc).__name__}: {exc}"
+
+    if written == probe_gateway:
+        return True, "pkt_core serialises the end-host gateway into <ENGINE><GATEWAY>"
+    return False, (
+        f"pkt_core writes <PORT><PORT_GATEWAY> but leaves <ENGINE><GATEWAY> at "
+        f"{written!r}; Packet Tracer reads the latter, so generated PCs would keep "
+        f"that donor gateway instead of {probe_gateway}"
+    )
+
+
 def build_network_model(spec: TopologySpec, *, apply_faults: bool = False):
     """Build a :class:`~trident.models.NetworkModel` from a spec, offline.
 
@@ -1222,6 +1274,7 @@ __all__ = [
     "asymmetric",
     "build_network_model",
     "clean_control",
+    "end_host_gateway_support",
     "end_hosts_for",
     "lab",
     "labs",

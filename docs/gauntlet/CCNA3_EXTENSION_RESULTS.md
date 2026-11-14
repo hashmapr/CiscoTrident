@@ -236,12 +236,15 @@ python -m pytest tests/test_ccna3.py -q
 | Result | Count |
 | --- | --- |
 | Passed | 104 |
+| Xfailed (known `pkt_core` defect, see limitation 1) | 4 |
 | Failed | 0 |
 | Skipped | 0 (in this environment; `pkt_core` is available) |
 
-16 of the 104 are the generation tests marked `skipif` on `pkt_core`; they would
+16 of the 108 are the generation tests marked `skipif` on `pkt_core`; they would
 skip, not fail, on a machine without it. `ruff check` and `ruff format --check`
-are clean on both files.
+are clean on both files, and a repo-wide `ruff check .` reports **no** findings
+in either `trident/labgen/ccna3.py` or `tests/test_ccna3.py` (it reports 23
+pre-existing findings elsewhere, untouched here).
 
 What the tests assert, by group:
 
@@ -290,9 +293,17 @@ What the tests assert, by group:
 * The ACL policy parses and binds as written (`permit`, `Gi0/1`, `out`).
 * Every static route in the reference builds has its next hop on a connected
   subnet (the condition under which IOS keeps the route).
+* The spec's end-host addressing is internally consistent (`pc_ip` matches the
+  gateway each router actually owns), which is what the offline model diagnoses.
+  The *serialised* gateway is a different story — see limitation 1.
 
 **Not verified — requires Packet Tracer 9.0.1:**
 
+* That end hosts can route off-link. The spec's gateways are correct, but the
+  file carries the donor `<ENGINE><GATEWAY>1.1.1.2</ENGINE>` under the pinned
+  `pkt_core` (limitation 1). Until that dependency is fixed, every PC-to-PC
+  ping across subnets is expected to fail live **even on the clean build**,
+  while the offline model and answer key remain correct.
 * That the file opens, that links come up green, and that interface state
   matches the config. No live session was run.
 * That IOS installs the static routes and that traffic actually flows — and that
@@ -309,13 +320,41 @@ What the tests assert, by group:
 
 **Known limitations, stated rather than papered over:**
 
-1. **No serial links.** `builder.generate()` calls `Lab.link(a, a_port, b, b_port)`
+1. **End-host gateways are not serialised where Packet Tracer reads them — a
+   `pkt_core` defect, not a lab defect.** Packet Tracer reads a PC's default
+   gateway from `<ENGINE><GATEWAY>`; the `pkt_core` 0.2.2 pinned in this venv
+   writes only `<PORT><PORT_GATEWAY>`. Measuring the generated file shows the
+   split directly, for every PC in every lab:
+
+   ```
+   PC-A1: ENGINE/GATEWAY=['1.1.1.2']  PORT_GATEWAY=['192.168.10.1']
+   PC-B:  ENGINE/GATEWAY=['1.1.1.2']  PORT_GATEWAY=['192.168.20.1']
+   ```
+
+   Consequences if the file is loaded as-is: every PC and server keeps the
+   donor gateway `1.1.1.2`, hosts cannot route off-link, and the three
+   "the PC's gateway does not exist" faults become indistinguishable from the
+   baseline. This is the same defect an independent live run measured on the six
+   gauntlet labs (all 36 PCs reporting `1.1.1.2`). It is shared by every lab
+   built with this builder, so it belongs in `builder.py`/`pkt_core`, not in a
+   spec; fixing it per-lab would make these four labs behave differently from
+   the rest of the gauntlet.
+
+   It is measured, not assumed: `end_host_gateway_support()` builds one PC in
+   memory and reads back `<ENGINE><GATEWAY>`. It returns `(False, reason)` here,
+   and `test_pc_gateways_are_written_where_packet_tracer_reads_them` is a strict
+   `xfail` conditioned on that probe — 4 xfailed, 0 failed. A newer `pkt_core`
+   copy on this machine (47 KB `builder/lab.py` vs the venv's 34 KB) already
+   writes both elements; upgrading the venv's copy, or adding the
+   `<ENGINE><GATEWAY>` write to the pinned builder, fixes all labs at once and
+   makes those four tests pass with no test change.
+2. **No serial links.** `builder.generate()` calls `Lab.link(a, a_port, b, b_port)`
    without a `kind`, which always emits `eCopper`. A Serial interface cabled with
    copper never comes up, so the transit links are GigabitEthernet point-to-point
    /30s. The routing content is identical; only the media label differs. True
    serial links need a `kind="serial"` path in the builder, which was out of scope
    here.
-2. **No default routes, and no dynamic routing protocol.** The engine's
+3. **No default routes, and no dynamic routing protocol.** The engine's
    `MISSING_STATIC_ROUTE` detector treats a maskless static destination as `/32`
    and compares it against the dependent's `/24`, so any healthy network built on
    defaults reports itself as broken in both directions. The labs therefore use
@@ -326,15 +365,15 @@ What the tests assert, by group:
    and the two floating-static removals are **not detectable offline** — their
    probes correctly declare no hypothesis kind, and the test requires silence
    rather than inventing a claim.
-3. **The ACL's deny is implicit.** An explicit `deny` bound to an interface is
+4. **The ACL's deny is implicit.** An explicit `deny` bound to an interface is
    reported as `ACL_BLOCK` regardless of intent, so the clean control cannot
    contain one. The policy is permit-plus-implicit-deny; the fault is the
    explicit `deny ip any any`. This is documented in the lab brief as the
    intended CCNA-3 answer, not as a workaround the student has to guess.
-4. **No `ENDHOST` faults.** `faulted_configs()` cannot rewrite `pc_ip`, so an
+5. **No `ENDHOST` faults.** `faulted_configs()` cannot rewrite `pc_ip`, so an
    end-host fault would have to ship its broken value in the intended build,
    which is the answer-key leak the spec exists to prevent. All faults are
    router config edits.
-5. **Access switches are at defaults** (VLAN 1, no trunk, no SVI). These are
+6. **Access switches are at defaults** (VLAN 1, no trunk, no SVI). These are
    routing labs; adding a VLAN layer would add detector surface without adding
    routing content, and would obscure the false-positive guard.
