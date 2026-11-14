@@ -276,6 +276,20 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
         # command (`ip route`, `ip default-gateway`, ...) was swallowed as an
         # interface sub-command. That is why R1 parsed with zero routes despite
         # having a perfectly well-formed `ip route` line.
+        # ``exit`` closes the current block. Packet Tracer writes configs with an
+        # explicit ``exit`` after every interface (unlike a captured IOS config,
+        # which uses ``!``), so without this the block stayed open and every
+        # later top-level command was absorbed as an interface sub-command.
+        # That is why R2 parsed with zero routes despite a well-formed
+        # ``ip route 10.3.1.0 ...`` line sitting after its second ``exit``.
+        if line == "exit":
+            current = None
+            current_vlan = None
+            current_acl_id = None
+            current_acl_type = None
+            current_dhcp_pool = None
+            continue
+
         if line.startswith(("line vty", "line con", "line aux")):
             current = None
             current_vlan = None
