@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import socket
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Self
@@ -56,6 +57,11 @@ TYPE_QSTRING = 9
 TYPE_PAIR = 14
 
 MAX_FRAME_BYTES = 64 * 1024 * 1024
+#: Ports scanned when attaching to an already-running Packet Tracer without
+#: ``--ipc-port``. This is the *attach* window, not the launch window: Packet
+#: Tracer's own default is 39000-39009. The supervisor that launches a process
+#: reserves a port from its wider range and passes it explicitly, so a launched
+#: session never depends on discovery at all.
 DEFAULT_PORTS = tuple(range(39000, 39010))
 
 
@@ -243,6 +249,16 @@ class PtmpClient:
         then a terminating ``"0"``. Writing a void terminator after every name —
         which an earlier version did — makes every method look zero-argument,
         so calls like ``getDeviceAt(3)`` fail with "invalid arguments".
+
+        The read loop is bounded twice. It was previously ``while True`` with no
+        deadline, which was safe only by accident: a socket timeout bounds a
+        *stalled* read, but Packet Tracer streams ``IPC_EVENT`` frames during
+        simulation runs, and every one of them resets that timeout. A session
+        left in simulation mode therefore spun reading events that were never
+        ours, at full CPU, until the process was killed. Now the loop stops when
+        the wall-clock deadline passes or when it has skipped more frames than a
+        sane reply could require, and reports that as a timeout rather than
+        pretending the call failed for another reason.
         """
         if self._sock is None:
             raise PtmpError("not connected")
@@ -261,31 +277,57 @@ class PtmpClient:
             fields.append(str(TYPE_VOID))
         self._sock.sendall(_frame(fields))
 
+        last = accessors[-1] if accessors else "<call>"
+        label = last[0] if isinstance(last, tuple) else last
+        deadline = time.monotonic() + timeout
+        skipped = 0
         previous = self._sock.gettimeout()
         self._sock.settimeout(timeout)
         try:
             while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise PtmpTimeout(
+                        f"{label} timed out after {timeout}s "
+                        f"({skipped} unrelated frame(s) skipped)"
+                    )
+                # Never let a single read block past the overall deadline.
+                self._sock.settimeout(min(remaining, timeout))
                 try:
                     reply = _read_frame(self._sock)
                 except TimeoutError as exc:
-                    last = accessors[-1]
-                    name = last[0] if isinstance(last, tuple) else last
-                    raise PtmpTimeout(f"{name} timed out after {timeout}s") from exc
+                    raise PtmpTimeout(f"{label} timed out after {timeout}s") from exc
                 kind = reply[0] if reply else ""
                 if kind == IPC_RESPONSE and reply[1] == str(call_id):
                     return _decode_result(reply[2:])
                 if kind == IPC_ERROR and reply[1] == str(call_id):
-                    last = accessors[-1]
-                    name = last[0] if isinstance(last, tuple) else last
-                    raise PtmpError(f"IPC error from {name}: {reply[2:]}")
+                    raise PtmpError(f"IPC error from {label}: {reply[2:]}")
                 if kind == DISCONNECT:
                     raise PtmpDisconnected("server disconnected during call")
-                # Responses to other calls and events are not ours; skip them.
+                # Responses to other calls and events are not ours; skip them,
+                # but a flood of them means something is wrong, so cap the
+                # skipping instead of trusting the deadline alone.
+                skipped += 1
+                if skipped > self.MAX_SKIPPED_FRAMES:
+                    raise PtmpTimeout(
+                        f"{label} received {skipped} unrelated frames without a reply; "
+                        "the session is streaming events it cannot distinguish"
+                    )
         finally:
             if self._sock is not None:
-                self._sock.settimeout(previous)
+                try:
+                    self._sock.settimeout(previous)
+                except OSError:
+                    pass
 
-    def enter_command(self, device_name: str, command: str, mode: str = "enable") -> str:
+    #: Ceiling on unrelated frames skipped while waiting for one reply. A busy
+    #: simulation run emits events continuously; this is high enough for normal
+    #: traffic and low enough that a mistaken subscription cannot hang a session.
+    MAX_SKIPPED_FRAMES = 5000
+
+    def enter_command(
+        self, device_name: str, command: str, mode: str = "enable", timeout: float = 60.0
+    ) -> str:
         """Run one CLI command on a device and return its raw text.
 
         Maps to ``CiscoDevice.enterCommand(commandStr, modeStr)`` in the shipped
@@ -297,6 +339,11 @@ class PtmpClient:
         ``"enable"`` and ``"user"``; ``"exec"`` and ``"privileged"`` are rejected
         as ``ERROR_INVALID``, which was verified against 9.0.1 rather than
         assumed from the documentation.
+
+        ``timeout`` is honoured rather than fixed at 60 s. It used to be
+        hard-coded here while ``LiveBackend.run_cli`` accepted and then silently
+        dropped a caller-supplied timeout, so a 5 s budget still blocked for a
+        minute and every layer above believed it had bounded the call.
         """
         fields = self.call(
             [
@@ -304,7 +351,7 @@ class PtmpClient:
                 ("getDevice", [(9, device_name)]),
                 ("enterCommand", [(TYPE_STRING, command), (TYPE_STRING, mode)]),
             ],
-            timeout=60.0,
+            timeout=timeout,
         )
         status = fields[0] if fields else ""
         text = fields[1] if len(fields) > 1 else ""

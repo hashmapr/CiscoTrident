@@ -29,6 +29,29 @@ from .snapshot import (
     select_snapshot,
 )
 
+_XML_SNIFF_BYTES = 4096
+_BOM_PREFIXES = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
+
+
+def _looks_like_xml(file_path: Path) -> bool:
+    """Cheap content check for files named ``.xml``.
+
+    pkt-core's XML parser does not reject binary input; handed a container it
+    spins instead of raising (measured: no return in >100 s on an 81 KB .pkt).
+    A suffix is not proof of content, so refuse fast and let the adapter report
+    ERROR rather than hang until the parser timeout.
+    """
+    try:
+        with file_path.open("rb") as fh:
+            head = fh.read(_XML_SNIFF_BYTES)
+    except OSError:
+        return False
+    for bom in _BOM_PREFIXES:
+        if head.startswith(bom):
+            head = head[len(bom):]
+            break
+    return head.lstrip().startswith(b"<")
+
 
 def _decode_container(raw: bytes) -> bytes:
     """Decode a container, preferring TRIDENT's own codec.
@@ -105,6 +128,11 @@ class EngineBAdapter(ParserAdapter):
         # extraction below is filtered to that snapshot's device inventory, so
         # reference/answer networks in other blocks or wrappers never leak in.
         is_xml = file_path.suffix.lower() == ".xml"
+        if is_xml and not _looks_like_xml(file_path):
+            raise ValueError(
+                f"{file_path.name} has a .xml suffix but its content is not XML; "
+                "a container (.pkt/.pka) may have been renamed"
+            )
 
         selected_names: set[str] | None = None
         placeholder_map: dict[str, str] = {}
@@ -128,6 +156,7 @@ class EngineBAdapter(ParserAdapter):
             result.raw["snapshot"] = selection.snapshot_id
             result.raw["snapshot_notes"] = selection.notes
             result.raw["snapshot_abstained"] = selection.abstained
+            result.raw["snapshot_ambiguous"] = selection.ambiguous
             result.extraction_family = "pkt-core"
             result.report.notes = list(selection.notes)
             if selection.abstained:
@@ -279,19 +308,25 @@ class EngineBAdapter(ParserAdapter):
                     devices.append(name)
             result.raw["topology"] = topology
 
-        # links from topology.json are not emitted; use DOT if present.
-        # DOT edges are filtered to devices inside the selected snapshot so that
-        # links to reference-network devices cannot leak into the model.
+        # Links come from pkt-core's own typed model. The DOT export only exists
+        # when the container CLI is unpacked, which this adapter deliberately no
+        # longer does (it doubled latency past the timeout), so DOT was always
+        # absent and link_count was silently zero on every file. `lab.links`
+        # carries the real endpoint refs and port names; resolve them here.
+        links = _links_from_lab(lab, placeholder_map, selected_names, messages)
+        # Keep DOT as a fallback for any future path that does produce it.
         dot = next(outdir.glob("*.dot"), None)
         if dot is not None:
-            links = _parse_dot(
+            dot_links = _parse_dot(
                 dot.read_text(encoding="utf-8", errors="replace"), placeholder_map
             )
             if selected_names is not None:
-                links = [
-                    ln for ln in links
+                dot_links = [
+                    ln for ln in dot_links
                     if ln[0] in selected_names and ln[2] in selected_names
                 ]
+            if dot_links:
+                links = dot_links
 
         # --- 3. per-device IOS configs ----------------------------------------
         if xml_configs:
@@ -425,6 +460,86 @@ def _xml_configs_from_lab(
             configs[name] = cleaned
     messages.append(f"pkt-core XML parse: {len(configs)} device configs")
     return configs
+
+
+def _links_from_lab(
+    lab,
+    placeholder_map: dict[str, str],
+    selected_names: set[str] | None,
+    messages: list[str],
+) -> list[tuple[str, str, str, str, str | None]]:
+    """Extract physical links from pkt-core's typed model.
+
+    pkt-core exposes each link as ``endpoints`` (``save-ref-id:...`` strings)
+    plus ``port_names`` (the two interface names) and ``type`` (the media). A
+    device's ref lives at ``DEVICE/ENGINE/SAVE_REF_ID``. Links are resolved to
+    display names and filtered to the selected snapshot so a reference-network
+    edge can never leak into the model.
+
+    When the model had links but none survived resolution/filtering, that is
+    stated in ``messages`` rather than left as an unexplained empty list.
+    """
+    links: list[tuple[str, str, str, str, str | None]] = []
+    if lab is None:
+        return links
+
+    ref_to_name: dict[str, str] = {}
+    for dev in getattr(lab, "devices", None) or []:
+        raw_name = getattr(dev, "name", None)
+        if not raw_name:
+            continue
+        resolved = resolve_display_name(str(raw_name), placeholder_map)
+        ref_to_name[resolved] = resolved
+        try:
+            element = getattr(dev, "element", None)
+            engine = element.find("ENGINE") if element is not None else None
+            ref_el = engine.find("SAVE_REF_ID") if engine is not None else None
+            ref = getattr(ref_el, "text", None) if ref_el is not None else None
+        except Exception:  # noqa: BLE001 - XmlElement API differences
+            ref = None
+        if ref:
+            ref_to_name[str(ref).strip()] = resolved
+
+    def _endpoint(value: object) -> str | None:
+        key = str(value or "").strip()
+        if not key:
+            return None
+        return ref_to_name.get(key) or resolve_display_name(key, placeholder_map)
+
+    raw_links = list(getattr(lab, "links", None) or [])
+    for link in raw_links:
+        endpoints = list(getattr(link, "endpoints", None) or ())
+        ports = list(getattr(link, "port_names", None) or ())
+        if len(endpoints) < 2 or len(ports) < 2:
+            continue
+        a_name = _endpoint(endpoints[0])
+        b_name = _endpoint(endpoints[1])
+        if not a_name or not b_name:
+            continue
+        if selected_names is not None and (
+            a_name not in selected_names or b_name not in selected_names
+        ):
+            continue
+        media = getattr(link, "type", None)
+        links.append(
+            (
+                a_name,
+                canonical_interface_name(str(ports[0])),
+                b_name,
+                canonical_interface_name(str(ports[1])),
+                str(media) if media else None,
+            )
+        )
+
+    if raw_links:
+        if links:
+            messages.append(f"links: {len(links)} of {len(raw_links)} from typed model")
+        else:
+            messages.append(
+                f"links: 0 of {len(raw_links)} usable from typed model "
+                "(endpoints did not resolve inside the selected snapshot)"
+            )
+    return links
 
 
 def _parse_dot(

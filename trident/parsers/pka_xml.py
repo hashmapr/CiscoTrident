@@ -151,7 +151,13 @@ class EngineAAdapter(ParserAdapter):
         result.links = walk["links"]
         result.end_hosts = walk["end_hosts"]
         result.raw["models"] = walk.get("models", {})
+        result.raw["dropped_links"] = walk.get("dropped_links", 0)
         result.report.notes = list(selection.notes)
+        if walk.get("dropped_links"):
+            result.report.notes.append(
+                f"{walk['dropped_links']} <LINK> stanza(s) could not be resolved to "
+                "devices in the selected snapshot and were omitted"
+            )
         result.report.device_count = len(result.devices)
         result.report.link_count = len(result.links)
         result.report.interface_count = sum(
@@ -179,7 +185,19 @@ _ENGINE_RE = re.compile(r"<ENGINE>(.*?)</ENGINE>", re.DOTALL)
 _NAME_RE = re.compile(r"<NAME[^>]*>(.*?)</NAME>", re.DOTALL)
 _TYPE_RE = re.compile(r'<TYPE[^>]*model="([^"]*)"[^>]*>(.*?)</TYPE>', re.DOTALL)
 _SAVEREF_RE = re.compile(r"<SAVE_REF_ID>(.*?)</SAVE_REF_ID>", re.DOTALL)
+# A PC/Server NIC carries three sibling elements: <IP>, <SUBNET> and
+# <PORT_GATEWAY>. Two bugs lived here:
+#   * the gateway was read from <GATEWAY>, which every *router* device also has
+#     (its own default gateway), so a PC inherited the router's gateway —
+#     a value like 1.1.1.2 that belongs to another device entirely;
+#   * <SUBNET> was never read, so no end host had a prefix length and the
+#     subnet-correlation diagnostics could not run at all.
+# <PORT_GATEWAY> is scoped to the NIC and is the correct source. <GATEWAY> is
+# kept as a fallback only when no PORT_GATEWAY exists, which is the legacy
+# layout this parser also supports.
+_PORT_GATEWAY_RE = re.compile(r"<PORT_GATEWAY>(.*?)</PORT_GATEWAY>", re.DOTALL)
 _GATEWAY_RE = re.compile(r"<GATEWAY>(.*?)</GATEWAY>", re.DOTALL)
+_SUBNET_RE = re.compile(r"<SUBNET>(.*?)</SUBNET>", re.DOTALL)
 _DNS_RE = re.compile(r"<SERVER_IP>(.*?)</SERVER_IP>", re.DOTALL)
 _ENDHOST_IP_RE = re.compile(r"<IP>(.*?)</IP>", re.DOTALL)
 _MAC_RE = re.compile(r"<MACADDRESS>(.*?)</MACADDRESS>", re.DOTALL)
@@ -249,9 +267,14 @@ def _walk_xml(xml_text: str) -> dict:
             ref_to_name[ref.group(1).strip()] = name
 
         host: dict = {}
-        gw = _GATEWAY_RE.search(scope)
+        # A NIC's gateway is <PORT_GATEWAY>. <GATEWAY> is the router-level
+        # default gateway and must not be borrowed by an end host.
+        gw = _PORT_GATEWAY_RE.search(scope) or _GATEWAY_RE.search(scope)
         if gw and gw.group(1).strip():
             host["gateway"] = gw.group(1).strip()
+        subnet = _SUBNET_RE.search(scope)
+        if subnet and subnet.group(1).strip():
+            host["subnet"] = subnet.group(1).strip()
         dns = [d.strip() for d in _DNS_RE.findall(scope) if d.strip()]
         if dns:
             host["dns"] = dns
@@ -265,6 +288,7 @@ def _walk_xml(xml_text: str) -> dict:
             end_hosts[name] = host
 
     links: list[tuple[str, str, str, str, str | None]] = []
+    dropped_links = 0
     for block in _LINK_BLOCK_RE.findall(xml_text):
         fields = {}
         for key in ("FROM", "PORT", "TO"):
@@ -277,6 +301,9 @@ def _walk_xml(xml_text: str) -> dict:
         frm = ref_to_name.get(fields["FROM"])
         to = ref_to_name.get(fields["TO"])
         if not frm or not to or len(ports) < 2:
+            # Do not invent an edge, but do not pretend the file had none:
+            # _extract turns this count into an explicit report note.
+            dropped_links += 1
             continue
         links.append(
             (
@@ -294,6 +321,7 @@ def _walk_xml(xml_text: str) -> dict:
         "links": links,
         "end_hosts": end_hosts,
         "models": models,
+        "dropped_links": dropped_links,
     }
 
 

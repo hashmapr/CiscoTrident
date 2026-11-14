@@ -1036,68 +1036,131 @@ _RUNTIME_STATUS = {
     "NOT_ATTEMPTED": Status.NOT_CHECKED,
 }
 
+#: Statuses for which a PDU was actually sent. ``UNAVAILABLE`` (no simulator),
+#: ``NOT_ATTEMPTED`` (budget spent) and ``UNSUPPORTED`` (backend cannot perform
+#: it) were never run, so they must not be counted as experiments that happened.
+_EXPERIMENT_RUN_STATUSES = frozenset({"OBSERVED", "INCONCLUSIVE", "FAILED"})
 
-def merge_operational_checks(report: NetworkReport, deep) -> NetworkReport:
+
+def _experiment_counts(checks: list) -> dict[str, int]:
+    """Counts of experiments actually run, kept distinct from those planned.
+
+    ``planned`` is every check the runtime considered (including ones it could
+    not or did not run); ``run`` is the subset where a PDU was really sent. A
+    report that conflated the two would claim testing that never happened.
+    """
+    total = len(checks)
+    run = sum(
+        1 for check in checks if getattr(check.status, "value", "") in _EXPERIMENT_RUN_STATUSES
+    )
+    observed = sum(
+        1 for check in checks if getattr(check.status, "value", "") == "OBSERVED"
+    )
+    return {
+        "runtime_experiments_planned": total,
+        "runtime_experiments_run": run,
+        "runtime_experiments_observed": observed,
+        "runtime_experiments_not_run": total - run,
+    }
+
+
+def merge_operational_checks(report: NetworkReport, deep, *, error: str | None = None) -> NetworkReport:
     """Fold Deep Analyze results into a report.
 
     An observed check becomes a fact on both devices; anything else becomes an
     explicit "not checked" or "unresolved" entry. Nothing here can turn a runtime
     result into a configuration fact, and an unavailable simulator produces a
     stated gap rather than a silent absence.
+
+    ``deep`` may be ``None`` when the operational stage itself failed. The
+    already-computed static report is returned either way, with the failure
+    recorded as a distinct reason: losing static findings because the optional
+    simulator threw would be the worst possible trade.
     """
+    if deep is None:
+        detail = error or "the operational stage did not run"
+        report.overview["runtime_available"] = False
+        report.overview["runtime_reason"] = detail
+        report.overview["runtime_version"] = ""
+        report.overview["source_intact"] = True
+        report.overview["runtime_stage_error"] = detail
+        report.warnings.append(f"operational experiments did not run: {detail}")
+        report.unsupported_checks.append(f"runtime experiments: NOT_RUN ({detail})")
+        report.overview.update(_experiment_counts([]))
+        report.overview["unsupported_checks"] = len(report.unsupported_checks)
+        return report
+
     report.overview["runtime_available"] = bool(getattr(deep, "available", False))
     report.overview["runtime_reason"] = getattr(deep, "reason", "")
     report.overview["runtime_version"] = getattr(deep, "simulator_version", "")
     report.overview["source_intact"] = bool(getattr(deep, "source_intact", True))
+    if error:
+        report.overview["runtime_stage_error"] = error
+        report.warnings.append(f"operational experiments were incomplete: {error}")
 
+    checks = list(getattr(deep, "checks", []) or [])
     by_name = {section.name: section for section in report.sections}
-    for check in getattr(deep, "checks", []):
-        status = _RUNTIME_STATUS.get(check.status.value, Status.UNRESOLVED)
-        if check.status.value == "OBSERVED":
-            answer = check.detail.split(":")[0] if check.detail else check.status.value
-            evidence = [
-                f"PDU {check.source} -> {check.destination}",
-                f"simulator {check.simulator_version}",
-                f"session {check.session_id}",
-            ]
-            for device in (check.source, check.destination):
-                section = by_name.get(device)
-                if section is None:
-                    continue
-                section.questions.append(
-                    QandA(
-                        question=f"Can {device} reach {check.destination if device == check.source else check.source}?",
-                        answer=answer,
-                        status=Status.OBSERVED,
-                        evidence=evidence,
-                        limitation="an observed result for this path under these conditions",
-                    )
-                )
-                section.basics.append(
-                    (
-                        "Operational connectivity",
-                        f"{answer} to {check.destination if device == check.source else check.source}",
-                    )
-                )
-        else:
-            for device in (check.source, check.destination):
-                section = by_name.get(device)
-                if section is None:
-                    continue
-                section.questions.append(
-                    QandA(
-                        question=f"Can {device} reach the other device?",
-                        answer=None,
-                        status=status,
-                        limitation=check.detail or check.status.value,
-                    )
-                )
-        if not check.observed and check.detail:
-            report.unsupported_checks.append(
-                f"runtime {check.source}->{check.destination}: {check.status.value} "
-                f"({check.detail})"
+    for check in checks:
+        try:
+            _merge_one_check(report, by_name, check)
+        except Exception as exc:  # noqa: BLE001 - one malformed check must not lose the report
+            report.warnings.append(
+                f"runtime check could not be merged: {type(exc).__name__}: {exc}"
             )
+    report.overview.update(_experiment_counts(checks))
+    # ``unsupported_checks`` was counted from the static coverage matrix when the
+    # report was built; the runtime gaps just appended above change the real
+    # number, so the summary must be recomputed rather than left stale.
+    report.overview["unsupported_checks"] = len(report.unsupported_checks)
     return report
+
+
+def _merge_one_check(report: NetworkReport, by_name: dict, check) -> None:
+    status = _RUNTIME_STATUS.get(check.status.value, Status.UNRESOLVED)
+    if check.status.value == "OBSERVED":
+        answer = check.detail.split(":")[0] if check.detail else check.status.value
+        evidence = [
+            f"PDU {check.source} -> {check.destination}",
+            f"simulator {check.simulator_version}",
+            f"session {check.session_id}",
+        ]
+        for device in (check.source, check.destination):
+            section = by_name.get(device)
+            if section is None:
+                continue
+            section.questions.append(
+                QandA(
+                    question=f"Can {device} reach {check.destination if device == check.source else check.source}?",
+                    answer=answer,
+                    status=Status.OBSERVED,
+                    evidence=evidence,
+                    limitation="an observed result for this path under these conditions",
+                )
+            )
+            section.basics.append(
+                (
+                    "Operational connectivity",
+                    f"{answer} to {check.destination if device == check.source else check.source}",
+                )
+            )
+    else:
+        for device in (check.source, check.destination):
+            section = by_name.get(device)
+            if section is None:
+                continue
+            section.questions.append(
+                QandA(
+                    question=f"Can {device} reach the other device?",
+                    answer=None,
+                    status=status,
+                    limitation=check.detail or check.status.value,
+                )
+            )
+    if not check.observed and check.detail:
+        report.unsupported_checks.append(
+            f"runtime {check.source}->{check.destination}: {check.status.value} "
+            f"({check.detail})"
+        )
 
 
 def analyze_network(model: NetworkModel, coverage: CoverageMatrix | None = None) -> NetworkReport:
@@ -1105,21 +1168,65 @@ def analyze_network(model: NetworkModel, coverage: CoverageMatrix | None = None)
     return Analyzer(model, coverage).build()
 
 
-def stream_sections(model: NetworkModel, coverage: CoverageMatrix | None = None):
+def stream_sections(
+    model: NetworkModel,
+    coverage: CoverageMatrix | None = None,
+    *,
+    runtime_error: str | None = None,
+):
     """Yield ``("overview", dict)``, then ``("section", dict)`` per device, then
     ``("findings", dict)`` and ``("coverage", dict)``.
 
     This is the shape the streaming endpoint uses. Each device is yielded as soon
-    as its own facts are assembled, so a large lab renders progressively instead of
-    showing one status line until everything is done.
+    as its own facts are assembled, so a large lab renders progressively instead
+    of showing one status line until everything is done.
+
+    Once a stream has started the HTTP status is already sent, so a failure has
+    to be delivered in-band. A section that cannot be built becomes a distinct
+    ``("ERROR", {...})`` event and the remaining sections are still emitted: one
+    broken device must not discard the devices that were already computed.
+
+    ``runtime_error`` reports a failed operational (simulator) stage as its own
+    event between the overview and the per-device sections. The static sections
+    are still emitted: the optional stage failing is not a reason to withhold
+    what the static engines already established.
     """
+    try:
+        yield from _stream_sections_impl(model, coverage, runtime_error)
+    except Exception as exc:  # noqa: BLE001 - reported in-band, never raised mid-stream
+        yield "ERROR", {
+            "detail": f"analyze stream failed: {type(exc).__name__}: {exc}",
+            "scope": "stream",
+        }
+
+
+def _stream_sections_impl(
+    model: NetworkModel,
+    coverage: CoverageMatrix | None,
+    runtime_error: str | None = None,
+):
     analyzer = Analyzer(model, coverage)
+    errors: list[str] = []
     findings: list[DeviceFinding] = [
         finding for group in analyzer._findings_by_device.values() for finding in group
     ]
     yield "overview", analyzer._overview(findings)
+    if runtime_error:
+        detail = f"operational stage failed: {runtime_error}"
+        errors.append(detail)
+        yield "ERROR", {"detail": detail, "scope": "runtime"}
     for device in analyzer._ordered_devices():
-        yield "section", analyzer.section(device).as_dict()
+        try:
+            payload = analyzer.section(device).as_dict()
+        except Exception as exc:  # noqa: BLE001 - one device must not sink the stream
+            detail = (
+                f"section for {device.name} could not be built: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            errors.append(detail)
+            yield "ERROR", {"detail": detail, "device": device.name, "scope": "section"}
+            continue
+        yield "section", payload
     yield "findings", {
         "network_findings": [
             f.as_dict() for f in findings if not f.device or f.device == "network"
@@ -1128,7 +1235,7 @@ def stream_sections(model: NetworkModel, coverage: CoverageMatrix | None = None)
     yield "coverage", {
         "unsupported_checks": analyzer._unsupported_checks(),
         "coverage": analyzer.coverage.summary(),
-        "warnings": list(model.warnings),
+        "warnings": list(model.warnings) + errors,
     }
 
 

@@ -1,0 +1,393 @@
+{
+  "levels": {
+    "01_easy": {
+      "devices": 3,
+      "expected_devices": 3,
+      "links": 2,
+      "expected_links": 2,
+      "interfaces": 4,
+      "observations": 28,
+      "routes": 0,
+      "vlans": 1,
+      "acls": 0,
+      "seconds": 1.067,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "SHUTDOWN_INTERFACE",
+          "device": "R1",
+          "interface": "GigabitEthernet0/0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Interface is administratively down."
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 1,
+      "notes": "Single router R1, one switch SW1, one PC. R1 GigabitEthernet0/0 administratively down is the only reported defect; no other detector fired. Static-route detectors inert (model.routes=0)."
+    },
+    "02_basic": {
+      "devices": 5,
+      "expected_devices": 5,
+      "links": 4,
+      "expected_links": 4,
+      "interfaces": 8,
+      "observations": 48,
+      "routes": 0,
+      "vlans": 2,
+      "acls": 0,
+      "seconds": 2.4,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-3",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.2.1.254 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_VLAN",
+          "device": "SW1",
+          "interface": "FastEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "FastEthernet0/1 is in VLAN 91 but 3 other port(s) on subnet 10.2.1.0/24 use VLAN 11"
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 2,
+      "notes": "WRONG_VLAN on SW1 Fa0/1 (VLAN 91 vs 11 on 10.2.1.0/24) and WRONG_GATEWAY on PC1-3 (10.2.1.254 not on any interface). Two reported faults; no route-related hypotheses."
+    },
+    "03_intermediate": {
+      "devices": 8,
+      "expected_devices": 8,
+      "links": 7,
+      "expected_links": 7,
+      "interfaces": 14,
+      "observations": 80,
+      "routes": 0,
+      "vlans": 2,
+      "acls": 0,
+      "seconds": 1.848,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "INVALID_MASK",
+          "device": "PC1-1",
+          "interface": "FastEthernet0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "PC1-1 uses /16 while 2 other host(s) on VLAN 11 use /24"
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC2-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.3.2.254 is not an address that exists on the network."
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 3,
+      "notes": "INVALID_MASK on PC1-1 (/16 vs /24 peers) and WRONG_GATEWAY on PC2-2. Document contains 1 'ip route' line, but model.routes=0, so MISSING_STATIC_ROUTE/ROUTING_LOOP could not be evaluated; declared fault_count is 3."
+    },
+    "04_advanced": {
+      "devices": 11,
+      "expected_devices": 11,
+      "links": 11,
+      "expected_links": 11,
+      "interfaces": 22,
+      "observations": 109,
+      "routes": 0,
+      "vlans": 3,
+      "acls": 2,
+      "seconds": 1.938,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "ACL_BLOCK",
+          "device": "R1",
+          "interface": "GigabitEthernet0/0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "ACL BLOCK-GATEWAY-ICMP denies traffic inbound on GigabitEthernet0/0."
+        },
+        {
+          "kind": "SHUTDOWN_INTERFACE",
+          "device": "R2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Interface is administratively down."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW1",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "GigabitEthernet0/1 carries VLAN(s) [12] that peer SW2:GigabitEthernet0/1 does not."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "SW2:GigabitEthernet0/1 does not permit VLAN 12, but FastEthernet0/1, FastEthernet0/2, GigabitEthernet0/2 on this switch are in it"
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-1",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.4.1.1 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.4.1.1 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC3-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.4.3.254 is not an address that exists on the network."
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 4,
+      "notes": "ACL_BLOCK on R1 Gi0/0 (BLOCK-GATEWAY-ICMP), SHUTDOWN on R2 Gi0/1, TRUNK_MISMATCH reported symmetrically on SW1 and SW2 Gi0/1 (VLAN 12), and three WRONG_GATEWAY findings (PC1-1, PC1-2 both 10.4.1.1; PC3-2 10.4.3.254). Declared fault_count 4; multiplicity means findings exceed faults. 3 'ip route' lines in document, model.routes=0."
+    },
+    "05_expert": {
+      "devices": 17,
+      "expected_devices": 17,
+      "links": 17,
+      "expected_links": 17,
+      "interfaces": 34,
+      "observations": 173,
+      "routes": 0,
+      "vlans": 5,
+      "acls": 0,
+      "seconds": 2.017,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "INVALID_MASK",
+          "device": "PC1-1",
+          "interface": "FastEthernet0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "PC1-1 uses /16 while 3 other host(s) on VLAN 11 use /24"
+        },
+        {
+          "kind": "SHUTDOWN_INTERFACE",
+          "device": "R3",
+          "interface": "GigabitEthernet0/2",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Interface is administratively down."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW1",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "GigabitEthernet0/1 carries VLAN(s) [12] that peer SW2:GigabitEthernet0/1 does not."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "SW2:GigabitEthernet0/1 does not permit VLAN 12, but FastEthernet0/2, GigabitEthernet0/2 on this switch are in it"
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "SW2:GigabitEthernet0/1 does not permit VLAN 92, but FastEthernet0/1 on this switch are in it"
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC4-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.5.4.254 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_VLAN",
+          "device": "SW2",
+          "interface": "FastEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "FastEthernet0/1 is in VLAN 92 but 2 other port(s) on subnet 10.5.2.0/24 use VLAN 12"
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 6,
+      "notes": "INVALID_MASK PC1-1, SHUTDOWN R3 Gi0/2, TRUNK_MISMATCH SW1+SW2 Gi0/1 (VLAN 12), TRUNK_MISMATCH SW2 Gi0/1 (VLAN 92), WRONG_VLAN SW2 Fa0/1, WRONG_GATEWAY PC4-2. Declared fault_count 6; 7 findings because the VLAN 12 trunk is reported from both ends. 7 'ip route' lines, model.routes=0."
+    },
+    "06_insane": {
+      "devices": 26,
+      "expected_devices": 26,
+      "links": 26,
+      "expected_links": 26,
+      "interfaces": 52,
+      "observations": 264,
+      "routes": 0,
+      "vlans": 7,
+      "acls": 2,
+      "seconds": 1.501,
+      "engines": {
+        "engine_a": "OK",
+        "engine_b": "OK",
+        "engine_c": "UNAVAILABLE"
+      },
+      "predicted_faults": [
+        {
+          "kind": "ACL_BLOCK",
+          "device": "R1",
+          "interface": "GigabitEthernet0/0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "ACL BLOCK-GATEWAY-ICMP denies traffic inbound on GigabitEthernet0/0."
+        },
+        {
+          "kind": "DUPLICATE_IP",
+          "device": "PC1-1",
+          "interface": "FastEthernet0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Address 10.6.1.10 is claimed by more than one interface (PC1-1:FastEthernet0, PC1-2:FastEthernet0)."
+        },
+        {
+          "kind": "INVALID_MASK",
+          "device": "PC1-1",
+          "interface": "FastEthernet0",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "PC1-1 uses /16 while 3 other host(s) on VLAN 11 use /24"
+        },
+        {
+          "kind": "SHUTDOWN_INTERFACE",
+          "device": "R4",
+          "interface": "GigabitEthernet0/2",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Interface is administratively down."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW1",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "GigabitEthernet0/1 carries VLAN(s) [12] that peer SW2:GigabitEthernet0/1 does not."
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "SW2:GigabitEthernet0/1 does not permit VLAN 12, but FastEthernet0/2, FastEthernet0/3, GigabitEthernet0/2 on this switch are in it"
+        },
+        {
+          "kind": "TRUNK_MISMATCH",
+          "device": "SW2",
+          "interface": "GigabitEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "SW2:GigabitEthernet0/1 does not permit VLAN 92, but FastEthernet0/1 on this switch are in it"
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-1",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.6.1.253 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.6.1.1 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC1-3",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.6.1.1 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "PC6-2",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.6.6.254 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_GATEWAY",
+          "device": "SERVER1",
+          "interface": null,
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "Default gateway 10.6.1.1 is not an address that exists on the network."
+        },
+        {
+          "kind": "WRONG_VLAN",
+          "device": "SW2",
+          "interface": "FastEthernet0/1",
+          "confidence": "HIGH",
+          "status": "CONFIRMED_DEFECT",
+          "suspected_cause": "FastEthernet0/1 is in VLAN 92 but 3 other port(s) on subnet 10.6.2.0/24 use VLAN 12"
+        }
+      ],
+      "inconclusive": [],
+      "declared_fault_count": 10,
+      "notes": "13 reported defects: ACL_BLOCK R1 Gi0/0, DUPLICATE_IP 10.6.1.10 on PC1-1/PC1-2, INVALID_MASK PC1-1 (/16 vs /24), SHUTDOWN R4 Gi0/2, TRUNK_MISMATCH SW1+SW2 Gi0/1 (VLAN 12), TRUNK_MISMATCH SW2 Gi0/1 (VLAN 92), WRONG_VLAN SW2 Fa0/1, and five WRONG_GATEWAY findings (PC1-1 10.6.1.253; PC1-2, PC1-3, SERVER1 10.6.1.1; PC6-2 10.6.6.254). Declared fault_count 10. 16 'ip route' lines, model.routes=0, so no routing-path fault was assessed."
+    }
+  },
+  "method": "asyncio.run(analyze(ingest(name, bytes), '1. What is the hostname of the first router?', cfg=settings (imported from trident.config), use_ai=False)) then trident.diagnostics.diagnose(out.model).to_report_dicts(); one sequential run per level in the repo .venv, no Packet Tracer started, no engine changes. Devices/links/interfaces/observations read from the returned NetworkModel; routes/vlans/acls from the same model. Engine states read from out.adapter_results[].report. engine_c was UNAVAILABLE on every level ('pt-convert checkout missing src/lib/packet-crypto.ts'). diagnose() returned only CONFIRMED_DEFECT hypotheses on all six levels; no SUSPECTED or INSUFFICIENT_EVIDENCE hypothesis was emitted, so 'inconclusive' is empty everywhere by observation, not by choice."
+}

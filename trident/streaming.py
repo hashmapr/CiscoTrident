@@ -24,7 +24,7 @@ import json
 from collections.abc import AsyncIterator, Iterable
 from dataclasses import dataclass
 
-from .models import AnalysisResponse, AnswerResult
+from .models import AnalysisResponse, AnswerResult, ParserState
 
 
 class EventKind(enum.StrEnum):
@@ -89,21 +89,31 @@ class AnswerStreamer:
         return event
 
     def answer(self, result: AnswerResult) -> StreamEvent:
-        event = StreamEvent(kind=EventKind.ANSWER, answer=_answer_dict(result))
+        # Serialising one answer must never kill the stream: a malformed result
+        # becomes a structured ERROR event, and the caller's loop keeps running.
+        try:
+            event = StreamEvent(kind=EventKind.ANSWER, answer=_answer_dict(result))
+        except Exception as exc:  # noqa: BLE001 - reported, not hidden
+            return self.error(
+                f"answer could not be serialised: {type(exc).__name__}: {exc}"
+            )
         self._events.append(event)
         return event
 
     def complete(self, response: AnalysisResponse) -> StreamEvent:
-        event = StreamEvent(
-            kind=EventKind.COMPLETE,
-            payload={
+        try:
+            payload = {
                 "file_name": response.file_name,
                 "file_sha256": response.file_sha256,
                 "snapshot_id": response.snapshot_id,
                 "status_counts": _status_counts(response.results),
-                "warnings": list(response.warnings),
-            },
-        )
+                "warnings": completion_warnings(response),
+            }
+        except Exception as exc:  # noqa: BLE001 - reported, not hidden
+            return self.error(
+                f"completion summary could not be built: {type(exc).__name__}: {exc}"
+            )
+        event = StreamEvent(kind=EventKind.COMPLETE, payload=payload)
         self._events.append(event)
         return event
 
@@ -140,6 +150,53 @@ def _status_counts(results: Iterable[AnswerResult]) -> dict[str, int]:
     return counts
 
 
+def _decode_evidence(response: AnalysisResponse) -> tuple[list[str], list[str]] | None:
+    """Engines that errored or abstained, when nothing at all was extracted.
+
+    Returns ``(failed, abstained)`` only when no device was extracted *and* the
+    engines themselves show a decoding problem. A file that decodes cleanly but
+    genuinely holds no network has neither an errored engine nor an abstention,
+    so it is not reported as undecodable.
+    """
+    summary = response.network_summary or {}
+    if summary.get("devices"):
+        return None
+    failed = [report.engine for report in response.parsers if report.state is ParserState.ERROR]
+    abstained = [
+        report.engine
+        for report in response.parsers
+        if report.state is ParserState.OK and report.device_count == 0 and report.notes
+    ]
+    if not failed and not abstained:
+        return None
+    return failed, abstained
+
+
+def completion_warnings(response: AnalysisResponse) -> list[str]:
+    """Warnings for the COMPLETE event, including an honest decode verdict.
+
+    The pipeline reports the generic "No devices were extracted" gap. When the
+    engine reports themselves show that decoding failed (one errored, another
+    abstained on a container integrity error), the summary must say the file
+    could not be decoded. "Empty network" and "unreadable file" call for
+    different user action, so they must not look identical in the stream.
+    """
+    warnings = list(response.warnings)
+    if any("could not be decoded" in text for text in warnings):
+        return warnings
+    evidence = _decode_evidence(response)
+    if evidence is None:
+        return warnings
+    failed, abstained = evidence
+    engines = sorted({*failed, *abstained})
+    warnings.append(
+        "This file could not be decoded by the extraction engines "
+        f"({', '.join(engines)} produced no network data). It is probably corrupt, "
+        "truncated, or not a Packet Tracer save."
+    )
+    return warnings
+
+
 def stream_events(
     response: AnalysisResponse,
     *,
@@ -151,11 +208,18 @@ def stream_events(
     a live stream would, so the frontend has one shape to render.
     """
     streamer = AnswerStreamer()
-    for name in stages:
-        streamer.stage(name)
-    for result in response.results:
-        streamer.answer(result)
-    streamer.complete(response)
+    try:
+        for name in stages:
+            streamer.stage(name)
+        for result in response.results:
+            event = streamer.answer(result)
+            if event.kind is EventKind.ERROR:
+                # An answer that could not be serialised means the result set is
+                # incomplete; a COMPLETE event afterwards would be a lie.
+                return streamer.events
+        streamer.complete(response)
+    except Exception as exc:  # noqa: BLE001 - reported in-band, never raised
+        streamer.error(f"event stream failed: {type(exc).__name__}: {exc}")
     return streamer.events
 
 
@@ -166,14 +230,27 @@ async def stream_analysis(response: AnalysisResponse) -> AsyncIterator[str]:
     happened by the time this is called; labelling past work as a live stage
     would be dishonest. The caller that wants live stages drives
     :class:`AnswerStreamer` from inside the pipeline instead.
+
+    A failure part-way through is reported as an in-band ERROR frame and the
+    generator then ends. Once the response has started a traceback cannot become
+    a status code, and a truncated stream with no terminal event is the worst
+    outcome: the client cannot tell it from a slow one.
     """
     streamer = AnswerStreamer()
-    streamer.stage("parsing")
-    streamer.stage("consensus")
-    streamer.stage("resolving")
-    for result in response.results:
-        yield streamer.answer(result).to_sse()
-    yield streamer.complete(response).to_sse()
+    try:
+        streamer.stage("parsing")
+        streamer.stage("consensus")
+        streamer.stage("resolving")
+        for result in response.results:
+            event = streamer.answer(result)
+            yield event.to_sse()
+            if event.kind is EventKind.ERROR:
+                # An answer that could not be serialised leaves the result set
+                # incomplete; emitting COMPLETE next would misreport the run.
+                return
+        yield streamer.complete(response).to_sse()
+    except Exception as exc:  # noqa: BLE001 - reported in-band, then terminate
+        yield streamer.error(f"stream failed: {type(exc).__name__}: {exc}").to_sse()
 
 
 __all__ = [
@@ -181,6 +258,7 @@ __all__ = [
     "AnswerStreamer",
     "EventKind",
     "StreamEvent",
+    "completion_warnings",
     "stream_analysis",
     "stream_events",
 ]

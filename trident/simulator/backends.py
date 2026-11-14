@@ -43,6 +43,7 @@ from .ptmp import (
     PtmpClient,
     PtmpDisconnected,
     PtmpError,
+    PtmpTimeout,
 )
 
 #: Packet Tracer bundle locations checked, newest first. The environment
@@ -352,6 +353,23 @@ def credentials_from_env() -> tuple[str, str] | None:
     return env_pair
 
 
+def _connection_refused(host: str, port: int) -> bool:
+    """True when nothing is listening on ``host:port``.
+
+    A refused connection is the only positive proof that a port is free at this
+    instant; a timeout means something dropped the SYN and tells us nothing.
+    """
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=0.4):
+            return False
+    except ConnectionRefusedError:
+        return True
+    except OSError:
+        return False
+
+
 class ProcessSupervisor:
     """Owns one Packet Tracer process.
 
@@ -391,6 +409,19 @@ class ProcessSupervisor:
             self.ipc_port = self._choose_port()
             self._chosen_port = True
 
+        # The reservation `_choose_port` made is released the moment it returns,
+        # so a racing process can bind the port between that check and our Popen.
+        # Packet Tracer would then fail to bind its own port and `_wait_for_listener`
+        # would attach to the stranger — the exact "wrong lab, wrong state" failure
+        # the reservation exists to prevent.
+        #
+        # Two checks, because either alone is insufficient:
+        #   * before spawn, the port must be refused (nothing is listening yet);
+        #   * immediately after spawn it must still be refused. If it is already
+        #     accepting connections before our child has had time to bind, the
+        #     listener belongs to somebody else.
+        was_refused = _connection_refused("127.0.0.1", self.ipc_port)
+
         args = [str(executable)]
         if self.no_gui:
             args.append("--no-gui")
@@ -407,6 +438,26 @@ class ProcessSupervisor:
             )
         self._spawned_here = True
         self.started_at = time.monotonic()
+        if not was_refused:
+            # Something was already listening when we picked: attaching now would
+            # be unprovable, so fail instead of guessing.
+            self.stop()
+            raise BackendUnavailable(
+                f"port {self.ipc_port} was already in use before Packet Tracer started; "
+                "another instance is racing for the IPC range"
+            )
+        # Second check: our child needs a moment to bind. If the port accepts a
+        # connection *now*, this process has not bound it yet, so the listener is
+        # foreign. Only a port that is still refused immediately after spawn can
+        # then be observed going refused -> listening, which is what makes the
+        # later successful connection provably ours.
+        if not _connection_refused("127.0.0.1", self.ipc_port):
+            self.stop()
+            raise BackendUnavailable(
+                f"port {self.ipc_port} began listening immediately after spawn, "
+                "before Packet Tracer could have bound it; refusing to attach to "
+                "a listener this process did not open"
+            )
         port = self._wait_for_listener(
             timeout_s if timeout_s is not None else self.startup_timeout
         )
@@ -455,8 +506,9 @@ class ProcessSupervisor:
                 break
             time.sleep(0.5)
         raise BackendUnavailable(
-            "no free Packet Tracer IPC port in 39000-39009 after 15 s. Another "
-            "Packet Tracer instance is holding them; quit it and retry."
+            f"no free Packet Tracer IPC port in "
+            f"{self.IPC_PORT_RANGE.start}-{self.IPC_PORT_RANGE.stop - 1} after 15 s. "
+            "Another Packet Tracer instance is holding them; quit it and retry."
         )
 
     def _wait_for_listener(self, timeout_s: float) -> int:
@@ -556,6 +608,14 @@ READ_ONLY_PREFIXES = (
     "traceroute ",
     "tracert ",
     "display ",
+    # End-host diagnostics. `ipconfig` with no arguments prints the NIC's IP,
+    # mask and gateway; it cannot change them, so it belongs here. The mutating
+    # forms (`ipconfig /renew`, `/release`) are rejected by _MUTATING_TOKENS
+    # below, which is why this is safe to allow as a prefix.
+    "ipconfig",
+    "ifconfig",
+    "winipcfg",
+    "nslookup ",
 )
 
 _MUTATING_TOKENS = (
@@ -570,6 +630,12 @@ _MUTATING_TOKENS = (
     "shutdown",
     "clear ",
     "debug ",
+    # End-host mutations. `ipconfig` is allowed as a read-only prefix, so its
+    # leasing forms must be blocked explicitly or /renew would change the NIC.
+    "/renew",
+    "/release",
+    "/flushdns",
+    "/registerdns",
 )
 
 
@@ -641,19 +707,36 @@ class LiveBackend(Backend):
         return self._pdu_executor
 
     def connect(self, startup_timeout: float = 45.0) -> None:
-        if self.autostart:
-            self.supervisor = ProcessSupervisor(self.bundle, self.ipc_port)
-            port = self.supervisor.start(self.workspace, timeout_s=startup_timeout)
-            # Record the port actually used, so provenance and diagnostics can
-            # report it. Without this the backend says 0 even though the session
-            # is live on a real port.
-            self.ipc_port = port
-        else:
-            port = self.ipc_port or 39000
-        client = PtmpClient(*self.credentials, port=port)
-        client.connect()
-        self.client = client
-        self._open_lab()
+        """Start (or attach to) Packet Tracer and load the lab.
+
+        Every failure path tears down what was already started. The previous
+        version leaked the process whenever the *client* failed after the
+        supervisor had come up: a wrong secret or a busy IPC port raised out of
+        ``client.connect()``, leaving an invisible Packet Tracer running with
+        the workspace directory already deleted, and the next attempt then found
+        its port held. ``select_backend`` catches the exception and calls
+        ``close()``, so the teardown has to be correct here.
+        """
+        try:
+            if self.autostart:
+                self.supervisor = ProcessSupervisor(self.bundle, self.ipc_port)
+                port = self.supervisor.start(self.workspace, timeout_s=startup_timeout)
+                # Record the port actually used, so provenance and diagnostics can
+                # report it. Without this the backend says 0 even though the session
+                # is live on a real port.
+                self.ipc_port = port
+            else:
+                port = self.ipc_port or 39000
+            client = PtmpClient(*self.credentials, port=port)
+            client.connect()
+            self.client = client
+            self._open_lab()
+        except BaseException:
+            # Covers Ptmp errors, BackendUnavailable from _open_lab, and
+            # cancellation (KeyboardInterrupt / asyncio cancellation surfacing as
+            # BaseException) so a cancelled connect never abandons a process.
+            self.close()
+            raise
 
     def _open_lab(self) -> None:
         """Load the working copy into Packet Tracer.
@@ -751,8 +834,8 @@ class LiveBackend(Backend):
                 f"{command!r} is not a read-only diagnostic; mutations are disabled"
             )
         try:
-            text = self.client.enter_command(device, command)
-        except PtmpDisconnected as exc:
+            text = self.client.enter_command(device, command, timeout=timeout)
+        except (PtmpDisconnected, PtmpTimeout, PtmpError) as exc:
             return OperationResult(
                 ok=False,
                 kind=ObservationKind.CLI_OUTPUT,
