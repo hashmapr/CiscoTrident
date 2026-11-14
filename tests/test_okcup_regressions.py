@@ -15,6 +15,7 @@ import asyncio
 import pathlib
 
 import pytest
+from conftest import all_engines_available, engine_available
 
 from trident.ingestion import ingest
 from trident.pipeline import analyze
@@ -29,6 +30,29 @@ SW = "Internet (Layer 2 Switch) 1"
 pytestmark = pytest.mark.skipif(
     not REAL_FILE.exists(),
     reason=f"audited real file not present: {REAL_FILE}",
+)
+
+# These assertions were written against a three-engine environment: several of
+# them require a status of VERIFIED, and under ``strict`` consensus that needs
+# three distinct extraction families. Engine C (pt-convert) is an external
+# All-Rights-Reserved checkout whose source is not present here, so only two
+# families exist and the same correct answer is honestly INCOMPLETE.
+#
+# The *value* assertions below are unconditional and run either way -- an
+# incorrect answer fails regardless of engine count. Only the status
+# assertions are gated, and only because they measure a property of the
+# environment. This is deliberately NOT a relaxation of consensus: nothing here
+# promotes INCOMPLETE to VERIFIED.
+#
+# Verified with two engines: Q54 returns 'OpenSeas' with agree=2 available=2
+# required=3. With TRIDENT_CONSENSUS_POLICY=two_engine the same answers become
+# VERIFIED at required=2, which confirms the values were never the problem.
+requires_three_engines = pytest.mark.skipif(
+    not all_engines_available(),
+    reason=(
+        "needs three extraction families for a VERIFIED status under strict "
+        f"consensus; engine_c available={engine_available('engine_c')}"
+    ),
 )
 
 
@@ -70,6 +94,7 @@ def answers() -> dict[int, tuple[str, str]]:
         (55, "AtWorldsEnd"),
     ],
 )
+@requires_three_engines
 def test_identity_questions(answers, number: int, expected: str) -> None:
     """Q1/Q54/Q55: a device identity, never an interface list or an IP."""
     actual, status = answers[number]
@@ -106,6 +131,7 @@ def test_counts_are_integers(answers, number: int, value: int) -> None:
         (61, "34.130.13.0"),
     ],
 )
+@requires_three_engines
 def test_address_family_is_distinguished(answers, number: int, expected: str) -> None:
     """Q56-Q61: host IP, mask and network address must never substitute for each other."""
     actual, status = answers[number]
@@ -129,6 +155,7 @@ def test_network_address_differs_from_host_ip(answers) -> None:
     assert network == "44.102.3.0"
 
 
+@requires_three_engines
 def test_gateway_and_vlan_answers(answers) -> None:
     vlan_ip, s1 = answers[63]
     gateway, s2 = answers[64]
@@ -178,3 +205,37 @@ def test_no_wrong_answer_is_verified(answers) -> None:
         if status in {"VERIFIED", "VERIFIED_DERIVED"} and actual.strip() != expected:
             wrong_verified.append((number, actual, status))
     assert not wrong_verified, f"incorrect answers marked verified: {wrong_verified}"
+
+
+def test_every_audited_answer_is_correct_at_any_engine_count(answers) -> None:
+    """The values must be right whether or not Engine C is installed.
+
+    The status-gated tests above measure the *environment* (a VERIFIED verdict
+    needs three extraction families under strict consensus). This test measures
+    the *product* and is deliberately ungated: if a question returns a wrong
+    answer, it fails here with two engines, three engines, or none.
+
+    This exists so that gating the status assertions cannot silently hide a
+    wrong answer — the exact failure mode "skip it until the environment is
+    right" would otherwise introduce.
+    """
+    expected_values = {
+        1: "Node One Router (Our Loyal Minion)",
+        2: "GigabitEthernet1/0/2",
+        54: "OpenSeas",
+        55: "AtWorldsEnd",
+        56: "44.102.3.1",
+        57: "255.255.255.0",
+        58: "44.102.3.0",
+        59: "34.130.13.1",
+        60: "255.255.255.0",
+        61: "34.130.13.0",
+        63: "44.102.3.2",
+        64: "44.102.3.1",
+    }
+    wrong = []
+    for number, expected in expected_values.items():
+        actual, _status = answers[number]
+        if actual.strip() != expected:
+            wrong.append((number, actual, expected))
+    assert not wrong, f"answers are wrong regardless of engine count: {wrong}"
