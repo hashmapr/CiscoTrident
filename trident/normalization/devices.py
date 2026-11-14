@@ -388,6 +388,8 @@ def _merge_interface(iface: InterfaceInfo, piface, engine: str, snapshot: str) -
             iface.native_vlan = int(str(piface.native_vlan).strip())
         except (TypeError, ValueError):
             pass
+    if piface.encapsulation_vlan and piface.encapsulation_vlan not in iface.vlan_assignments:
+        iface.vlan_assignments.append(piface.encapsulation_vlan)
     if piface.access_vlan and piface.access_vlan not in iface.vlan_assignments:
         iface.vlan_assignments.append(piface.access_vlan)
     for vlan in piface.trunk_allowed:

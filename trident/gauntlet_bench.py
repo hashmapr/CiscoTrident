@@ -89,6 +89,27 @@ class Benchmark:
         return sum(1 for f in self.fault_results if not f.detected)
 
     @property
+    def consequences(self) -> list[dict]:
+        """Detections that are factually true but not manifest faults.
+
+        ``PC-FACULTY-2``'s gateway really is unreachable — because R1's Faculty
+        subinterface carries the Students address. Reporting that as a "false
+        positive" would be wrong (it is a true statement) and reporting it as a
+        recall hit would be worse (it is not the root cause). They are counted
+        separately so neither number is inflated.
+        """
+        explained = {
+            (f.matched_device, f.matched_kind)
+            for f in self.fault_results
+            if f.detected
+        }
+        return [
+            det
+            for det in self.detections
+            if (det.get("device"), det.get("kind")) not in explained
+        ]
+
+    @property
     def fp(self) -> int:
         """Detections that did not correspond to any manifest fault.
 
@@ -127,6 +148,11 @@ class Benchmark:
             "true_positives": tp,
             "false_negatives": self.fn,
             "false_positives": self.fp,
+            "consequence_findings": len(self.consequences),
+            "consequence_detail": [
+                {"kind": d.get("kind"), "device": d.get("device")}
+                for d in self.consequences
+            ],
             "precision": f"{tp}/{tp_fp}" if tp_fp else "0/0",
             "precision_pct": round(100 * tp / tp_fp, 1) if tp_fp else None,
             "recall": f"{rtp}/{tp_fn}" if tp_fn else "0/0",
@@ -225,8 +251,8 @@ def run_benchmark(lab_spec=TOPOLOGY, *, verbose: bool = True) -> Benchmark:
               f"observations: {len(outcome.model.observations)}")
         print(f"detections: {len(detections)}")
         for det in detections:
-            print(f"    {det['kind']:24s} {str(det.get('device')):14s} "
-                  f"{str(det.get('interface')):22s} {det['status']}")
+            print(f"    {det['kind']:24s} {det.get('device')!s:14s} "
+                  f"{det.get('interface')!s:22s} {det['status']}")
         print("\nper-fault:")
         for fr in bench.fault_results:
             mark = "HIT " if fr.detected else "miss"

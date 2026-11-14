@@ -617,7 +617,17 @@ def detect_wrong_vlan(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypot
                 f"(defined: {sorted(declared)})"
             )
         elif counts.total() >= 2:
-            expected, _count = counts.most_common(1)[0]
+            ranked = counts.most_common()
+            expected, _count = ranked[0]
+            if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+                # A tie is ambiguous *among peers*, but the router's own
+                # subinterface is authoritative: it says which VLAN that subnet
+                # is supposed to be. Without this, fixing the tie false-positive
+                # also silenced the genuine fault, because a subnet with one
+                # correct port and one misconfigured port is a 1-1 tie.
+                expected = _vlan_for_subnet(model, net)
+                if expected is None:
+                    continue
             if expected != vlan:
                 reason = (
                     f"{name} is in VLAN {vlan} but {counts[expected]} other port(s) on "
@@ -1026,6 +1036,45 @@ def detect_unreachable_next_hop(
     return found
 
 
+def _vlan_for_subnet(
+    model: NetworkModel, net: ipaddress.IPv4Network
+) -> int | None:
+    """The VLAN a subinterface serves for ``net``, if the model says.
+
+    ``R1 GigabitEthernet0/0.20`` with ``encapsulation dot1Q 20`` and an address
+    in 192.168.20.0/24 is authoritative evidence that subnet 20 is VLAN 20.
+    """
+    for interface in _interfaces(model):
+        if not interface.ipv4_address or interface.prefix_length is None:
+            continue
+        try:
+            iface_net = ipaddress.IPv4Network(
+                f"{interface.ipv4_address}/{interface.prefix_length}", strict=False
+            )
+        except ValueError:
+            continue
+        if iface_net != net:
+            continue
+        vlans = _vlan_ids(interface.vlan_assignments)
+        if len(vlans) == 1:
+            return next(iter(vlans))
+    return None
+
+
+def _prefix_for_vlan(model: NetworkModel, device: str, vlan: int) -> int | None:
+    """The prefix length the L3 interface for ``vlan`` uses.
+
+    ``R1 GigabitEthernet0/0.10`` with ``encapsulation dot1Q 10`` and an address is
+    the authority for what VLAN 10's subnet looks like.
+    """
+    for interface in _interfaces(model):
+        if interface.device == device or interface.prefix_length is None:
+            continue
+        if vlan in _vlan_ids(interface.vlan_assignments):
+            return interface.prefix_length
+    return None
+
+
 def _pool_network(info: dict) -> ipaddress.IPv4Network | None:
     """A pool's subnet from its ``network`` + ``mask`` pair.
 
@@ -1290,6 +1339,75 @@ def detect_trunk_vlan_gap(
     return found
 
 
+def detect_mask_inconsistent_with_peers(
+    model: NetworkModel, _bundle: EvidenceBundle
+) -> list[Hypothesis]:
+    """A host whose prefix differs from every other host on the same VLAN.
+
+    Distinct from ``detect_invalid_mask``, which rejects a mask that is not a
+    legal contiguous mask. A /25 is perfectly legal; it is wrong because the
+    other hosts on that VLAN use /24 and the gateway is outside its range.
+    """
+    found: list[Hypothesis] = []
+    # Group hosts by the VLAN their switch port is in, using the port -> peer
+    # link, then compare prefix lengths within a group.
+    by_vlan: dict[tuple[str, int], list[InterfaceInfo]] = defaultdict(list)
+    for interface in _interfaces(model):
+        # The *port* has no IP; the host on the other end does. Filtering on
+        # the port's address skipped every access port and the detector could
+        # never group anything.
+        if _is_trunk(interface) or interface.ipv4_address:
+            continue
+        vlans = _vlan_ids(interface.vlan_assignments)
+        if len(vlans) != 1:
+            continue
+        peer = _peer_interface(model, interface.device, interface.name)
+        if peer is None:
+            continue
+        host = _find_interface(model, *peer)
+        if host is None or not host.ipv4_address or host.prefix_length is None:
+            continue
+        by_vlan[(interface.device, next(iter(vlans)))].append(host)
+
+    for (device, vlan), hosts in by_vlan.items():
+        if len(hosts) < 2:
+            continue
+        prefixes = Counter(h.prefix_length for h in hosts)
+        if len(prefixes) == 1:
+            continue
+        common, common_count = prefixes.most_common(1)[0]
+        if common_count == 1:
+            # With two hosts on different prefixes there is no peer majority.
+            # The router subinterface for this VLAN is authoritative: it is the
+            # address the hosts must share a subnet with.
+            authoritative = _prefix_for_vlan(model, device, vlan)
+            if authoritative is None:
+                continue
+            common = authoritative
+            common_count = sum(1 for h in hosts if h.prefix_length == common)
+            if not common_count:
+                continue
+        for host in hosts:
+            if host.prefix_length == common:
+                continue
+            detail = (
+                f"{host.device} uses /{host.prefix_length} while "
+                f"{common_count} other host(s) on VLAN {vlan} use /{common}"
+            )
+            found.append(
+                _hypothesis(
+                    INVALID_MASK,
+                    host.device,
+                    host.name,
+                    detail,
+                    (Observation(source=_MODEL, device=host.device, detail=detail),),
+                    "ipconfig",
+                    f"Set {host.device}'s mask to /{common}.",
+                )
+            )
+    return found
+
+
 _DETECTORS = (
     detect_invalid_mask,
     detect_unreachable_next_hop,
@@ -1297,6 +1415,7 @@ _DETECTORS = (
     detect_unreserved_gateway,
     detect_weak_management,
     detect_trunk_vlan_gap,
+    detect_mask_inconsistent_with_peers,
     detect_shutdown_interface,
     detect_wrong_gateway,
     detect_duplicate_ip,

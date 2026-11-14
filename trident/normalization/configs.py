@@ -37,6 +37,11 @@ class ParsedInterface:
     access_vlan: str | None = None
     trunk_allowed: list[str] = field(default_factory=list)
     native_vlan: str | None = None
+    #: 802.1Q VLAN carried by a router subinterface (``encapsulation dot1Q N``).
+    #: This is the authoritative statement of which VLAN a subnet belongs to,
+    #: and it was never parsed, so nothing could say what VLAN a subnet *should*
+    #: be on.
+    encapsulation_vlan: str | None = None
     switchport_mode: str | None = None
     helper_addresses: list[str] = field(default_factory=list)
     acl_in: str | None = None
@@ -385,6 +390,9 @@ def parse_running_config(lines: list[str] | str) -> ParsedConfig:
 
             if line.startswith("description "):
                 current.description = line.split(None, 1)[1].strip()
+                continue
+            if line.startswith("encapsulation dot1Q "):
+                current.encapsulation_vlan = line.split()[-1]
                 continue
             if line.startswith("shutdown"):
                 current.admin_state = "administratively down"
