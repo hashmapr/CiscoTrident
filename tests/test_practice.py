@@ -71,8 +71,8 @@ def test_objectives_do_not_name_the_defect(session: PracticeSession) -> None:
     Titles are category-level on purpose. If an objective said "VLAN 30 is
     renamed", the lab would be a reading exercise.
     """
-    rendered = " ".join(o.title for o in session.objectives()).lower()
-    for leak in ("misconfigured", "wrong", "missing", "shutdown", "native vlan 1"):
+    rendered = " ".join(f"{o.objective_id} {o.title}" for o in session.objectives()).lower()
+    for leak in ("misconfigured", "wrong", "missing", "shutdown", "native vlan 1", "admin-pc"):
         assert leak not in rendered, f"objective text leaks {leak!r}"
 
 

@@ -60,7 +60,7 @@ def test_objectives_json_is_machine_readable(capsys) -> None:
 
 
 def test_hint_is_progressive_across_invocations(capsys) -> None:
-    objective = "obj-trunk-native-mismatch"
+    objective = "obj-trunk-06"
     _run(capsys, "practice", "operation-broken-campus", "--hint", objective)
     code, out1, _ = _run(capsys, "practice", "operation-broken-campus", "--hint", objective)
     assert code == 0

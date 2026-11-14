@@ -121,7 +121,7 @@ class PracticeSession:
         """The goals, grouped in a stable order and stripped of the answer."""
         return [
             Objective(
-                objective_id=_objective_id(fault),
+                objective_id=_objective_id(fault, self.spec),
                 title=_objective_title(fault),
                 category=fault.category,
                 points=fault.points,
@@ -160,7 +160,7 @@ class PracticeSession:
 
     def _fault_for(self, objective_id: str) -> FaultSpec:
         for fault in self.spec.faults:
-            if _objective_id(fault) == objective_id:
+            if _objective_id(fault, self.spec) == objective_id:
                 return fault
         raise PracticeError(f"unknown objective {objective_id!r}")
 
@@ -196,14 +196,22 @@ class PracticeSession:
         }
 
 
-def _objective_id(fault: FaultSpec) -> str:
-    """A stable, unique, non-revealing slug for an objective.
+def _objective_id(fault: FaultSpec, spec: TopologySpec) -> str:
+    """A stable, unique, non-revealing id for an objective.
 
-    Derived from the fault id rather than its last token: ``obj-vlan-wrong``
-    was produced twice for two different VLAN faults, so a hint request for it
-    resolved to whichever fault happened to come first.
+    Two constraints, learned the hard way:
+
+    * **unique** — deriving from the last token of the fault id produced
+      ``obj-vlan-wrong`` twice, so a hint request resolved to the wrong fault;
+    * **non-revealing** — ``obj-iface-admin-port-shutdown`` told the student the
+      defect before they opened the lab.
+
+    The id is therefore the fault's position in the lab plus its category: stable
+    for a given spec, unique, deterministic across processes, and it says nothing
+    about what is wrong.
     """
-    return f"obj-{fault.fault_id}"
+    index = spec.faults.index(fault) + 1
+    return f"obj-{fault.category.value}-{index:02d}"
 
 
 def _objective_title(fault: FaultSpec) -> str:
