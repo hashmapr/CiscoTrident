@@ -107,6 +107,10 @@ class InterfaceInfo(BaseModel):
     ipv6_address: str | None = None
     prefix_length: int | None = None
     subnet_mask: str | None = None
+    #: Default gateway configured on an end-host NIC. Parsed since the beginning
+    #: as an ``endhost_gateway`` observation but never surfaced on the interface,
+    #: so no reasoning code could ask "what gateway does this host have?".
+    ipv4_gateway: str | None = None
     mac_address: str | None = None
     operational_state: str | None = None
     admin_state: str | None = None

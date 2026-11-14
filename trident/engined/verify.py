@@ -19,10 +19,14 @@ from enum import StrEnum
 
 from .intent import NetworkIntent, Requirement
 from .reachability import (
-    PathResult,
+    TraceOutcome,
+    classify_device,  # noqa: F401 - re-exported: callers import it from verify
     evaluate_acls,
+    router_for_address,
+    trace_path,
     vlan_path,
 )
+from .reachability import is_router_like as _is_router_like
 
 
 class Status(StrEnum):
@@ -52,6 +56,11 @@ class RequirementVerdict:
     deciding_interface: str | None = None
     evidence: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
+    #: Which half of the conversation failed: ``"forward"``, ``"return"`` or None.
+    #: A forward path that works with a broken reply is a different fault from a
+    #: forward path that never leaves the source, and an operator acts on them
+    #: differently.
+    failure_direction: str | None = None
     live_disagrees: bool = False
 
     @property
@@ -81,6 +90,7 @@ class RequirementVerdict:
             "deciding_interface": self.deciding_interface,
             "evidence": list(self.evidence),
             "missing": list(self.missing),
+            "failure_direction": self.failure_direction,
         }
 
 
@@ -175,6 +185,15 @@ def _kind_for(verdict: RequirementVerdict) -> str:
         return "TRUNK_VLAN_GAP"
     if "not defined in the vlan database" in text:
         return "VLAN_MISSING"
+    if "forwarding loop" in text or "hop limit" in text:
+        return "ROUTING_LOOP"
+    # The direction that failed names the fault. A missing outbound route and a
+    # missing reply route are different repairs even though both read as "no
+    # route" in a log; collapsing them sends an operator to the wrong router.
+    if verdict.failure_direction == "forward":
+        return "MISSING_FORWARD_ROUTE"
+    if verdict.failure_direction == "return":
+        return "MISSING_RETURN_ROUTE"
     if "no route" in text:
         return "MISSING_ROUTE"
     return "UNREACHABLE"
@@ -208,6 +227,26 @@ def verify_assertion(model, requirement: Requirement) -> RequirementVerdict:
             ok,
             deciding_device=device,
             evidence=[decision.detail],
+        )
+
+    if assertion == "gateway":
+        device = requirement.src.device
+        expected = operand
+        interfaces = [
+            i
+            for i in getattr(model, "interfaces", {}).values()
+            if i.device == device and getattr(i, "ipv4_address", None)
+        ]
+        if not interfaces:
+            return RequirementVerdict(
+                requirement, Status.INCONCLUSIVE, None,
+                missing=[f"{device} has no addressed interface in the model"],
+            )
+        actual = getattr(interfaces[0], "ipv4_gateway", None)
+        return RequirementVerdict(
+            requirement, Status.DERIVED, actual == expected,
+            deciding_device=device,
+            evidence=[f"{device} gateway is {actual}; expected {expected}"],
         )
 
     if assertion == "interface_up":
@@ -285,11 +324,22 @@ def verify_requirement(
             evidence=[str(exc)],
         )
 
+    # Off-subnet traffic needs a real gateway.
+    #
+    # This sits after the same-subnet branch below (a host with a wrong gateway
+    # can still reach its own L2 segment), so it is checked later in the flow.
     if _uses_dynamic_routing(model):
+        # The configuration says a routing protocol runs, but the model carries
+        # no adjacencies or learned routes. Static analysis would be a guess, so
+        # the honest status is INCONCLUSIVE naming the missing fact — never a
+        # fabricated missing route.
         return RequirementVerdict(
-            requirement, Status.UNSUPPORTED, None,
-            missing=["dynamic routing is not modelled by Engine D"],
-            evidence=["a router runs a dynamic routing protocol; static path analysis is unsafe"],
+            requirement, Status.INCONCLUSIVE, None,
+            missing=["dynamic routing is not modelled, so no route table can be derived"],
+            evidence=[
+                ("a router runs a dynamic routing protocol; static path analysis "
+                "cannot prove reachability")
+            ],
         )
 
     # VLAN path, but only when the host is actually behind a switch that has a
@@ -325,9 +375,14 @@ def verify_requirement(
             and dst_vlan.vlan is not None
             and src_vlan.vlan != dst_vlan.vlan
         ):
+            # Name the switch port, not the host: the host is the victim, the
+            # port is the defect. Attributing to the host made a VLAN fault look
+            # like a fabricated finding on a PC.
+            port_device, port_iface = _vlan_port(model, requirement.dst.device)
             return RequirementVerdict(
                 requirement, Status.DERIVED, False,
-                deciding_device=dst_vlan.host,
+                deciding_device=port_device or dst_vlan.host,
+                deciding_interface=port_iface,
                 evidence=[
                     (
                         f"{requirement.src.device} is in VLAN {src_vlan.vlan} but "
@@ -337,69 +392,138 @@ def verify_requirement(
                 ],
             )
 
-    # Locate the router that serves the source subnet, then ask it to forward.
-    src_router = _router_for_address(model, src_ip)
+    # Off-subnet only beyond this point (the same-subnet branch returned above),
+    # so a host whose configured gateway nobody owns discards its own packets.
+    # The failure belongs to the HOST, not to a router downstream: routing from
+    # a router the packet never reaches would describe a path that cannot exist.
+    gateway_problem = _gateway_problem(model, requirement.src.device)
+    if gateway_problem is not None:
+        return RequirementVerdict(
+            requirement, Status.DERIVED, False,
+            deciding_device=requirement.src.device,
+            evidence=[gateway_problem],
+        )
+
+    # Locate the router that serves the source endpoint, then walk the packet
+    # across every router it must cross. One router's table is not a path.
+    src_router = _router_for_address(model, src_ip) or _device_if_router(model, src_ip)
     if src_router is None:
         return RequirementVerdict(
             requirement, Status.INCONCLUSIVE, None,
-            missing=[f"no router interface serves {src_ip}"],
-            evidence=[f"{src_ip} has no L3 gateway in the model"],
+            missing=[
+                f"no router interface serves {src_ip}",
+                "no L3 gateway for the source is modelled, so forwarding cannot be evaluated",
+            ],
+            evidence=[
+                f"forward path ({src_ip} -> {dst_ip}): no gateway is modelled for {src_ip}"
+            ],
         )
 
-    from .reachability import ForwardingTable
+    forward = trace_path(model, src_ip, dst_ip, start_router=src_router)
+    forward_evidence = [
+        f"forward path ({src_ip} -> {dst_ip}): {line}" for line in forward.evidence()
+    ]
 
-    table = ForwardingTable(model, src_router)
-    decision = table.decide(dst_ip)
-    evidence = [decision.detail]
-
-    if decision.result is PathResult.UNSUPPORTED:
+    if forward.outcome is TraceOutcome.UNSUPPORTED:
         return RequirementVerdict(
             requirement, Status.UNSUPPORTED, None,
             missing=["destination is not analysable"],
-            evidence=evidence,
+            evidence=forward_evidence,
         )
-    if not decision.forwards:
-        verdict = RequirementVerdict(
-            requirement, Status.DERIVED, False,
-            deciding_device=src_router,
-            evidence=evidence,
+    if forward.outcome is TraceOutcome.INCONCLUSIVE:
+        return RequirementVerdict(
+            requirement, Status.INCONCLUSIVE, None,
+            missing=list(forward.missing) or ["the forward path could not be decided"],
+            evidence=forward_evidence,
         )
-        return _apply_live(verdict, live_observation)
+    if forward.outcome is TraceOutcome.HOP_LIMIT or not forward.reachable:
+        return _apply_live(
+            RequirementVerdict(
+                requirement, Status.DERIVED, False,
+                deciding_device=forward.fault_device,
+                deciding_interface=forward.fault_interface,
+                failure_direction="forward",
+                evidence=forward_evidence,
+            ),
+            live_observation,
+        )
 
-    # ACL at the egress router can still drop the packet.
+    # An ACL on the way out can still drop a forwarded packet.
     acl = evaluate_acls(model, src_router, src_ip, dst_ip, requirement.protocol)
     if acl.action == "deny":
-        evidence.append(acl.detail)
+        forward_evidence.append(f"forward path: {acl.detail}")
         return _apply_live(
             RequirementVerdict(
                 requirement, Status.DERIVED, False,
                 deciding_device=src_router,
+                failure_direction="forward",
+                evidence=forward_evidence,
+            ),
+            live_observation,
+        )
+    forward_evidence.append(f"forward path: {acl.detail}")
+
+    # A same-subnet pair needs no L3 return route, and its VLAN/broadcast-domain
+    # status was already checked above.
+    if _same_subnet(model, src_ip, dst_ip):
+        return _apply_live(
+            RequirementVerdict(
+                requirement, Status.DERIVED, True,
+                deciding_device=src_router,
+                deciding_interface=forward.hops[-1].out_interface if forward.hops else None,
+                evidence=forward_evidence,
+            ),
+            live_observation,
+        )
+
+    # Return path: a forward path with no reverse is a real and common failure.
+    # Trace it independently so the failing direction names itself.
+    dst_router = _router_for_address(model, dst_ip) or _device_if_router(model, dst_ip)
+    if dst_router is None:
+        return RequirementVerdict(
+            requirement, Status.INCONCLUSIVE, None,
+            missing=[
+                f"no router interface serves {dst_ip}",
+                ("the return path cannot be evaluated because the destination's "
+                "gateway is not modelled"),
+            ],
+            evidence=forward_evidence,
+        )
+
+    back = trace_path(model, dst_ip, src_ip, start_router=dst_router)
+    evidence = forward_evidence + [
+        f"return path ({dst_ip} -> {src_ip}): {line}" for line in back.evidence()
+    ]
+
+    if back.outcome is TraceOutcome.UNSUPPORTED:
+        return RequirementVerdict(
+            requirement, Status.UNSUPPORTED, None,
+            missing=["the return path is not analysable"],
+            evidence=evidence,
+        )
+    if back.outcome is TraceOutcome.INCONCLUSIVE:
+        return RequirementVerdict(
+            requirement, Status.INCONCLUSIVE, None,
+            missing=list(back.missing) or ["the return path could not be decided"],
+            evidence=evidence,
+        )
+    if back.outcome is TraceOutcome.HOP_LIMIT or not back.reachable:
+        return _apply_live(
+            RequirementVerdict(
+                requirement, Status.DERIVED, False,
+                deciding_device=back.fault_device,
+                deciding_interface=back.fault_interface,
+                failure_direction="return",
                 evidence=evidence,
             ),
             live_observation,
         )
-    evidence.append(acl.detail)
-
-    # Return path: a forward path with no reverse is a real and common failure.
-    dst_router = _router_for_address(model, dst_ip)
-    if dst_router is not None and dst_router != src_router:
-        back = ForwardingTable(model, dst_router).decide(src_ip)
-        evidence.append(back.detail)
-        if not back.forwards:
-            return _apply_live(
-                RequirementVerdict(
-                    requirement, Status.DERIVED, False,
-                    deciding_device=dst_router,
-                    evidence=evidence,
-                ),
-                live_observation,
-            )
 
     return _apply_live(
         RequirementVerdict(
             requirement, Status.DERIVED, True,
             deciding_device=src_router,
-            deciding_interface=decision.out_interface,
+            deciding_interface=forward.hops[-1].out_interface if forward.hops else None,
             evidence=evidence,
         ),
         live_observation,
@@ -476,81 +600,56 @@ def verify_intent(
     return report
 
 
-#: Packet Tracer model strings for devices that forward packets between subnets.
-#:
-#: This table exists because ``DeviceInfo.device_type`` is ``None`` in every
-#: model this pipeline produces — verified against five labs — so it cannot be
-#: used. The model string is the only discriminator the parsers actually carry.
-#:
-#: Multilayer switches appear here because a 3560/3650 routes with ``ip routing``;
-#: a 2960 does not, and treating every switch as L3 would let a plain access
-#: switch be proposed as a gateway.
-_ROUTER_MODELS = (
-    "2911", "2901", "2811", "1841", "1941", "1941W", "4331", "4321",
-    "4221", "4431", "4451", "ISR", "CSR", "ASR", "router",
-)
-_L3_SWITCH_MODELS = ("3560", "3650", "3750", "3850", "9300", "multilayer")
-_END_HOST_MODELS = ("PC-PT", "Server-PT", "Laptop-PT", "Tablet-PT", "Printer-PT", "Phone")
+def _vlan_port(model, host: str) -> tuple[str | None, str | None]:
+    """The switch and port serving ``host``, if any."""
+    for link in getattr(model, "links", []):
+        for local_dev, local_port, peer in (
+            (link.device_a, link.interface_a, link.device_b),
+            (link.device_b, link.interface_b, link.device_a),
+        ):
+            if peer != host:
+                continue
+            iface = model.interfaces.get(f"{local_dev}:{local_port}")
+            if iface is not None and getattr(iface, "vlan_assignments", None):
+                return local_dev, local_port
+    return None, None
 
 
-def classify_device(model, device: str) -> str:
-    """Classify a device as router / l3_switch / switch / end_host / unknown.
+def _gateway_problem(model, device: str) -> str | None:
+    """A reason this host cannot route off-subnet, or None if its gateway is real.
 
-    Order matters: end hosts are checked first because ``Server-PT`` contains no
-    router token but a naive substring search for "er" would be absurd; and
-    multilayer switches are checked before plain switches because "3650"
-    contains "36" and "2960" does not.
-
-    Nothing here decides *whether routing succeeds* — only what kind of box it
-    is. A router is not automatically the intended gateway; that is a separate
-    question answered by the forwarding table.
+    Only reports when the gateway is *provably* wrong: it is set, and no
+    interface in the model owns that address. An unset gateway is not reported
+    here — many labs omit it, and calling that a fault would fire on healthy
+    networks whose hosts are not expected to route.
     """
-    info = getattr(model, "devices", {}).get(device)
-    declared = (getattr(info, "device_type", None) or "").strip().lower() if info else ""
-    name = (getattr(info, "model", None) or "") if info else ""
+    import ipaddress
 
-    # An explicit device_type, when a parser supplies one, is authoritative.
-    if declared:
-        if "router" in declared:
-            return "router"
-        if "multilayer" in declared or "l3" in declared or "layer3" in declared:
-            return "l3_switch"
-        if "switch" in declared:
-            return "switch"
-        if any(token in declared for token in ("pc", "server", "laptop", "host")):
-            return "end_host"
-
-    upper = str(name).upper()
-    if any(token.upper() in upper for token in _END_HOST_MODELS):
-        return "end_host"
-    if any(token.upper() in upper for token in _L3_SWITCH_MODELS):
-        return "l3_switch"
-    if any(token.upper() in upper for token in _ROUTER_MODELS):
-        return "router"
-    if "2960" in upper or "2950" in upper or "SWITCH" in upper or "SW" in upper:
-        return "switch"
-
-    # Last resort: a device that demonstrably routes. A route table is proof of
-    # routing capability, unlike an interface count which only suggests it.
-    if any(getattr(r, "device", None) == device for r in getattr(model, "routes", [])):
-        return "router"
-    return "unknown"
-
-
-def _is_router_like(model, device: str) -> bool:
-    """Whether ``device`` can forward between subnets.
-
-    Deliberately *not* based on interface count. A single-interface router is a
-    normal lab device, and an ordinary switch with a management IP has an
-    addressed interface without routing anything. Both were previously
-    misclassified: the router was rejected, and every requirement behind it
-    became INCONCLUSIVE.
-
-    Routing capability is a property of the device kind, optionally corroborated
-    by an actual route table — never of how many interfaces happen to have an
-    address.
-    """
-    return classify_device(model, device) in {"router", "l3_switch"}
+    interfaces = [
+        i
+        for i in getattr(model, "interfaces", {}).values()
+        if i.device == device and getattr(i, "ipv4_address", None)
+    ]
+    if not interfaces:
+        return None
+    gateway = getattr(interfaces[0], "ipv4_gateway", None)
+    if not gateway:
+        return None
+    try:
+        ipaddress.IPv4Address(gateway)
+    except ValueError:
+        return None
+    owners = {
+        i.ipv4_address
+        for i in getattr(model, "interfaces", {}).values()
+        if getattr(i, "ipv4_address", None)
+    }
+    if gateway in owners:
+        return None
+    return (
+        f"{device} has default gateway {gateway}, which no interface in the "
+        "model owns, so off-subnet traffic is discarded"
+    )
 
 
 def _same_subnet(model, left: str, right: str) -> bool:
@@ -577,7 +676,11 @@ def _same_subnet(model, left: str, right: str) -> bool:
 
 
 def _router_for_address(model, address: str):
-    """The *router* that serves ``address``'s subnet.
+    """The *router* whose interface actually serves ``address``'s subnet.
+
+    Delegates to the one implementation in :mod:`trident.engined.reachability`,
+    which the path tracer also uses. Two copies of "find the gateway" would drift
+    and could disagree about which router owns a path.
 
     Only routers qualify. An earlier version returned the first interface whose
     subnet contained the address, which could be another host on the same LAN —
@@ -586,32 +689,22 @@ def _router_for_address(model, address: str):
     Engine D exists to avoid, so the guard is structural: non-routers are never
     candidates.
     """
-    import ipaddress
+    return router_for_address(model, address)
 
-    candidates = []
+
+def _device_if_router(model, address: str) -> str | None:
+    """The router whose *own* interface address is ``address``, if any.
+
+    ``_router_for_address`` deliberately ignores the exact address so a host is
+    never mistaken for a gateway. When a requirement's endpoint *is* a router
+    interface, that router is still the right device to ask.
+    """
     for interface in getattr(model, "interfaces", {}).values():
-        if not getattr(interface, "ipv4_address", None):
+        if getattr(interface, "ipv4_address", None) != address:
             continue
-        if interface.ipv4_address == address:
-            continue
-        if not _is_router_like(model, interface.device):
-            continue
-        prefix = getattr(interface, "prefix_length", None)
-        if prefix is None:
-            continue
-        try:
-            net = ipaddress.IPv4Network(
-                f"{interface.ipv4_address}/{prefix}", strict=False
-            )
-        except ValueError:
-            continue
-        if ipaddress.IPv4Address(address) in net:
-            candidates.append(interface)
-    if not candidates:
-        return None
-    # Prefer the most specific match, then a stable name order.
-    candidates.sort(key=lambda i: (-(i.prefix_length or 0), i.device, i.name))
-    return candidates[0].device
+        if _is_router_like(model, interface.device):
+            return interface.device
+    return None
 
 
 def _uses_dynamic_routing(model) -> bool:

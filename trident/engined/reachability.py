@@ -58,6 +58,123 @@ def _iface_network(interface) -> ipaddress.IPv4Network | None:
         return None
 
 
+#: Packet Tracer model strings for devices that forward packets between subnets.
+#:
+#: This table exists because ``DeviceInfo.device_type`` is ``None`` in every
+#: model this pipeline produces — verified against five labs — so it cannot be
+#: used. The model string is the only discriminator the parsers actually carry.
+#:
+#: Multilayer switches appear here because a 3560/3650 routes with ``ip routing``;
+#: a 2960 does not, and treating every switch as L3 would let a plain access
+#: switch be proposed as a gateway.
+_ROUTER_MODELS = (
+    "2911", "2901", "2811", "1841", "1941", "1941W", "4331", "4321",
+    "4221", "4431", "4451", "ISR", "CSR", "ASR", "router",
+)
+_L3_SWITCH_MODELS = ("3560", "3650", "3750", "3850", "9300", "multilayer")
+_END_HOST_MODELS = ("PC-PT", "Server-PT", "Laptop-PT", "Tablet-PT", "Printer-PT", "Phone")
+
+
+def classify_device(model, device: str) -> str:
+    """Classify a device as router / l3_switch / switch / end_host / unknown.
+
+    Order matters: end hosts are checked first because ``Server-PT`` contains no
+    router token but a naive substring search for "er" would be absurd; and
+    multilayer switches are checked before plain switches because "3650"
+    contains "36" and "2960" does not.
+
+    Nothing here decides *whether routing succeeds* — only what kind of box it
+    is. A router is not automatically the intended gateway; that is a separate
+    question answered by the forwarding table.
+    """
+    info = getattr(model, "devices", {}).get(device)
+    declared = (getattr(info, "device_type", None) or "").strip().lower() if info else ""
+    name = (getattr(info, "model", None) or "") if info else ""
+
+    # An explicit device_type, when a parser supplies one, is authoritative.
+    if declared:
+        if "router" in declared:
+            return "router"
+        if "multilayer" in declared or "l3" in declared or "layer3" in declared:
+            return "l3_switch"
+        if "switch" in declared:
+            return "switch"
+        if any(token in declared for token in ("pc", "server", "laptop", "host")):
+            return "end_host"
+
+    upper = str(name).upper()
+    if any(token.upper() in upper for token in _END_HOST_MODELS):
+        return "end_host"
+    if any(token.upper() in upper for token in _L3_SWITCH_MODELS):
+        return "l3_switch"
+    if any(token.upper() in upper for token in _ROUTER_MODELS):
+        return "router"
+    if "2960" in upper or "2950" in upper or "SWITCH" in upper or "SW" in upper:
+        return "switch"
+
+    # Last resort: a device that demonstrably routes. A route table is proof of
+    # routing capability, unlike an interface count which only suggests it.
+    if any(getattr(r, "device", None) == device for r in getattr(model, "routes", [])):
+        return "router"
+    return "unknown"
+
+
+def is_router_like(model, device: str) -> bool:
+    """Whether ``device`` can forward between subnets.
+
+    Deliberately *not* based on interface count. A single-interface router is a
+    normal lab device, and an ordinary switch with a management IP has an
+    addressed interface without routing anything. Both were previously
+    misclassified: the router was rejected, and every requirement behind it
+    became INCONCLUSIVE.
+
+    Routing capability is a property of the device kind, optionally corroborated
+    by an actual route table — never of how many interfaces happen to have an
+    address.
+    """
+    return classify_device(model, device) in {"router", "l3_switch"}
+
+
+def router_for_address(model, address: str, exclude=()) -> str | None:
+    """The *router* whose interface actually serves ``address``'s subnet.
+
+    Only routers qualify. Returning the first interface whose subnet contains the
+    address would let another host on the same LAN answer for the gateway — a
+    healthy network then produces a missing-route finding, which is precisely
+    the false positive Engine D exists to avoid.
+
+    ``exclude`` names devices that must not be returned. During a trace the
+    router we are standing on is a candidate for its own next-hop subnet; without
+    the exclusion the walk would resolve the next hop back to itself and stop.
+
+    When several routers cover the address, the most specific prefix wins, then a
+    stable (device, interface) order. That mirrors longest-prefix forwarding and
+    keeps the answer deterministic.
+    """
+    try:
+        query = ipaddress.IPv4Address(address)
+    except ValueError:
+        return None
+
+    excluded = set(exclude)
+    candidates = []
+    for interface in getattr(model, "interfaces", {}).values():
+        if getattr(interface, "ipv4_address", None) in {None, address}:
+            continue
+        if interface.device in excluded:
+            continue
+        if not is_router_like(model, interface.device):
+            continue
+        net = _iface_network(interface)
+        if net is None or query not in net:
+            continue
+        candidates.append((net.prefixlen, interface))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (-item[0], item[1].device, item[1].name))
+    return candidates[0][1].device
+
+
 class ForwardingTable:
     """A device's forwarding view, derived from the normalised model."""
 
@@ -101,6 +218,18 @@ class ForwardingTable:
             except ValueError:
                 continue
         return None
+
+    def _next_hop_reachable(self, next_hop: str) -> bool:
+        """Whether ``next_hop`` sits inside a subnet on one of our interfaces."""
+        try:
+            hop = ipaddress.IPv4Address(next_hop)
+        except ValueError:
+            return False
+        for interface in self.interfaces:
+            net = _iface_network(interface)
+            if net is not None and hop in net:
+                return True
+        return False
 
     def _egress_shutdown(self, next_hop: str | None) -> str | None:
         """Name the egress interface for ``next_hop`` if it is administratively down."""
@@ -178,13 +307,32 @@ class ForwardingTable:
                         f"{blocked} is administratively down"
                     ),
                 )
+            # A next hop that is on no connected subnet is uninstalled by IOS.
+            # Reporting the route as usable here is the "configured but dead"
+            # trap, and it hid the UNREACHABLE_NEXT_HOP fault entirely.
+            if next_hop and not self._next_hop_reachable(next_hop):
+                return ForwardingDecision(
+                    PathResult.NO_ROUTE,
+                    self.device,
+                    next_hop=next_hop,
+                    matched_route=str(net),
+                    detail=(
+                        f"{self.device} has a route to {net} via {next_hop}, but "
+                        f"{next_hop} is not on any connected subnet"
+                    ),
+                )
             default = str(net) == "0.0.0.0/0"
+            # Carry the route's own egress interface when the model has one, so a
+            # trace can name the port rather than "an interface" and a
+            # point-to-point route with no next hop can still be followed.
+            out_interface = getattr(route, "outgoing_interface", None)
             return ForwardingDecision(
                 PathResult.DEFAULT if default else PathResult.VIA_NEXT_HOP,
                 self.device,
                 next_hop=next_hop,
+                out_interface=out_interface,
                 matched_route=str(net),
-                detail=f"{self.device} routes {dst} via {next_hop or 'an interface'} ({net})",
+                detail=f"{self.device} routes {dst} via {next_hop or out_interface or 'an interface'} ({net})",
             )
 
         return ForwardingDecision(
@@ -214,12 +362,14 @@ def _route_network(route) -> ipaddress.IPv4Network | None:
         # No mask: a bare address is a /32 and would match nothing. Infer the
         # classful length, which is what an IOS "ip route 10.0.2.0" line means
         # when the model did not carry a separate mask field.
-        address = ipaddress.IPv4Address(str(destination))
-        # Classful default, matching how a bare prefix is read on IOS.
-        if address in ipaddress.IPv4Network("10.0.0.0/8"):
-            return ipaddress.IPv4Network(f"{destination}/8", strict=False)
-        if address in ipaddress.IPv4Network("172.16.0.0/12"):
-            return ipaddress.IPv4Network(f"{destination}/16", strict=False)
+        # A real IOS route always carries a mask; a bare address reaching here
+        # means the model lost it. Infer the most common lab prefix (/24) and
+        # say so, rather than guessing classful.
+        #
+        # Classful inference was actively harmful: "ip route 172.16.42.0 ..."
+        # became 172.16.0.0/16, which covered the transit subnet 10.10.40.0/30's
+        # neighbour and produced a fabricated forwarding loop on a network whose
+        # only real fault was one missing route.
         return ipaddress.IPv4Network(f"{destination}/24", strict=False)
     except ValueError:
         return None
@@ -287,18 +437,43 @@ def _ace_matches(entry, src: str, dst: str, protocol: str) -> bool:
 def _address_matches(spec: str, address: str) -> bool:
     """Whether an ACE address token matches ``address``.
 
-    Handles ``any`` and CIDR. Host/range forms this does not model return False
-    rather than guessing, so an unmodelled ACE produces an inconclusive result
-    upstream instead of a wrong deny.
+    IOS writes ACL addresses with a **wildcard mask**, not a prefix:
+    ``10.85.10.0 0.0.0.255`` means 10.85.10.0/24. The parser keeps the two
+    tokens as one string, so both shapes must be understood. Failing to parse
+    the wildcard form made a real permit ACE look like a non-match, and the
+    chain fell through to implicit deny — reporting a fault on a correctly
+    configured ACL.
+
+    Supported forms:
+      ``any`` / ``0.0.0.0/0`` / ``host A.B.C.D`` / ``A.B.C.D/W`` / ``A.B.C.D M.M.M.M``
     """
     token = (spec or "any").strip().lower()
     if token in {"any", "0.0.0.0/0"}:
         return True
     try:
-        if "/" in token:
-            return ipaddress.IPv4Address(address) in ipaddress.IPv4Network(token, strict=False)
+        addr = ipaddress.IPv4Address(address)
     except ValueError:
         return False
+
+    if token.startswith("host "):
+        return token.split(None, 1)[1] == address
+
+    parts = token.split()
+    if len(parts) == 2:
+        try:
+            network = ipaddress.IPv4Address(parts[0])
+            wildcard = int(ipaddress.IPv4Address(parts[1]))
+        except ValueError:
+            return False
+        # A wildcard is the bitwise complement of the mask.
+        mask = int(ipaddress.IPv4Address(0xFFFFFFFF ^ wildcard))
+        return (int(addr) & mask) == (int(network) & mask)
+
+    if "/" in token:
+        try:
+            return addr in ipaddress.IPv4Network(token, strict=False)
+        except ValueError:
+            return False
     return token == address
 
 
@@ -475,3 +650,242 @@ def _peer(model, device: str, interface: str) -> tuple[str, str] | None:
 def decide_forwarding(model, device: str, destination: str) -> ForwardingDecision:
     """Convenience: build a table and decide in one call."""
     return ForwardingTable(model, device).decide(destination)
+
+
+# ---------------------------------------------------------------------------
+# End-to-end path tracing
+# ---------------------------------------------------------------------------
+
+
+class TraceOutcome(StrEnum):
+    """How a path between two addresses ended."""
+
+    REACHABLE = "reachable"
+    NO_ROUTE = "no_route"                          # a router had no matching route
+    UNREACHABLE_NEXT_HOP = "unreachable_next_hop"  # route's next hop is off-subnet
+    HOP_LIMIT = "hop_limit"                        # loop or path longer than max_hops
+    UNSUPPORTED = "unsupported"                    # address is not analysable
+    INCONCLUSIVE = "inconclusive"                  # the model lacks a needed fact
+
+
+@dataclass
+class PathTrace:
+    """Every forwarding decision a packet provokes, with the fault it hit.
+
+    ``decide`` answers "does *this* router forward?". A real path may cross three
+    or four routers, and the only honest answer to "where does this packet die?"
+    is the ordered list of decisions plus the hop that stopped it.
+    """
+
+    src_ip: str
+    dst_ip: str
+    hops: list[ForwardingDecision] = field(default_factory=list)
+    outcome: TraceOutcome = TraceOutcome.INCONCLUSIVE
+    fault_device: str | None = None
+    fault_interface: str | None = None
+    detail: str = ""
+    missing: list[str] = field(default_factory=list)
+
+    @property
+    def reachable(self) -> bool:
+        return self.outcome is TraceOutcome.REACHABLE
+
+    @property
+    def devices(self) -> list[str]:
+        """The routers the packet traversed, in order, without repeats."""
+        seen: list[str] = []
+        for hop in self.hops:
+            if hop.device not in seen:
+                seen.append(hop.device)
+        return seen
+
+    def evidence(self) -> list[str]:
+        """Every hop as a sentence, then the terminal statement."""
+        lines = [hop.detail for hop in self.hops if hop.detail]
+        if self.detail and self.detail not in lines:
+            lines.append(self.detail)
+        return lines or [
+            f"no forwarding decision was evaluated for {self.src_ip} -> {self.dst_ip}"
+        ]
+
+
+def _address_owner(model, address: str) -> str | None:
+    """The device that owns ``address`` exactly, if the model has one.
+
+    A next hop is resolved by ownership, not by "some router on that subnet".
+    Otherwise a route pointing at an end host would be followed into an
+    unrelated router that merely shares the LAN.
+    """
+    for interface in getattr(model, "interfaces", {}).values():
+        if getattr(interface, "ipv4_address", None) == address:
+            return interface.device
+    return None
+
+
+def trace_path(
+    model,
+    src_ip: str,
+    dst_ip: str,
+    max_hops: int = 16,
+    start_router: str | None = None,
+) -> PathTrace:
+    """Follow a packet from ``src_ip`` to ``dst_ip`` across as many routers as it takes.
+
+    The walk starts at the router that serves the source subnet and then follows
+    each ``next_hop`` to the device that owns it. It stops for exactly four
+    reasons, each a distinct, localisable outcome:
+
+    * **NO_ROUTE** — a router has no matching route. That router is the fault
+      location, which is what lets a transit gap be named rather than guessed.
+    * **UNREACHABLE_NEXT_HOP** — the matched route points at an address on no
+      connected subnet. IOS does not install such a route; reporting the router
+      that holds it is the whole point.
+    * **HOP_LIMIT** — a loop, or a path longer than ``max_hops``. It never spins
+      forever.
+    * **INCONCLUSIVE** — the model lacks a fact: no router serves the source, the
+      next hop is unowned, or the path leaves the modelled topology. This is the
+      anti-fabrication stop; it is never a failure.
+
+    Default routes are followed like any other: a router with ``0.0.0.0/0``
+    reaches everything it does not know more specifically, so the walk continues
+    through it instead of declaring a missing route. That distinction is what
+    keeps an ISP edge router with only a default from being reported as broken.
+    """
+    trace = PathTrace(src_ip=src_ip, dst_ip=dst_ip)
+
+    try:
+        src = ipaddress.IPv4Address(src_ip)
+        dst = ipaddress.IPv4Address(dst_ip)
+    except ValueError:
+        trace.outcome = TraceOutcome.UNSUPPORTED
+        trace.detail = f"{src_ip} -> {dst_ip} is not an IPv4 path"
+        return trace
+
+    current = start_router or router_for_address(model, str(src))
+    if current is None:
+        trace.outcome = TraceOutcome.INCONCLUSIVE
+        trace.missing.append(f"no router interface serves {src}")
+        trace.detail = f"no L3 gateway for {src} is modelled"
+        return trace
+
+    visited: list[str] = []
+    while len(trace.hops) < max_hops:
+        if current in visited:
+            trace.outcome = TraceOutcome.HOP_LIMIT
+            trace.fault_device = current
+            trace.detail = f"forwarding loop: {current} was already visited"
+            return trace
+        visited.append(current)
+
+        table = ForwardingTable(model, current)
+        decision = table.decide(str(dst))
+        trace.hops.append(decision)
+
+        if decision.result is PathResult.LOCAL:
+            trace.outcome = TraceOutcome.REACHABLE
+            trace.detail = f"delivered to {dst}, an address of {current}"
+            return trace
+        if decision.result is PathResult.CONNECTED:
+            trace.outcome = TraceOutcome.REACHABLE
+            trace.detail = f"delivered on {decision.out_interface} at {current}"
+            return trace
+        if decision.result is PathResult.UNSUPPORTED:
+            trace.outcome = TraceOutcome.UNSUPPORTED
+            trace.detail = decision.detail or f"{dst} is not analysable"
+            return trace
+        if decision.result is PathResult.NO_ROUTE:
+            # ``decide`` reports a route whose next hop is on no connected subnet
+            # as unusable and carries that next hop, so the trace can name the
+            # precise fault class instead of a generic NO_ROUTE. The same branch
+            # with a *connected* next hop is an administratively-down egress port,
+            # which stays NO_ROUTE and is localised to the port.
+            if decision.next_hop and table.connected_network_for(decision.next_hop) is None:
+                trace.outcome = TraceOutcome.UNREACHABLE_NEXT_HOP
+                trace.fault_device = current
+                trace.fault_interface = decision.out_interface
+                trace.detail = (
+                    f"{current} route {decision.matched_route} points at "
+                    f"{decision.next_hop}, which is not on any connected subnet; "
+                    "IOS does not install that route"
+                )
+                return trace
+            trace.outcome = TraceOutcome.NO_ROUTE
+            trace.fault_device = current
+            trace.fault_interface = decision.out_interface
+            trace.detail = decision.detail or f"{current} has no route covering {dst}"
+            return trace
+
+        next_hop = decision.next_hop
+        if next_hop:
+            # A static route whose next hop is on no connected subnet is not
+            # installed by IOS. There is no port to ARP out of, so the packet is
+            # discarded at this router — never at the one that would have been
+            # next.
+            if table.connected_network_for(next_hop) is None:
+                trace.outcome = TraceOutcome.UNREACHABLE_NEXT_HOP
+                trace.fault_device = current
+                trace.fault_interface = decision.out_interface
+                trace.detail = (
+                    f"{current} route {decision.matched_route} points at {next_hop}, "
+                    "which is not on any connected subnet; IOS does not install "
+                    "that route"
+                )
+                return trace
+            if str(dst) == str(ipaddress.IPv4Address(next_hop)):
+                trace.outcome = TraceOutcome.REACHABLE
+                trace.detail = f"next hop {next_hop} is the destination"
+                return trace
+
+            owner = _address_owner(model, next_hop)
+            if owner is None:
+                trace.outcome = TraceOutcome.INCONCLUSIVE
+                trace.fault_device = current
+                trace.missing.append(
+                    f"next hop {next_hop} is on a connected subnet but no modelled "
+                    "device owns it"
+                )
+                trace.detail = (
+                    f"{current} forwards to {next_hop}, but no modelled device "
+                    "answers for that address"
+                )
+                return trace
+            if not is_router_like(model, owner):
+                trace.outcome = TraceOutcome.INCONCLUSIVE
+                trace.fault_device = current
+                trace.missing.append(
+                    f"next hop {next_hop} belongs to {owner}, which is not modelled "
+                    "as a router"
+                )
+                trace.detail = (
+                    f"{current} forwards to {next_hop} on {owner}, but {owner} "
+                    "cannot forward the packet onward"
+                )
+                return trace
+            current = owner
+            continue
+
+        # A route that names only an egress interface (normal on a point-to-point
+        # link) still has a peer. Follow the cable when the peer is a router.
+        peer = _peer(model, current, decision.out_interface) if decision.out_interface else None
+        if peer and is_router_like(model, peer[0]):
+            current = peer[0]
+            continue
+        trace.outcome = TraceOutcome.INCONCLUSIVE
+        trace.fault_device = current
+        trace.missing.append(
+            f"route via {decision.out_interface or 'an interface'} has no next hop "
+            "and no modelled peer router"
+        )
+        trace.detail = (
+            f"{current} routes {dst} out {decision.out_interface or 'an interface'} "
+            "with no next hop, and the far end is not modelled"
+        )
+        return trace
+
+    trace.outcome = TraceOutcome.HOP_LIMIT
+    # Attribute to the last router that was actually asked, not the one the walk
+    # would have visited next but never evaluated. The backstop says "this path
+    # is longer than the limit", and the last decision is the evidence for it.
+    trace.fault_device = trace.hops[-1].device if trace.hops else current
+    trace.detail = f"hop limit {max_hops} reached before {dst} was delivered"
+    return trace

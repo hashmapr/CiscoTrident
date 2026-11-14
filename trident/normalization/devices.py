@@ -193,6 +193,7 @@ class Normalizer:
                 )
                 nic.ipv4_address = endhost_facts.get("ip")
                 nic.subnet_mask = endhost_facts.get("subnet")
+                nic.ipv4_gateway = endhost_facts.get("gateway")
                 nic.prefix_length = _prefix_from_mask(endhost_facts.get("subnet"))
                 iface_map[nic_canon] = nic
             cfg_for_meta = best_cfg.get(name)

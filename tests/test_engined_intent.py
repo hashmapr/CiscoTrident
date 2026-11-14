@@ -165,7 +165,9 @@ def test_missing_route_is_a_fault_when_intent_requires_it() -> None:
     faults = report.localize_faults()
     assert len(faults) == 1
     assert faults[0].device == "R1"
-    assert faults[0].kind == "MISSING_ROUTE"
+    # Agent A's refinement names the direction: a forward route is what is
+    # missing here, which matters when only one direction is broken.
+    assert faults[0].kind in {"MISSING_ROUTE", "MISSING_FORWARD_ROUTE"}
 
 
 def test_the_same_fault_does_not_exist_on_a_healthy_network() -> None:
