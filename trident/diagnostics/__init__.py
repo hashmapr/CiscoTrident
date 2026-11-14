@@ -357,26 +357,79 @@ def detect_shutdown_interface(model: NetworkModel, bundle: EvidenceBundle) -> li
     return found
 
 
+def _unknown_gateway(
+    device: str,
+    missing: str,
+    observed: str,
+) -> Hypothesis:
+    """A gateway verdict of UNKNOWN, carrying the configuration it came from.
+
+    ``INSUFFICIENT_EVIDENCE`` is this engine's ``UNKNOWN``: the configured value
+    was observed, but there is not enough evidence to call it a defect. It is
+    deliberately not ``CONFIRMED_DEFECT`` and never appears in the defect report.
+    """
+    return Hypothesis(
+        kind=WRONG_GATEWAY,
+        status=HypothesisStatus.INSUFFICIENT_EVIDENCE,
+        confidence=Confidence.LOW,
+        device=device,
+        interface=None,
+        suspected_cause=(
+            f"{observed}; the gateway cannot be judged without {missing}."
+        ),
+        supporting=(),
+        contradicting=(),
+        missing_evidence=(missing,),
+        next_command="show ip interface brief",
+        repair_hint=None,
+    )
+
+
 def detect_wrong_gateway(model: NetworkModel, bundle: EvidenceBundle) -> list[Hypothesis]:
     """A host/device default gateway that is not a real address in its subnet.
 
     A gateway is only valid when some interface in the same subnet actually
     holds that address. Being merely *inside* the subnet is not enough — an
     address nobody owns forwards nothing.
+
+    Every verdict cites the observed configuration it was formed from. When the
+    evidence needed to judge the gateway is absent — no interface addresses on
+    the device, or a configured value that is not an IPv4 address — the verdict
+    is ``INSUFFICIENT_EVIDENCE`` (UNKNOWN), never a defect.
     """
     owners = _address_owners(model)
     found: list[Hypothesis] = []
     for device, gateway in model.settings.default_gateways.items():
+        observed = (
+            f"observed configuration: {device} default gateway is {gateway!r}"
+        )
         try:
             gateway_ip = ipaddress.IPv4Address(gateway)
         except ValueError:
+            found.append(
+                _unknown_gateway(
+                    device,
+                    "a gateway value that parses as an IPv4 address",
+                    observed,
+                )
+            )
             continue
+
         local_nets = _device_networks(model, device)
         if not local_nets:
+            found.append(
+                _unknown_gateway(
+                    device,
+                    f"interface addresses and masks on {device}",
+                    observed,
+                )
+            )
             continue
-        in_subnet = [net for net in local_nets if gateway_ip in net]
+
         if gateway in owners:
             continue
+
+        in_subnet = [net for net in local_nets if gateway_ip in net]
         # A gateway inside one of this device's own subnets that no interface
         # holds is a defect: the subnet is served here, so the address must be
         # real and is not. A gateway outside every local subnet is a different
@@ -384,22 +437,27 @@ def detect_wrong_gateway(model: NetworkModel, bundle: EvidenceBundle) -> list[Hy
         # describe - so that case is reported at reduced confidence below rather
         # than as a confirmed defect.
         outside_only = not in_subnet
-        # The gateway address exists nowhere on the network.
+        scope = (
+            f"in {in_subnet[0]}"
+            if in_subnet
+            else "on the network (the gateway is outside every local subnet)"
+        )
         supporting = (
             Observation(
                 source=_MODEL,
                 device=device,
-                detail=(
-                    f"default gateway {gateway} is not assigned to any interface"
-                    + (f" in {in_subnet[0]}" if in_subnet else " and is outside every local subnet")
-                ),
+                detail=f"{observed}; no interface {scope} holds {gateway}",
             ),
         )
         contradicting: list[Observation] = []
-        row_devices = {device} | ({owners[gateway][0].device} if gateway in owners else set())
-        for other in row_devices:
+        # Runtime evidence anywhere on the network can contradict the static
+        # claim that the address is unowned.
+        for other in sorted({device, *bundle.devices()}):
             for name, row in bundle.runtime_interfaces(other).items():
-                if isinstance(row, dict) and str(row.get("ip", "")).startswith(gateway):
+                if not isinstance(row, dict):
+                    continue
+                runtime_ip = str(row.get("ip", "")).split("/", 1)[0].strip()
+                if runtime_ip == gateway:
                     contradicting.append(
                         Observation(
                             source=_RUNTIME,
