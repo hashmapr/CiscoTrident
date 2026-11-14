@@ -248,3 +248,48 @@ is a real verified one, scoring is strict on device and interface, and the
 limitations are documented rather than hidden. The ramp is fit for practice use
 with the four-fault gap stated up front; it is not fit for a claim that all 15
 faults are detectable.
+
+
+---
+
+## Post-audit corrections (commit `341d2fc`)
+
+An independent verifier audited ten claims in this branch and disproved or
+weakened six. Five were fixed rather than filed. Two changed numbers here:
+
+- **Package count.** This document and `CYBERPATRIOT_READINESS.md` said "21
+  packages"; the tree has **23**. The interpreter was Python 3.12.12, not 3.15.
+- **Packaging test strength.** `tests/test_packaging.py` compared the source
+  package set with itself and could not fail. It now builds a wheel and inspects
+  it, and also evaluates setuptools' real include/exclude rules.
+
+The live-instance claim about port 39001 had no committed evidence and was
+replaced with the reproducible regression test that covers the same behaviour.
+
+### Final measured metrics (after the false-positive fixes)
+
+| difficulty | TP / faults | precision | wall clock |
+|---|---|---|---|
+| easy | 4/4 | 4/4 | 3.02 s |
+| basic | 6/6 | 6/6 | 3.18 s |
+| intermediate | 8/8 | 8/8 | 2.22 s |
+| advanced | 10/11 | 10/10 | 2.61 s |
+| expert | 11/13 | 11/11 | 2.91 s |
+| insane | 11/15 | 11/13 | 2.98 s |
+
+Aggregate: **recall 50/57 (87.7%), precision 50/52 (96.2%)**. Median 2.94 s,
+worst 3.18 s.
+
+Three false positives in the new detectors were found by the adversarial holdout
+suite and fixed in `3049ab8`. They were not visible to the gauntlet, which shares
+the same fault vocabulary as the generator: an independent corpus caught what the
+self-consistent one could not.
+
+### Verdict
+
+**CONDITIONALLY READY.** Recall on the three easiest rungs is perfect (18/18)
+and precision is perfect on five of six. Recall falls to 11/15 on the hardest
+rung, where four faults need detectors that do not exist yet
+(`vlan-missing-on-dist` and `trunk-vlan-list-missing` on a distribution switch,
+plus two interface-attribution gaps). Two faults have no executable probe
+because PT 9.0.1 rejects `enterCommand` on `PC-PT`.
