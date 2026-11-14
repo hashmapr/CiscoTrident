@@ -259,6 +259,10 @@ def apply_faults_to_device(
             applied.append(_apply_global_line(out, fault))
         elif fault.target is TargetKind.BLOCK:
             applied.append(_apply_block(out, fault))
+        elif fault.target is TargetKind.VLAN_DB:
+            # Handled in the VLAN database, not in config text. Recorded so the
+            # caller can still prove every declared fault was accounted for.
+            applied.append(AppliedFault(fault.fault_id, fault.device, [], []))
         elif fault.target is TargetKind.ENDHOST:
             # End-host addressing lives in the PC's NIC, not the config text.
             applied.append(AppliedFault(fault.fault_id, fault.device, [], []))

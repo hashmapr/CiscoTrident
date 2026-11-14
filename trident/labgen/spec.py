@@ -62,6 +62,10 @@ class TargetKind(enum.StrEnum):
     #: A whole named block, header and body. Used when the defect is the block's
     #: absence: deleting only the header orphans its body into global config.
     BLOCK = "block"
+    #: The device's VLAN database (Packet Tracer's ``<VLANS>``, i.e. vlan.dat).
+    #: This is where VLAN existence and names actually live: IOS does not print
+    #: them in running-config, and ``show vlan brief`` reads only this.
+    VLAN_DB = "vlan_db"
     #: An end-host NIC field: ip, mask or gateway.
     ENDHOST = "endhost"
 
@@ -106,6 +110,24 @@ class DeviceSpec:
     pc_ip: tuple[str, str, str] | None = None
     #: Extra lines appended after the interfaces (``ip route``, ``line vty``…).
     trailing: tuple[str, ...] = ()
+    #: VLAN database entries for a switch. ``None`` means "derive from spec".
+    vlans: tuple[VlanSpec, ...] | None = None
+
+
+@dataclass(frozen=True)
+class VlanSpec:
+    """One VLAN in the switch's VLAN database.
+
+    This is *not* a config line. Packet Tracer keeps the VLAN database in the
+    device's ``<VLANS>`` element — the equivalent of ``vlan.dat`` — and IOS does
+    not print VLANs in ``show running-config`` at all. A topology that only
+    writes ``vlan 10`` as a config line therefore produces a switch whose
+    ``show vlan brief`` lists nothing but the defaults, which is exactly what
+    the first live run of this lab showed.
+    """
+
+    number: int
+    name: str
 
 
 @dataclass(frozen=True)

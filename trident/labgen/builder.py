@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .faults import faulted_configs, intended_configs
-from .spec import TopologySpec
+from .spec import DeviceRole, DeviceSpec, TargetKind, TopologySpec, VlanSpec
 
 
 class GenerationUnavailable(RuntimeError):
@@ -132,6 +132,9 @@ def generate(
             ios_config=configs[dev.name],
             pc_ip=dev.pc_ip,
         )
+        vlans = _vlans_for(dev, spec, apply_faults=apply_faults)
+        if vlans:
+            _write_vlans(lab, refs[dev.name], vlans)
     for link in spec.links:
         lab.link(refs[link.a], link.a_port, refs[link.b], link.b_port)
 
@@ -150,6 +153,121 @@ def generate(
         encode_ok=encode_ok,
         notes=notes,
     )
+
+
+def _vlans_for(
+    dev: DeviceSpec, spec: TopologySpec, *, apply_faults: bool
+) -> tuple[VlanSpec, ...]:
+    """The VLAN database a switch should carry.
+
+    Explicit ``DeviceSpec.vlans`` wins. Otherwise the VLANs are derived from the
+    access ports the spec gives that device, plus any VLAN that a fault removes
+    when ``apply_faults`` is false — so the fault's absence is representable in
+    the *database*, where Packet Tracer actually reads VLANs from.
+    """
+    if dev.vlans is not None:
+        return dev.vlans
+    if dev.role not in {DeviceRole.SWITCH, DeviceRole.L3_SWITCH}:
+        return ()
+    numbers: dict[int, str] = {}
+    explicit_names: dict[int, str] = {}
+    for vlan in dev.vlans or ():
+        explicit_names[vlan.number] = vlan.name
+    for iface in dev.interfaces:
+        for line in iface.lines:
+            parts = line.split()
+            if len(parts) == 4 and parts[:3] == ["switchport", "access", "vlan"] and parts[3].isdigit():
+                num = int(parts[3])
+                numbers.setdefault(num, _default_vlan_name(num))
+            # A trunk carries VLANs that this switch must therefore know about.
+            # Without this the access switch has no VLAN 10 at all and the
+            # trunk silently drops Administration traffic -- a defect the lab
+            # never documented.
+            if len(parts) >= 4 and parts[:3] == ["switchport", "trunk", "allowed"] and parts[3] == "vlan":
+                for token in ",".join(parts[4:]).split(","):
+                    if token.isdigit():
+                        numbers.setdefault(int(token), _default_vlan_name(int(token)))
+    # VLANs referenced by a fault on this device must exist too, otherwise the
+    # fault has nothing to break.
+    for fault in spec.faults:
+        if fault.device != dev.name:
+            continue
+        header = (fault.context or "").strip()
+        if header.lower().startswith("vlan ") and header.split()[1].isdigit():
+            num = int(header.split()[1])
+            numbers.setdefault(num, _default_vlan_name(num))
+    if not apply_faults:
+        # The intended build includes every VLAN a fault removes or renames.
+        for fault in spec.faults:
+            if fault.device != dev.name:
+                continue
+            header = " ".join((fault.context or fault.expected or "").split()).lower()
+            if not header.startswith("vlan "):
+                continue
+            parts = header.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                numbers[int(parts[1])] = _default_vlan_name(int(parts[1]))
+    for num, name in explicit_names.items():
+        numbers[num] = name
+
+    if apply_faults:
+        # VLAN faults edit the *database*, not the config text. IOS keeps VLAN
+        # membership in vlan.dat and `show vlan brief` reads only that, so a
+        # `name STUDENTS` config line changes nothing observable, and deleting
+        # the `vlan 10` block leaves VLAN 10 in place.
+        for fault in spec.faults:
+            if fault.device != dev.name:
+                continue
+            header = " ".join((fault.context or "").split()).lower()
+            if not header.startswith("vlan "):
+                continue
+            token = header.split()[1]
+            if not token.isdigit():
+                continue
+            number = int(token)
+            if fault.target is TargetKind.VLAN_DB and fault.actual.strip().startswith("!"):
+                numbers.pop(number, None)
+            elif fault.target is TargetKind.VLAN_DB:
+                actual = fault.actual.strip()
+                if actual.lower().startswith("name "):
+                    numbers[number] = actual[5:].strip()
+    # A derived VLAN must not resurrect one a removal fault deleted.
+    if apply_faults:
+        for fault in spec.faults:
+            if fault.device != dev.name or fault.target is not TargetKind.VLAN_DB:
+                continue
+            if not fault.actual.strip().startswith("!"):
+                continue
+            header = " ".join((fault.context or "").split()).lower()
+            if header.startswith("vlan ") and header.split()[1].isdigit():
+                numbers.pop(int(header.split()[1]), None)
+
+    return tuple(VlanSpec(num, name) for num, name in sorted(numbers.items()))
+
+
+def _default_vlan_name(number: int) -> str:
+    return {10: "ADMIN", 20: "STUDENTS", 30: "FACULTY", 99: "MGMT"}.get(number, f"VLAN{number:04d}")
+
+
+def _write_vlans(lab, dev_ref: str, vlans: tuple[VlanSpec, ...]) -> None:
+    """Write VLAN entries into the device's ``<VLANS>`` element.
+
+    ``show running-config`` does not list VLANs; Packet Tracer reads them from
+    this element, and ``show vlan brief`` is driven by it. Writing only a
+    ``vlan 10`` config line leaves the switch with no VLAN 10 at all.
+    """
+    from xml.etree import ElementTree as ET
+
+    element = lab._els[dev_ref]
+    container = element.find(".//VLANS")
+    if container is None:
+        return
+    existing = {child.get("number") for child in container}
+    for vlan in vlans:
+        number = str(vlan.number)
+        if number in existing:
+            continue
+        ET.SubElement(container, "VLAN", {"number": number, "name": vlan.name})
 
 
 def _round_trip(path: Path) -> tuple[bool, tuple[str, ...]]:

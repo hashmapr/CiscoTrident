@@ -120,24 +120,23 @@ FAULTS: list[FaultSpec] = [
         points=6,
         hint_1="List the VLANs on both switches. A VLAN present on one is not enough.",
         hint_2="SW-DIST is missing VLAN 10 entirely.",
-        target=TargetKind.BLOCK,
+        target=TargetKind.VLAN_DB,
     ),
     FaultSpec(
-        fault_id="vlan-faculty-name-only",
+        fault_id="vlan-faculty-port-wrong",
         category=FaultCategory.VLAN,
         severity=Severity.MINOR,
         device="SW-ACCESS",
-        interface=None,
-        description="VLAN 30 exists on SW-ACCESS but is configured as VLAN 30 name "
-        "STUDENTS — a naming error that hides the real defect during triage.",
-        expected=" name FACULTY",
-        actual=" name STUDENTS",
-        symptom="`show vlan brief` shows VLAN 30 labelled STUDENTS on SW-ACCESS.",
+        interface="FastEthernet0/5",
+        description="PC-FACULTY-1's access port is in VLAN 20 (Students) instead "
+        "of VLAN 30 (Faculty).",
+        expected="switchport access vlan 30",
+        actual="switchport access vlan 20",
+        symptom="`show vlan brief` lists Fa0/5 under VLAN 20; PC-FACULTY-1 gets a "
+        "Students address or none.",
         points=2,
-        hint_1="The VLAN *name* is documentation, but a wrong name misleads triage.",
-        hint_2="Faculty is VLAN 30. Check the name on SW-ACCESS.",
-        target=TargetKind.CONTEXT_LINE,
-        context="vlan 30",
+        hint_1="Check which VLAN each Faculty port actually belongs to.",
+        hint_2="Fa0/5 on SW-ACCESS should be in VLAN 30.",
     ),
     # --- trunks -----------------------------------------------------------
     FaultSpec(
@@ -246,21 +245,22 @@ FAULTS: list[FaultSpec] = [
     ),
     # --- DNS --------------------------------------------------------------
     FaultSpec(
-        fault_id="dns-server-wrong",
+        fault_id="dhcp-pool-missing-dns",
         category=FaultCategory.DNS,
         severity=Severity.MAJOR,
-        device="SERVER-1",
+        device="R1",
         interface=None,
-        description="The DNS server resolves for the campus but its own forwarder "
-        "points at 8.8.8.8 instead of the campus DNS 192.168.99.10.",
-        expected="ip name-server 192.168.99.10",
-        actual="ip name-server 8.8.8.8",
-        symptom="`show running-config` on SERVER-1 shows an external name-server; "
-        "internal names do not resolve for campus clients.",
+        description="The Students DHCP pool omits `dns-server`, so Students PCs "
+        "receive no resolver while other departments do.",
+        expected=" dns-server 192.168.99.10",
+        actual="! dns-server 192.168.99.10",
+        symptom="`show ip dhcp pool STUDENTS` has no DNS option; Students PCs get "
+        "an address but cannot resolve names.",
         points=6,
-        hint_1="Internal names must resolve through the campus resolver.",
-        hint_2="The campus DNS server is 192.168.99.10.",
-        target=TargetKind.GLOBAL_LINE,
+        hint_1="Every pool must hand out a resolver, not just an address.",
+        hint_2="The STUDENTS pool is missing `dns-server 192.168.99.10`.",
+        target=TargetKind.CONTEXT_LINE,
+        context="ip dhcp pool STUDENTS",
     ),
     # --- interfaces -------------------------------------------------------
     FaultSpec(
@@ -298,19 +298,20 @@ FAULTS: list[FaultSpec] = [
         target=TargetKind.GLOBAL_LINE,
     ),
     FaultSpec(
-        fault_id="sec-telnet-permitted",
+        fault_id="sec-enable-secret-missing",
         category=FaultCategory.SECURITY,
         severity=Severity.MINOR,
-        device="SW-DIST",
+        device="SW-ACCESS",
         interface=None,
-        description="The distribution switch's vty lines still permit Telnet "
-        "alongside SSH, leaving plaintext management enabled.",
-        expected="transport input ssh",
-        actual="transport input all",
-        symptom="`show run | section line vty` shows `transport input all`.",
+        description="SW-ACCESS has no enable secret, so privileged EXEC is "
+        "reachable without an encrypted password.",
+        expected="enable secret Class!23",
+        actual="! enable secret Class!23",
+        symptom="`show running-config` on SW-ACCESS has no `enable secret` line; "
+        "`enable` prompts for nothing.",
         points=3,
-        hint_1="Only SSH should be accepted for management.",
-        hint_2="`transport input all` allows Telnet.",
+        hint_1="Privileged mode must require an encrypted password.",
+        hint_2="SW-ACCESS is missing its `enable secret`.",
         target=TargetKind.GLOBAL_LINE,
     ),
 ]
@@ -322,18 +323,16 @@ FAULTS: list[FaultSpec] = [
 
 
 def _sw_globals(hostname: str, mgmt_ip: str) -> tuple[str, ...]:
-    """Common switch baseline: VLANs, management SVI, SSH, local user."""
+    """Common switch baseline: management SVI, SSH, local user.
+
+    No ``vlan NN`` blocks here on purpose. Packet Tracer keeps the VLAN database
+    in the device's ``<VLANS>`` element, not in running-config, and writing the
+    blocks as config lines produced switches whose ``show vlan brief`` listed
+    only the defaults. VLANs are declared by ``DeviceSpec.vlans`` instead.
+    """
     return (
         f"hostname {hostname}",
         "enable secret Class!23",
-        "vlan 10",
-        " name ADMIN",
-        "vlan 20",
-        " name STUDENTS",
-        "vlan 30",
-        " name FACULTY",
-        "vlan 99",
-        " name MGMT",
         "interface Vlan99",
         f" ip address {mgmt_ip} 255.255.255.0",
         " no shutdown",
@@ -518,6 +517,19 @@ DEVICES: list[DeviceSpec] = [
         pc_ip=("192.168.30.11", "255.255.255.0", "192.168.30.1"),
     ),
     DeviceSpec(
+        name="ISP-R",
+        model="2911",
+        role=DeviceRole.ROUTER,
+        x=250,
+        y=60,
+        globals=(
+            "hostname ISP-R",
+            "interface GigabitEthernet0/0",
+            " ip address 10.0.0.2 255.255.255.252",
+            " no shutdown",
+        ),
+    ),
+    DeviceSpec(
         name="SERVER-1",
         model="Server-PT",
         role=DeviceRole.SERVER,
@@ -534,6 +546,7 @@ DEVICES: list[DeviceSpec] = [
 
 
 LINKS: list[LinkSpec] = [
+    LinkSpec("R1", "GigabitEthernet0/1", "ISP-R", "GigabitEthernet0/0"),
     LinkSpec("R1", "GigabitEthernet0/0", "SW-DIST", "GigabitEthernet0/1"),
     LinkSpec("SW-DIST", "GigabitEthernet0/2", "SW-ACCESS", "GigabitEthernet0/1"),
     # Administration and the server hang off the distribution switch.

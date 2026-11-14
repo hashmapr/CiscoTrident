@@ -591,6 +591,14 @@ READ_ONLY_PREFIXES = (
     "traceroute ",
     "tracert ",
     "display ",
+    # End-host diagnostics. `ipconfig` with no arguments prints the NIC's IP,
+    # mask and gateway; it cannot change them, so it belongs here. The mutating
+    # forms (`ipconfig /renew`, `/release`) are rejected by _MUTATING_TOKENS
+    # below, which is why this is safe to allow as a prefix.
+    "ipconfig",
+    "ifconfig",
+    "winipcfg",
+    "nslookup ",
 )
 
 _MUTATING_TOKENS = (
@@ -605,6 +613,12 @@ _MUTATING_TOKENS = (
     "shutdown",
     "clear ",
     "debug ",
+    # End-host mutations. `ipconfig` is allowed as a read-only prefix, so its
+    # leasing forms must be blocked explicitly or /renew would change the NIC.
+    "/renew",
+    "/release",
+    "/flushdns",
+    "/registerdns",
 )
 
 

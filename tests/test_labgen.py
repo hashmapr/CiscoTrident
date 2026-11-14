@@ -84,8 +84,13 @@ def test_no_port_is_used_twice() -> None:
 
 
 def test_required_hardware_is_present() -> None:
+    """The brief's equipment, plus the ISP peer R1's default route points at.
+
+    The ISP router is not decoration: without a live neighbour on Gi0/1, R1's
+    ``ip route`` line is rejected by IOS and the routing fault disappears.
+    """
     roles = [d.role for d in TOPOLOGY.devices]
-    assert roles.count(DeviceRole.ROUTER) == 1
+    assert roles.count(DeviceRole.ROUTER) == 2  # R1 + the ISP peer
     assert roles.count(DeviceRole.SWITCH) == 2
     assert roles.count(DeviceRole.PC) == 6
     assert roles.count(DeviceRole.SERVER) == 1
@@ -148,19 +153,30 @@ def test_the_reference_build_has_none_of_the_faults() -> None:
 
 
 def test_every_fault_changes_at_least_one_line() -> None:
-    """A fault that edits nothing is not a fault."""
+    """A config fault that edits nothing is not a fault.
+
+    Scoped to faults whose whole effect *is* a config line. An ENDHOST fault
+    changes a NIC field and a VLAN_DB fault changes the VLAN database; asserting
+    that those edit running-config would be asserting something false. Their
+    observable effects are covered by ``test_labgen_live.py``.
+    """
     intended = intended_configs(TOPOLOGY)
     faulted, applied = faulted_configs(TOPOLOGY)
+    text_targets = {TargetKind.INTERFACE_LINE, TargetKind.CONTEXT_LINE, TargetKind.GLOBAL_LINE, TargetKind.BLOCK}
     for change in applied:
-        if any(f.fault_id == change.fault_id and f.target is TargetKind.ENDHOST
-               for f in TOPOLOGY.faults):
+        fault = next(f for f in TOPOLOGY.faults if f.fault_id == change.fault_id)
+        if fault.target not in text_targets:
             continue
         assert change.removed or change.added, (
             f"fault {change.fault_id} removed and added nothing"
         )
     changed_devices = {d for d in intended if intended[d] != faulted[d]}
+    # ENDHOST and VLAN_DB faults live outside the config text by design: the NIC
+    # and the VLAN database are where those facts actually are.
     device_level = {
-        f.device for f in TOPOLOGY.faults if f.target is not TargetKind.ENDHOST
+        f.device
+        for f in TOPOLOGY.faults
+        if f.target not in {TargetKind.ENDHOST, TargetKind.VLAN_DB}
     }
     assert device_level <= changed_devices, (
         f"faults on {sorted(device_level - changed_devices)} did not change config"
