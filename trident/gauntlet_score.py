@@ -33,21 +33,26 @@ from pathlib import Path
 #: Derived from the fault vocabulary in the gauntlet keys, not tuned to any
 #: particular run. A fault kind absent here cannot be credited, which is the
 #: honest outcome: if the engine has no concept of it, it did not find it.
+#: Keys are the fault *kind strings that actually appear in the gauntlet answer
+#: keys*, read from `instructor_only/*.json` rather than guessed. The full set is
+#: exactly eight kinds; an earlier draft invented names like "duplicate_ip" and
+#: "trunk", which would have silently scored those faults as undetectable.
 KIND_MAP: dict[str, frozenset[str]] = {
     "shutdown_interface": frozenset({"SHUTDOWN_INTERFACE"}),
     "wrong_default_gateway": frozenset({"WRONG_GATEWAY"}),
     "wrong_subnet_mask": frozenset({"INVALID_MASK"}),
-    "access_vlan": frozenset({"WRONG_VLAN"}),
-    "trunk": frozenset({"TRUNK_MISMATCH"}),
+    "wrong_access_vlan": frozenset({"WRONG_VLAN"}),
+    "trunk_allowed_vlan": frozenset({"TRUNK_MISMATCH"}),
     "missing_static_route": frozenset({"MISSING_STATIC_ROUTE", "UNREACHABLE_NEXT_HOP"}),
-    "missing_route": frozenset({"MISSING_STATIC_ROUTE", "UNREACHABLE_NEXT_HOP"}),
-    "missing_route_2": frozenset({"MISSING_STATIC_ROUTE", "UNREACHABLE_NEXT_HOP"}),
-    "duplicate_ip": frozenset({"DUPLICATE_IP"}),
-    "acl": frozenset({"ACL_BLOCK"}),
-    "gateway": frozenset({"WRONG_GATEWAY"}),
-    "gateway_2": frozenset({"WRONG_GATEWAY"}),
-    "wrong_next_hop": frozenset({"UNREACHABLE_NEXT_HOP", "MISSING_STATIC_ROUTE"}),
+    "duplicate_ipv4": frozenset({"DUPLICATE_IP"}),
+    "acl_denies_required_icmp": frozenset({"ACL_BLOCK"}),
 }
+
+#: Fault kinds the engine has no detector for at all. Recorded explicitly so the
+#: report can say "unsupported" instead of quietly counting them as misses.
+UNSUPPORTED_KINDS: frozenset[str] = frozenset(
+    kind for kind, detectors in KIND_MAP.items() if not detectors
+)
 
 
 @dataclass
