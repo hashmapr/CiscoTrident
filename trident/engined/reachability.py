@@ -362,6 +362,11 @@ def _route_network(route) -> ipaddress.IPv4Network | None:
         # No mask: a bare address is a /32 and would match nothing. Infer the
         # classful length, which is what an IOS "ip route 10.0.2.0" line means
         # when the model did not carry a separate mask field.
+        # The default route must stay /0. A bare 0.0.0.0 inferred to /24 is not
+        # a default route at all, and every "does this router have a default?"
+        # check then answers no on a router that has one.
+        if str(destination).strip() == "0.0.0.0":
+            return ipaddress.IPv4Network("0.0.0.0/0")
         # A real IOS route always carries a mask; a bare address reaching here
         # means the model lost it. Infer the most common lab prefix (/24) and
         # say so, rather than guessing classful.

@@ -75,9 +75,17 @@ class RequirementVerdict:
             return False
         if not self.status in {Status.DERIVED, Status.VERIFIED, Status.CONTRADICTED}:
             return False
+        if not self.requirement.required:
+            return False
+        # An ASSERTION reports `reachable` as "is the asserted state true", so it
+        # is already positive-sense and must not be inverted. Only a
+        # reachability requirement means "can a packet get there", where
+        # must_not_reach genuinely flips the test.
+        if self.requirement.assertion:
+            return self.reachable is False
         if self.requirement.must_not_reach:
-            return self.reachable is True and self.requirement.required
-        return self.requirement.required and self.reachable is False
+            return self.reachable is True
+        return self.reachable is False
 
     def as_dict(self) -> dict:
         return {
@@ -220,13 +228,95 @@ def verify_assertion(model, requirement: Requirement) -> RequirementVerdict:
         from .reachability import ForwardingTable
 
         decision = ForwardingTable(model, device).decide(_prefix_probe(operand))
-        ok = decision.forwards
+        matched = decision.matched_route or ""
+        if requirement.must_not_reach:
+            # "holds no route to X" is about a SPECIFIC route. A default route
+            # is not a route *to* X in this sense: an ISP edge that forwards
+            # toward the internet via 0.0.0.0/0 does not thereby "hold a route
+            # to a private network", which is exactly the distinction the
+            # requirement is asserting.
+            specific = bool(matched) and matched not in {"0.0.0.0/0"}
+            return RequirementVerdict(
+                requirement,
+                Status.DERIVED,
+                not specific,
+                deciding_device=device,
+                evidence=[
+                    (
+                        f"{device} has specific route {matched} covering {operand}"
+                        if specific
+                        else f"{device} holds no specific route for {operand}; "
+                        f"best match is {matched or 'none'}"
+                    )
+                ],
+            )
         return RequirementVerdict(
             requirement,
             Status.DERIVED,
-            ok,
+            decision.forwards,
             deciding_device=device,
             evidence=[decision.detail],
+        )
+
+    if assertion == "default_route_via":
+        device = requirement.src.device
+        expected_hop = operand
+        routes = [r for r in getattr(model, "routes", []) if getattr(r, "device", None) == device]
+        default = [
+            r for r in routes
+            if str(getattr(r, "destination", "")).startswith("0.0.0.0")
+        ]
+        if not default:
+            return RequirementVerdict(
+                requirement, Status.DERIVED, False,
+                deciding_device=device,
+                evidence=[f"{device} has no default route; expected via {expected_hop}"],
+            )
+        actual = getattr(default[0], "next_hop", None)
+        # The route must also be usable: a next hop nobody owns is uninstalled.
+        if actual == expected_hop:
+            from .reachability import ForwardingTable
+
+            # Probe an address that cannot be on any local subnet, so the test
+            # exercises the DEFAULT route rather than accidentally matching a
+            # specific one. Using a documentation address from another site
+            # (198.51.100.99) made a healthy ISP edge look broken because that
+            # address happened to fall inside a peer's prefix.
+            decision = ForwardingTable(model, device).decide("203.0.113.254")
+            if not decision.forwards:
+                return RequirementVerdict(
+                    requirement, Status.DERIVED, False,
+                    deciding_device=device,
+                    evidence=[decision.detail],
+                )
+        return RequirementVerdict(
+            requirement, Status.DERIVED, actual == expected_hop,
+            deciding_device=device,
+            evidence=[f"{device} default route is via {actual}; expected {expected_hop}"],
+        )
+
+    if assertion == "gateway_reachable":
+        device = requirement.src.device
+        problem = _gateway_problem(model, device)
+        if problem is not None:
+            return RequirementVerdict(
+                requirement, Status.DERIVED, False,
+                deciding_device=device, evidence=[problem],
+            )
+        interfaces = [
+            i for i in getattr(model, "interfaces", {}).values()
+            if i.device == device and getattr(i, "ipv4_gateway", None)
+        ]
+        if not interfaces:
+            return RequirementVerdict(
+                requirement, Status.INCONCLUSIVE, None,
+                missing=[f"{device} has no recorded default gateway"],
+            )
+        gateway = interfaces[0].ipv4_gateway
+        return RequirementVerdict(
+            requirement, Status.DERIVED, True,
+            deciding_device=device,
+            evidence=[f"{device} gateway {gateway} is owned by an interface in the model"],
         )
 
     if assertion == "gateway":
@@ -288,15 +378,22 @@ def verify_assertion(model, requirement: Requirement) -> RequirementVerdict:
 
 
 def _prefix_probe(prefix: str) -> str:
-    """An address inside ``prefix`` suitable for asking "is there a route?"."""
+    """An address inside ``prefix`` suitable for asking "is there a route?".
+
+    Computed arithmetically. ``list(net.hosts())[:1]`` materialises every host in
+    the network before slicing — 16.7 million objects for a /8, which made a
+    four-requirement verification take 43 seconds. The first host is simply
+    network_address + 1 for any prefix shorter than /31.
+    """
     import ipaddress
 
     try:
         net = ipaddress.IPv4Network(prefix, strict=False)
     except ValueError:
         return prefix
-    hosts = list(net.hosts())[:1]
-    return str(hosts[0]) if hosts else str(net.network_address)
+    if net.prefixlen >= 31:
+        return str(net.network_address)
+    return str(net.network_address + 1)
 
 
 def verify_requirement(
