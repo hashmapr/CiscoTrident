@@ -38,11 +38,14 @@ pytestmark = pytest.mark.skipif(
 # All-Rights-Reserved checkout whose source is not present here, so only two
 # families exist and the same correct answer is honestly INCOMPLETE.
 #
-# The *value* assertions below are unconditional and run either way -- an
-# incorrect answer fails regardless of engine count. Only the status
-# assertions are gated, and only because they measure a property of the
-# environment. This is deliberately NOT a relaxation of consensus: nothing here
-# promotes INCOMPLETE to VERIFIED.
+# Be precise about what the marker below does: it skips the WHOLE test, and
+# those tests also assert values. So the honest statement is not "only status
+# assertions are gated" but "the gated tests are compensated by an ungated value
+# test". `test_every_audited_answer_is_correct_at_any_engine_count` asserts all
+# twelve audited values with no marker, so no wrong value can hide behind this.
+#
+# This is deliberately NOT a relaxation of consensus: nothing here promotes
+# INCOMPLETE to VERIFIED.
 #
 # Verified with two engines: Q54 returns 'OpenSeas' with agree=2 available=2
 # required=3. With TRIDENT_CONSENSUS_POLICY=two_engine the same answers become

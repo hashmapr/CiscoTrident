@@ -413,9 +413,13 @@ class ProcessSupervisor:
         # so a racing process can bind the port between that check and our Popen.
         # Packet Tracer would then fail to bind its own port and `_wait_for_listener`
         # would attach to the stranger — the exact "wrong lab, wrong state" failure
-        # the reservation exists to prevent. Record that the port was refused
-        # *before* spawn, then require it to be refused again right after: only
-        # once we see it go refused -> listening can we call the listener ours.
+        # the reservation exists to prevent.
+        #
+        # Two checks, because either alone is insufficient:
+        #   * before spawn, the port must be refused (nothing is listening yet);
+        #   * immediately after spawn it must still be refused. If it is already
+        #     accepting connections before our child has had time to bind, the
+        #     listener belongs to somebody else.
         was_refused = _connection_refused("127.0.0.1", self.ipc_port)
 
         args = [str(executable)]
@@ -441,6 +445,18 @@ class ProcessSupervisor:
             raise BackendUnavailable(
                 f"port {self.ipc_port} was already in use before Packet Tracer started; "
                 "another instance is racing for the IPC range"
+            )
+        # Second check: our child needs a moment to bind. If the port accepts a
+        # connection *now*, this process has not bound it yet, so the listener is
+        # foreign. Only a port that is still refused immediately after spawn can
+        # then be observed going refused -> listening, which is what makes the
+        # later successful connection provably ours.
+        if not _connection_refused("127.0.0.1", self.ipc_port):
+            self.stop()
+            raise BackendUnavailable(
+                f"port {self.ipc_port} began listening immediately after spawn, "
+                "before Packet Tracer could have bound it; refusing to attach to "
+                "a listener this process did not open"
             )
         port = self._wait_for_listener(
             timeout_s if timeout_s is not None else self.startup_timeout

@@ -376,3 +376,40 @@ def test_start_refuses_a_port_that_was_taken_before_spawn(monkeypatch, tmp_path)
         assert supervisor.process is None or supervisor.process.poll() is not None
     finally:
         holder.close()
+
+
+def test_spawn_refuses_a_listener_that_appears_before_the_child_binds(monkeypatch, tmp_path) -> None:
+    """A stranger binding between the pre-check and Popen must be refused.
+
+    The pre-spawn check is necessary but not sufficient: `_choose_port` releases
+    its reservation before Popen, so there is a window. After spawn the port must
+    still be refused — if it is already accepting, nobody in *this* process has
+    bound it yet, so the listener belongs to someone else.
+    """
+    import socket
+
+    from trident.simulator import backends
+
+    calls = {"n": 0}
+    original = backends._connection_refused
+
+    def fake_refused(host, port):
+        """Refused before spawn, listening immediately after. Proves order matters."""
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return True  # port free when chosen
+        return False  # but a stranger grabbed it before our child bound
+
+    monkeypatch.setattr(backends, "_connection_refused", fake_refused)
+
+    exe = tmp_path / "Fake.app" / "Contents" / "MacOS"
+    exe.mkdir(parents=True)
+    (exe / "PacketTracer").write_text("#!/bin/sh\nsleep 30\n")
+    (exe / "PacketTracer").chmod(0o755)
+
+    supervisor = backends.ProcessSupervisor(tmp_path / "Fake.app", ipc_port=39097)
+    with pytest.raises(backends.BackendUnavailable, match="did not open"):
+        supervisor.start(tmp_path, timeout_s=1.0)
+    # And it must not leave its own process running after refusing.
+    assert supervisor.process is None or supervisor.process.poll() is not None
+    monkeypatch.setattr(backends, "_connection_refused", original)

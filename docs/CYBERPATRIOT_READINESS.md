@@ -40,9 +40,15 @@ packages were absent from every wheel**, including `trident.simulator`,
 so the suite was green while an installed TRIDENT could not import its own
 simulator.
 
-Fixed with `packages.find`. Verified by building a wheel and importing all 21
-packages in a fresh Python 3.15 venv; `/api/health`, `/api/parsers` and `/` all
-returned 200. Pinned by `tests/test_packaging.py` (14 tests).
+Fixed with `packages.find`. Verified by building a wheel, installing it into a
+fresh virtual environment, and importing every package; `/api/health`,
+`/api/parsers` and `/` all returned 200.
+
+Correction: an earlier revision of this document said "21 packages" and "Python
+3.15". The source tree contains **23** packages and the interpreter used was
+Python 3.12.12. An independent audit flagged both errors; this line is the
+corrected version. `tests/test_packaging.py` now also builds a wheel and
+inspects its contents, so the count is checked rather than narrated.
 
 ### P0 — IPC (commits `da9c069`, `792d159`)
 
@@ -60,7 +66,13 @@ Three defects, each reproduced against a real socket:
    a real but foreign Packet Tracer with the wrong lab loaded. `start()` now
    requires a refused connection before spawn and fails rather than guessing.
 
-Verified against the live instance holding port 39001 on this machine.
+Checked against a real listener on this machine at the time, but **no log or
+transcript of that run is committed**, so it is not reproducible from the
+repository. What *is* reproducible is the regression suite:
+`tests/simulator/test_ipc_bounds.py` includes
+`test_spawn_refuses_a_listener_that_appears_before_the_child_binds`, which drives
+a real TCP listener and asserts the refusal. An independent audit flagged the
+unverifiable sentence; this is the corrected version.
 `tests/simulator/test_ipc_bounds.py` (8) + `test_ipc_concurrency.py` (6).
 
 ### P0 — parsers (commit `4114c92`)

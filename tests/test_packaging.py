@@ -13,6 +13,7 @@ they fail loudly if discovery ever regresses.
 from __future__ import annotations
 
 import pathlib
+import sys
 import tomllib
 
 import pytest
@@ -29,13 +30,27 @@ def _real_packages() -> set[str]:
 
 
 def _configured_packages() -> set[str]:
-    """What setuptools discovery is configured to ship."""
+    """What setuptools discovery is configured to ship.
+
+    This evaluates the *same* rule setuptools applies (``include``/``exclude``
+    patterns against package paths) rather than returning the source set, which
+    is what made an earlier version of this test tautological: it compared
+    ``real`` with ``real`` and could never fail.
+    """
+    from fnmatch import fnmatch
+
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())
     find = config["tool"]["setuptools"]["packages"]["find"]
-    include = find["include"]
-    # Only the patterns this repo uses: a bare ``trident*`` prefix.
-    assert include == ["trident*"], include
-    return _real_packages()
+    include = find.get("include", ["*"])
+    exclude = find.get("exclude", [])
+    real = _real_packages()
+    matched: set[str] = set()
+    for package in real:
+        if any(fnmatch(package, pattern) for pattern in include) and not any(
+            fnmatch(package, pattern) for pattern in exclude
+        ):
+            matched.add(package)
+    return matched
 
 
 def test_every_source_package_is_configured_for_packaging() -> None:
@@ -94,3 +109,37 @@ def test_declared_assets_actually_exist() -> None:
     assert (web / "app.js").is_file()
     assert (web / "style.css").is_file()
     assert (ROOT / "trident" / "parsers" / "engine_c_bridge.mjs").is_file()
+
+
+def test_a_built_wheel_contains_every_package(tmp_path) -> None:
+    """Build an actual wheel and inspect its contents.
+
+    The strongest form of this check, and the one that would have caught the
+    original defect: the drift was only visible in a built artifact.
+    """
+    import subprocess
+    import zipfile
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", str(tmp_path)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"wheel build unavailable: {result.stderr[-400:]}")
+    wheels = list(tmp_path.glob("*.whl"))
+    assert wheels, result.stdout[-400:]
+    names = zipfile.ZipFile(wheels[0]).namelist()
+    # ``trident/__init__.py`` is the root package (one segment before the file),
+    # which an earlier version of this comprehension silently dropped.
+    shipped = set()
+    for name in names:
+        if not name.startswith("trident/") or not name.endswith("__init__.py"):
+            continue
+        parts = name.split("/")[:-1]
+        shipped.add(".".join(parts))
+    missing = _real_packages() - shipped
+    assert not missing, f"packages absent from the built wheel: {sorted(missing)}"

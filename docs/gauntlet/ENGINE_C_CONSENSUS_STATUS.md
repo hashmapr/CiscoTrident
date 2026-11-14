@@ -40,9 +40,16 @@ Three independent reasons, all verified in this environment:
 2. **It is not a git repository.** `git -C "$TRIDENT_PT_CONVERT_DIR" rev-parse
    --is-inside-work-tree` fails with *"not a git repository"*. There is no history to
    restore the missing modules from.
-3. **pt-convert is All-Rights-Reserved.** TRIDENT may execute an operator's own
-   legitimate checkout, but it must never vendor, copy, reimplement, or download the
-   source. The two missing modules therefore cannot be reconstructed inside TRIDENT.
+3. **pt-convert is All-Rights-Reserved — a policy constraint, not an artifact
+   observed here.** An independent audit noted there is no LICENSE/COPYING file
+   and no `license` field in the checkout's `package.json`, so this reason cannot
+   be *verified from the files present*. It is TRIDENT's operating policy (and
+   the upstream project's stated terms) that the source must never be vendored,
+   copied, reimplemented or downloaded. Recording it as a policy rather than as
+   an observed fact is the accurate framing.
+
+   Only reasons 1 and 2 are verified from artifacts. Either one alone is
+   sufficient to make Engine C unavailable here.
 
 The dependencies *are* present (`node_modules/` contains `pako`, `twofish`,
 `fast-xml-parser`), which is why the probe fails on the missing source files rather
